@@ -48,20 +48,12 @@ static int axl_flush_async_num_files = 0;
 
 /*
 =========================================
-Globals and helper functions needed for vendor apis
-=========================================
-*/
-
-
-
-/*
-=========================================
 Asynchronous flush helper functions
 ========================================
 */
 
 /* dequeues files listed in hash2 from hash1 */
-static int scr_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
+static int axl_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
 {
   /* for each file listed in hash2, remove it from hash1 */
   kvtree* file_hash = kvtree_get(hash2, SCR_TRANSFER_KEY_FILES);
@@ -86,7 +78,7 @@ Asynchronous flush functions
 */
 
 /* given a hash, test whether the files in that hash have completed their flush */
-static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
+static int axl_flush_async_file_test(const kvtree* hash, double* bytes)
 {
   /* initialize bytes to 0 */
   *bytes = 0.0;
@@ -141,7 +133,7 @@ static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
 }
 
 /* writes the specified command to the transfer file */
-static int scr_flush_async_command_set(char* command)
+static int axl_flush_async_command_set(char* command)
 {
   /* have the master on each node write this command to the file */
   if (scr_storedesc_cntl->rank == 0) {
@@ -165,7 +157,7 @@ static int scr_flush_async_command_set(char* command)
 }
 
 /* waits until all transfer processes are in the specified state */
-static int scr_flush_async_state_wait(char* state)
+static int axl_flush_async_state_wait(char* state)
 {
   /* wait until each process matches the state */
   int all_valid = 0;
@@ -207,7 +199,7 @@ static int scr_flush_async_state_wait(char* state)
 }
 
 /* removes all files from the transfer file */
-static int scr_flush_async_file_clear_all()
+static int axl_flush_async_file_clear_all()
 {
   /* have the master on each node clear the FILES field */
   if (scr_storedesc_cntl->rank == 0) {
@@ -251,13 +243,13 @@ int axl_flush_async_stop()
   }
 
   /* write stop command to transfer file */
-  scr_flush_async_command_set(SCR_TRANSFER_KEY_COMMAND_STOP);
+  axl_flush_async_command_set(SCR_TRANSFER_KEY_COMMAND_STOP);
 
   /* wait until all tasks know the transfer is stopped */
-  scr_flush_async_state_wait(SCR_TRANSFER_KEY_STATE_STOP);
+  axl_flush_async_state_wait(SCR_TRANSFER_KEY_STATE_STOP);
 
   /* remove the files list from the transfer file */
-  scr_flush_async_file_clear_all();
+  axl_flush_async_file_clear_all();
 
   /* remove FLUSHING state from flush file */
   scr_flush_async_in_progress = 0;
@@ -511,7 +503,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
     /* read transfer file with lock */
     if (kvtree_read_with_lock(scr_transfer_file, hash) == AXL_SUCCESS) {
       /* test each file listed in the transfer hash */
-      if (scr_flush_async_file_test(hash, &bytes_written) != AXL_SUCCESS) {
+      if (axl_flush_async_file_test(hash, &bytes_written) != AXL_SUCCESS) {
         transfer_complete = 0;
       }
     } else {
@@ -608,7 +600,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
     kvtree_lock_open_read(scr_transfer_file, &fd, transfer_hash);
 
     /* remove files from the list */
-    scr_flush_async_file_dequeue(transfer_hash, scr_flush_async_hash);
+    axl_flush_async_file_dequeue(transfer_hash, scr_flush_async_hash);
 
     /* set the STOP command */
     kvtree_util_set_str(transfer_hash, SCR_TRANSFER_KEY_COMMAND, SCR_TRANSFER_KEY_COMMAND_STOP);
