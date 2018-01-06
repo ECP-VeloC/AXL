@@ -64,7 +64,7 @@ CPPR Asynchronous flush wrapper functions
 */
 
 /* check whether the flush from cache to parallel file system has completed */
-static int axl_cppr_flush_async_test(fu_filemap* map, int id, double* bytes) {
+static int axl_flush_async_test_cppr(fu_filemap* map, int id, double* bytes) {
   /* CPPR: essentially test the grp
    * cppr_return_t cppr_test_all(uint32_t count, struct cppr_op_info info[]);
    * each rank 0 on a node needs to call test_all, then report that in
@@ -195,7 +195,7 @@ mpi_collectives:
 }
 
 /* complete the flush from cache to parallel file system */
-static int axl_cppr_flush_async_complete(fu_filemap* map, int id)
+static int axl_flush_async_complete_cppr(fu_filemap* map, int id)
 {
   int flushed = SCR_SUCCESS;
 
@@ -336,7 +336,7 @@ static int axl_cppr_flush_async_complete(fu_filemap* map, int id)
 
 
 /* stop all ongoing asynchronous flush operations */
-static int axl_cppr_flush_async_stop(void)
+static int axl_flush_async_stop_cppr(void)
 {
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
@@ -382,7 +382,7 @@ static int axl_cppr_flush_async_stop(void)
 
 /* start an asynchronous flush from cache to parallel file system
  * under SCR_PREFIX */
-static int axl_cppr_flush_async_start(fu_filemap* map, int id)
+static int axl_flush_async_start_cppr(fu_filemap* map, int id)
 {
   /* todo: consider using CPPR grp API when available */
 
@@ -781,7 +781,7 @@ END: CPPR Asynchronous flush wrapper functions
 ========================================
 */
 
-static int axl_cppr_init() {
+static int axl_init_cppr() {
     /* attempt to init cppr */
     int cppr_ret = cppr_status();
     if (cppr_ret != CPPR_SUCCESS) {

@@ -71,8 +71,8 @@ static int axl_cppr_currently_alloced = 0;
  * lengths of the two arrays will always be the same */
 static void __free_axl_cppr_info(struct axl_cppr_info *metadata_ptr, struct cppr_op_info *handles_ptr, const int length);
 
-static int axl_cppr_flush_async_test(scr_filemap* map, int id, double* bytes);
-static int axl_cppr_flush_async_complete(scr_filemap* map, int id);
-static int axl_cppr_flush_async_stop(void);
-static int axl_cppr_flush_async_start(fu_filemap* map, int id);
-static int axl_cppr_init();
+static int axl_flush_async_test_cppr(fu_filemap* map, int id, double* bytes);
+static int axl_flush_async_complete_cppr(fu_filemap* map, int id);
+static int axl_flush_async_stop_cppr(void);
+static int axl_flush_async_start_cppr(fu_filemap* map, int id);
+static int axl_init_cppr();
