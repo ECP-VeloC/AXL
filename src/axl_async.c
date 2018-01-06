@@ -25,8 +25,25 @@
 #include <stdlib.h>
 #endif
 
+
+/*
+=========================================
+TODO: Things to clean up
+========================================
+*/
+
 #define AXL_SUCCESS 0
 #define AXL_FAILURE 1
+
+#ifdef HAVE_MPI
+#include <mpi.h>
+#endif
+
+/*
+=========================================
+Global Variables
+========================================
+*/
 
 /* transfer file */
 int axl_transfer_file = NULL;
@@ -51,6 +68,18 @@ static int axl_flush_async_num_files = 0;
 Asynchronous flush helper functions
 ========================================
 */
+
+double axl_get_time() {
+    double t;
+#ifdef HAVE_MPI
+    t = MPI_Wtime() * 1e9;
+#else
+    time_t timer;
+    time(&timer);
+    t = (double) timer;
+#endif
+    return t;
+}
 
 /* dequeues files listed in hash2 from hash1 */
 static int axl_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
@@ -265,10 +294,8 @@ int axl_flush_async_stop()
     kvtree_delete(&scr_flush_async_file_list);
   }
 
-  /* make sure all processes have made it this far before we leave */
-  MPI_Barrier(scr_comm_world);
   return AXL_SUCCESS;
-
+  // TODO: Caller may need to use MPI_Barrier
 }
 
 /* start an asynchronous flush from cache to parallel file
@@ -278,6 +305,9 @@ int axl_flush_async_start(fu_filemap* map, int id)
 #ifdef HAVE_LIBCPPR
   return axl_flush_async_start_cppr(map, id) ;
 #endif
+
+  // TODO: Caller may need to do some of this error checking
+  // TODO: Caller may need to call MPI_Barrier
 
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
@@ -294,13 +324,10 @@ int axl_flush_async_start(fu_filemap* map, int id)
     scr_dbg(1, "axl_flush_async_start: Initiating flush of dataset %d", id);
   }
 
-  /* make sure all processes make it this far before progressing */
-  MPI_Barrier(scr_comm_world);
-
   /* start timer */
   if (scr_my_rank_world == 0) {
     scr_flush_async_timestamp_start = scr_log_seconds();
-    scr_flush_async_time_start = MPI_Wtime();
+    scr_flush_async_time_start = axl_get_time();
 
     /* log the start of the flush */
     if (scr_log_enable) {
@@ -322,7 +349,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
         __FILE__, __LINE__
       );
       if (scr_log_enable) {
-        double time_end = MPI_Wtime();
+        double time_end = axl_get_time();
         double time_diff = time_end - scr_flush_async_time_start;
         time_t now = scr_log_seconds();
         scr_log_event("ASYNC FLUSH FAILED", "Failed to prepare flush",
@@ -466,10 +493,8 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
   /* TODO: start transfer thread / process */
 
-  /* make sure all processes have started before we leave */
-  MPI_Barrier(scr_comm_world);
-
   return AXL_SUCCESS;
+  // TODO: Caller may need to call MPI_Barrier
 
 }
 
@@ -627,7 +652,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 
   /* stop timer, compute bandwidth, and report performance */
   if (scr_my_rank_world == 0) {
-    double time_end = MPI_Wtime();
+    double time_end = axl_get_time();
     double time_diff = time_end - scr_flush_async_time_start;
     double bw = scr_flush_async_bytes / (1024.0 * 1024.0 * time_diff);
     scr_dbg(1, "axl_flush_async_complete: %f secs, %e bytes, %f MB/s, %f MB/s per proc",
