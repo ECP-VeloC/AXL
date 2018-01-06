@@ -25,6 +25,10 @@
 #include <stdlib.h>
 #endif
 
+
+#define AXL_SUCCESS 0
+
+
 /* transfer file */
 int axl_transfer_file = NULL;
 
@@ -73,7 +77,7 @@ static int scr_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
       kvtree_unset_kv(hash1, SCR_TRANSFER_KEY_FILES, file);
     }
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /*
@@ -114,8 +118,8 @@ static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
 
     /* lookup the values for the size and bytes written */
     unsigned long size, written;
-    if (kvtree_util_get_bytecount(file_hash, "SIZE",    &size)    != SCR_SUCCESS ||
-        kvtree_util_get_bytecount(file_hash, "WRITTEN", &written) != SCR_SUCCESS)
+    if (kvtree_util_get_bytecount(file_hash, "SIZE",    &size)    != AXL_SUCCESS ||
+        kvtree_util_get_bytecount(file_hash, "WRITTEN", &written) != AXL_SUCCESS)
     {
       transfer_complete = 0;
       continue;
@@ -132,7 +136,7 @@ static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
 
   /* return our decision */
   if (transfer_complete) {
-    return SCR_SUCCESS;
+    return AXL_SUCCESS;
   }
   return SCR_FAILURE;
 }
@@ -158,7 +162,7 @@ static int scr_flush_async_command_set(char* command)
     /* delete the hash */
     kvtree_delete(&hash);
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* waits until all transfer processes are in the specified state */
@@ -200,7 +204,7 @@ static int scr_flush_async_state_wait(char* state)
       usleep(10*1000*1000);
     }
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* removes all files from the transfer file */
@@ -224,7 +228,7 @@ static int scr_flush_async_file_clear_all()
     /* delete the hash */
     kvtree_delete(&hash);
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* stop all ongoing asynchronous flush operations */
@@ -272,7 +276,7 @@ int scr_flush_async_stop()
 
   /* make sure all processes have made it this far before we leave */
   MPI_Barrier(scr_comm_world);
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 
 }
 
@@ -291,7 +295,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
 
   /* if we don't need a flush, return right away with success */
   if (! scr_flush_file_need_flush(id)) {
-    return SCR_SUCCESS;
+    return AXL_SUCCESS;
   }
 
   /* this may take a while, so tell user what we're doing */
@@ -321,7 +325,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
 
   /* get list of files to flush and create directories */
   scr_flush_async_file_list = kvtree_new();
-  if (scr_flush_prepare(map, id, scr_flush_async_file_list) != SCR_SUCCESS) {
+  if (scr_flush_prepare(map, id, scr_flush_async_file_list) != AXL_SUCCESS) {
     if (scr_my_rank_world == 0) {
       scr_err("scr_flush_async_start: Failed to prepare flush @ %s:%d",
         __FILE__, __LINE__
@@ -358,7 +362,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
      /* get directory to flush file to */
      char* dest_dir;
      if (kvtree_util_get_str(file_hash, SCR_KEY_PATH, &dest_dir) !=
-         SCR_SUCCESS) {
+         AXL_SUCCESS) {
        continue;
      }
 
@@ -367,7 +371,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
 
      /* get the file size */
      unsigned long filesize = 0;
-     if (scr_meta_get_filesize(meta, &filesize) != SCR_SUCCESS) {
+     if (scr_meta_get_filesize(meta, &filesize) != AXL_SUCCESS) {
        continue;
      }
      my_bytes += (double) filesize;
@@ -434,7 +438,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
     MPI_Comm_size(scr_comm_node_across, &writers);
     double bw;
     if (kvtree_util_get_double(hash, SCR_TRANSFER_KEY_BW, &bw) !=
-        SCR_SUCCESS) {
+        AXL_SUCCESS) {
       bw = (double) scr_flush_async_bw / (double) writers;
       kvtree_util_set_double(hash, SCR_TRANSFER_KEY_BW, bw);
     }
@@ -442,7 +446,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
     /* set PERCENT if it's not already set */
     double percent;
     if (kvtree_util_get_double(hash, SCR_TRANSFER_KEY_PERCENT, &percent) !=
-        SCR_SUCCESS) {
+        AXL_SUCCESS) {
       kvtree_util_set_double(hash, SCR_TRANSFER_KEY_PERCENT,
                                scr_flush_async_percent);
     }
@@ -474,7 +478,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
   /* make sure all processes have started before we leave */
   MPI_Barrier(scr_comm_world);
 
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 
 }
 
@@ -506,9 +510,9 @@ int scr_flush_async_test(scr_filemap* map, int id, double* bytes)
     kvtree* hash = kvtree_new();
 
     /* read transfer file with lock */
-    if (kvtree_read_with_lock(scr_transfer_file, hash) == SCR_SUCCESS) {
+    if (kvtree_read_with_lock(scr_transfer_file, hash) == AXL_SUCCESS) {
       /* test each file listed in the transfer hash */
-      if (scr_flush_async_file_test(hash, &bytes_written) != SCR_SUCCESS) {
+      if (scr_flush_async_file_test(hash, &bytes_written) != AXL_SUCCESS) {
         transfer_complete = 0;
       }
     } else {
@@ -528,7 +532,7 @@ int scr_flush_async_test(scr_filemap* map, int id, double* bytes)
     if (scr_my_rank_world == 0) {
       scr_dbg(0, "#demo SCR async daemon successfully transferred dset %d", id);
     }
-    return SCR_SUCCESS;
+    return AXL_SUCCESS;
   }
   return SCR_FAILURE;
 }
@@ -539,7 +543,7 @@ int scr_flush_async_complete(scr_filemap* map, int id)
 #ifdef HAVE_LIBCPPR
   return scr_cppr_flush_async_complete(map, id);
 #endif
-  int flushed = SCR_SUCCESS;
+  int flushed = AXL_SUCCESS;
 
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
@@ -579,19 +583,19 @@ int scr_flush_async_complete(scr_filemap* map, int id)
 
     /* successfully flushed this file, record the filesize */
     unsigned long filesize = 0;
-    if (scr_meta_get_filesize(meta, &filesize) == SCR_SUCCESS) {
+    if (scr_meta_get_filesize(meta, &filesize) == AXL_SUCCESS) {
       kvtree_util_set_bytecount(file_hash, SCR_SUMMARY_6_KEY_SIZE, filesize);
     }
 
     /* record the crc32 if one was computed */
     uLong flush_crc32;
-    if (scr_meta_get_crc32(meta, &flush_crc32) == SCR_SUCCESS) {
+    if (scr_meta_get_crc32(meta, &flush_crc32) == AXL_SUCCESS) {
       kvtree_util_set_crc32(file_hash, SCR_SUMMARY_6_KEY_CRC, flush_crc32);
     }
   }
 
   /* write summary file */
-  if (scr_flush_complete(id, scr_flush_async_file_list, data) != SCR_SUCCESS) {
+  if (scr_flush_complete(id, scr_flush_async_file_list, data) != AXL_SUCCESS) {
     flushed = SCR_FAILURE;
   }
 
@@ -640,7 +644,7 @@ int scr_flush_async_complete(scr_filemap* map, int id)
     );
 
     /* log messages about flush */
-    if (flushed == SCR_SUCCESS) {
+    if (flushed == AXL_SUCCESS) {
       /* the flush worked, print a debug message */
       scr_dbg(1, "scr_flush_async_complete: Flush of dataset %d succeeded", id);
 
@@ -671,7 +675,7 @@ int scr_flush_async_wait(scr_filemap* map)
     while (scr_flush_file_is_flushing(scr_flush_async_dataset_id)) {
       /* test whether the flush has completed, and if so complete the flush */
       double bytes = 0.0;
-      if (scr_flush_async_test(map, scr_flush_async_dataset_id, &bytes) == SCR_SUCCESS) {
+      if (scr_flush_async_test(map, scr_flush_async_dataset_id, &bytes) == AXL_SUCCESS) {
         /* complete the flush */
         scr_flush_async_complete(map, scr_flush_async_dataset_id);
       } else {
@@ -686,7 +690,7 @@ int scr_flush_async_wait(scr_filemap* map)
       }
     }
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* start any processes for later asynchronous flush operations */
@@ -716,7 +720,7 @@ int axl_flush_async_init(char* cntl_dir){
   axl_file_unlink(scr_transfer_file);
 #endif
 
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* stop all ongoing asynchronous flush operations */
@@ -726,5 +730,5 @@ int axl_flush_async_finalize()
   axl_free(&axl_transfer_file);
 #endif
 
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
