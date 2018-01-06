@@ -27,6 +27,7 @@
 
 
 #define AXL_SUCCESS 0
+#define AXL_FAILURE 1
 
 
 /* transfer file */
@@ -96,7 +97,7 @@ static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
   kvtree* files_hash = kvtree_get(hash, SCR_TRANSFER_KEY_FILES);
   if (files_hash == NULL) {
     /* can't tell whether this flush has completed */
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
 
   /* assume we're done, look for a file that says we're not */
@@ -138,7 +139,7 @@ static int scr_flush_async_file_test(const kvtree* hash, double* bytes)
   if (transfer_complete) {
     return AXL_SUCCESS;
   }
-  return SCR_FAILURE;
+  return AXL_FAILURE;
 }
 
 /* writes the specified command to the transfer file */
@@ -243,7 +244,7 @@ int scr_flush_async_stop()
 #endif
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
 
   /* this may take a while, so tell user what we're doing */
@@ -290,7 +291,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
 
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
 
   /* if we don't need a flush, return right away with success */
@@ -340,7 +341,7 @@ int scr_flush_async_start(scr_filemap* map, int id)
     }
     kvtree_delete(&scr_flush_async_file_list);
     scr_flush_async_file_list = NULL;
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
 
   /* add each of my files to the transfer file list */
@@ -497,7 +498,7 @@ int scr_flush_async_test(scr_filemap* map, int id, double* bytes)
 
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
   scr_dbg(1,"scr_flush_async_test called @ %s:%d", __FILE__, __LINE__);
   /* assume the transfer is complete */
@@ -534,7 +535,7 @@ int scr_flush_async_test(scr_filemap* map, int id, double* bytes)
     }
     return AXL_SUCCESS;
   }
-  return SCR_FAILURE;
+  return AXL_FAILURE;
 }
 
 /* complete the flush from cache to parallel file system */
@@ -547,7 +548,7 @@ int scr_flush_async_complete(scr_filemap* map, int id)
 
   /* if user has disabled flush, return failure */
   if (scr_flush <= 0) {
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
 
   /* TODO: have master tell each rank on node whether its files were written successfully */
@@ -596,7 +597,7 @@ int scr_flush_async_complete(scr_filemap* map, int id)
 
   /* write summary file */
   if (scr_flush_complete(id, scr_flush_async_file_list, data) != AXL_SUCCESS) {
-    flushed = SCR_FAILURE;
+    flushed = AXL_FAILURE;
   }
 
   /* have master on each node remove files from the transfer file */
