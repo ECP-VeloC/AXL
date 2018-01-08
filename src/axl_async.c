@@ -166,7 +166,8 @@ static int axl_flush_async_file_test(const kvtree* hash, double* bytes)
 static int axl_flush_async_command_set(char* command)
 {
   /* have the master on each node write this command to the file */
-  if (scr_storedesc_cntl->rank == 0) {
+  // TODO: Clean up paralleism
+  //if (scr_storedesc_cntl->rank == 0) {
     /* get a hash to store file data */
     kvtree* hash = kvtree_new();
 
@@ -182,7 +183,7 @@ static int axl_flush_async_command_set(char* command)
 
     /* delete the hash */
     kvtree_delete(&hash);
-  }
+  //}
   return AXL_SUCCESS;
 }
 
@@ -196,7 +197,8 @@ static int axl_flush_async_state_wait(char* state)
     int valid = 1;
 
     /* have the master on each node check the state in the transfer file */
-    if (scr_storedesc_cntl->rank == 0) {
+    // TODO: Clean up paralleism
+    //if (scr_storedesc_cntl->rank == 0) {
       /* get a hash to store file data */
       kvtree* hash = kvtree_new();
 
@@ -213,7 +215,7 @@ static int axl_flush_async_state_wait(char* state)
 
       /* delete the hash */
       kvtree_delete(&hash);
-    }
+    //}
 
     /* check whether everyone is at the specified state */
     if (scr_alltrue(valid)) {
@@ -232,7 +234,8 @@ static int axl_flush_async_state_wait(char* state)
 static int axl_flush_async_file_clear_all()
 {
   /* have the master on each node clear the FILES field */
-  if (scr_storedesc_cntl->rank == 0) {
+  // TODO: Clean up paralleism
+  //if (scr_storedesc_cntl->rank == 0) {
     /* get a hash to store file data */
     kvtree* hash = kvtree_new();
 
@@ -248,7 +251,7 @@ static int axl_flush_async_file_clear_all()
 
     /* delete the hash */
     kvtree_delete(&hash);
-  }
+  //}
   return AXL_SUCCESS;
 }
 
@@ -432,15 +435,16 @@ int axl_flush_async_start(fu_filemap* map, int id)
   }
 
   /* have master on each node write the transfer file, everyone else sends data to him */
-  if (scr_storedesc_cntl->rank == 0) {
+  // TODO: Clean up paralleism
+  //if (scr_storedesc_cntl->rank == 0) {
     /* receive hash data from other processes on the same node and merge with our data */
-    int i;
-    for (i=1; i < scr_storedesc_cntl->ranks; i++) {
-      kvtree* h = kvtree_new();
-      kvtree_recv(h, i, scr_storedesc_cntl->comm);
-      kvtree_merge(scr_flush_async_hash, h);
-      kvtree_delete(&h);
-    }
+    //int i;
+    //for (i=1; i < scr_storedesc_cntl->ranks; i++) {
+    //  kvtree* h = kvtree_new();
+    //  kvtree_recv(h, i, scr_storedesc_cntl->comm);
+    //  kvtree_merge(scr_flush_async_hash, h);
+    //  kvtree_delete(&h);
+    //}
     /* get a hash to store file data */
     kvtree* hash = kvtree_new();
 
@@ -453,8 +457,10 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
     /* set BW if it's not already set */
     /* TODO: somewhat hacky way to determine number of nodes and therefore number of writers */
-    int writers;
-    MPI_Comm_size(scr_comm_node_across, &writers);
+    //int writers;
+    //MPI_Comm_size(scr_comm_node_across, &writers);
+    // TODO: Clean up parallelism
+    int writers = 1;
     double bw;
     if (kvtree_util_get_double(hash, AXL_TRANSFER_KEY_BW, &bw) !=
         AXL_SUCCESS) {
@@ -482,10 +488,10 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
     /* delete the hash */
     kvtree_delete(&hash);
-  } else {
-    /* send our transfer hash data to the master on this node */
-    kvtree_send(scr_flush_async_hash, 0, scr_storedesc_cntl->comm);
-  }
+  //} else {
+  //  /* send our transfer hash data to the master on this node */
+  //  kvtree_send(scr_flush_async_hash, 0, scr_storedesc_cntl->comm);
+  //}
 
   /* get the total number of bytes to write */
   scr_flush_async_bytes = 0.0;
@@ -522,7 +528,8 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 
   /* have master on each node check whether the flush is complete */
   double bytes_written = 0.0;
-  if (scr_storedesc_cntl->rank == 0) {
+  // TODO: Clean up paralleism
+  //if (scr_storedesc_cntl->rank == 0) {
     /* create a hash to hold the transfer file data */
     kvtree* hash = kvtree_new();
 
@@ -539,10 +546,11 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 
     /* free the hash */
     kvtree_delete(&hash);
-  }
+  //}
 
   /* compute the total number of bytes written */
-  MPI_Allreduce(&bytes_written, bytes, 1, MPI_DOUBLE, MPI_SUM, scr_comm_world);
+  // TODO: Clean up parallelism
+  //MPI_Allreduce(&bytes_written, bytes, 1, MPI_DOUBLE, MPI_SUM, scr_comm_world);
 
   /* determine whether the transfer is complete on all tasks */
   if (scr_alltrue(transfer_complete)) {
@@ -617,7 +625,8 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   }
 
   /* have master on each node remove files from the transfer file */
-  if (scr_storedesc_cntl->rank == 0) {
+  // TODO: Clean up paralleism
+  //if (scr_storedesc_cntl->rank == 0) {
     /* get a hash to read from the file */
     kvtree* transfer_hash = kvtree_new();
 
@@ -636,7 +645,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 
     /* delete the hash */
     kvtree_delete(&transfer_hash);
-  }
+  //}
 
   /* mark that we've stopped the flush */
   scr_flush_async_in_progress = 0;
