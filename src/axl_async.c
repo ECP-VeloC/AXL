@@ -11,7 +11,7 @@
 
 #include "kvtree.h"
 #include "scr_globals.h"
-#include "axl_keys.h"
+#include "axl_internals.h"
 
 #ifdef HAVE_LIBCPPR
 #include "axl_cppr.h"
