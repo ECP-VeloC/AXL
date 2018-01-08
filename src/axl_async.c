@@ -218,9 +218,13 @@ static int axl_flush_async_state_wait(char* state)
     //}
 
     /* check whether everyone is at the specified state */
-    if (scr_alltrue(valid)) {
-      all_valid = 1;
-    }
+    // TODO: Clean up paralleism
+    //if (scr_alltrue(valid)) {
+    //  all_valid = 1;
+    //}
+      if (valid) {
+          all_valid = 1;
+      }
 
     /* if we're not there yet, sleep for sometime and they try again */
     if (! all_valid) {
