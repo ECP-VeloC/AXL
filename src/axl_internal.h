@@ -9,6 +9,7 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+extern char* axl_transfer_file;
 
 /*
 =========================================
