@@ -256,6 +256,7 @@ static int axl_flush_async_file_clear_all()
 }
 
 /* stop all ongoing asynchronous flush operations */
+// TODO: Caller must check value of scr_flush
 int axl_flush_async_stop()
 {
   /* cppr: just call wait_all, once complete, set state, notify everyone */
@@ -265,10 +266,6 @@ int axl_flush_async_stop()
 #ifdef HAVE_LIBCPPR
         return axl_flush_async_stop_cppr();
 #endif
-  /* if user has disabled flush, return failure */
-  if (scr_flush <= 0) {
-    return AXL_FAILURE;
-  }
 
   /* this may take a while, so tell user what we're doing */
   if (scr_my_rank_world == 0) {
@@ -304,6 +301,7 @@ int axl_flush_async_stop()
 
 /* start an asynchronous flush from cache to parallel file
  * system under SCR_PREFIX */
+// TODO: Caller must check value of scr_flush
 int axl_flush_async_start(fu_filemap* map, int id)
 {
 #ifdef HAVE_LIBCPPR
@@ -312,11 +310,6 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
   // TODO: Caller may need to do some of this error checking
   // TODO: Caller may need to call MPI_Barrier
-
-  /* if user has disabled flush, return failure */
-  if (scr_flush <= 0) {
-    return AXL_FAILURE;
-  }
 
   /* if we don't need a flush, return right away with success */
   if (! scr_flush_file_need_flush(id)) {
@@ -506,6 +499,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
 }
 
 /* check whether the flush from cache to parallel file system has completed */
+// TODO: Caller must check value of scr_flush
 int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 {
 
@@ -518,10 +512,6 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
   /* initialize bytes to 0 */
   *bytes = 0.0;
 
-  /* if user has disabled flush, return failure */
-  if (scr_flush <= 0) {
-    return AXL_FAILURE;
-  }
   scr_dbg(1,"axl_flush_async_test called @ %s:%d", __FILE__, __LINE__);
   /* assume the transfer is complete */
   int transfer_complete = 1;
@@ -563,17 +553,13 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 }
 
 /* complete the flush from cache to parallel file system */
+// TODO: Caller must check value of scr_flush
 int axl_flush_async_complete(fu_filemap* map, int id)
 {
 #ifdef HAVE_LIBCPPR
   return axl_flush_async_complete_cppr(map, id);
 #endif
   int flushed = AXL_SUCCESS;
-
-  /* if user has disabled flush, return failure */
-  if (scr_flush <= 0) {
-    return AXL_FAILURE;
-  }
 
   /* TODO: have master tell each rank on node whether its files were written successfully */
   scr_dbg(1,"axl_flush_async_complete called @ %s:%d", __FILE__, __LINE__);
