@@ -173,13 +173,13 @@ static int axl_flush_async_command_set(char* command)
 
     /* read the file */
     int fd = -1;
-    kvtree_lock_open_read(scr_transfer_file, &fd, hash);
+    kvtree_lock_open_read(axl_transfer_file, &fd, hash);
 
     /* set the command */
     kvtree_util_set_str(hash, AXL_TRANSFER_KEY_COMMAND, command);
 
     /* write the hash back */
-    kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
+    kvtree_write_close_unlock(axl_transfer_file, &fd, hash);
 
     /* delete the hash */
     kvtree_delete(&hash);
@@ -203,7 +203,7 @@ static int axl_flush_async_state_wait(char* state)
       kvtree* hash = kvtree_new();
 
       /* open transfer file with lock */
-      kvtree_read_with_lock(scr_transfer_file, hash);
+      kvtree_read_with_lock(axl_transfer_file, hash);
 
       /* check for the specified state */
       kvtree* state_hash = kvtree_get_kv(hash,
@@ -241,13 +241,13 @@ static int axl_flush_async_file_clear_all()
 
     /* read the file */
     int fd = -1;
-    kvtree_lock_open_read(scr_transfer_file, &fd, hash);
+    kvtree_lock_open_read(axl_transfer_file, &fd, hash);
 
     /* clear the FILES entry */
     kvtree_unset(hash, AXL_TRANSFER_KEY_FILES);
 
     /* write the hash back */
-    kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
+    kvtree_write_close_unlock(axl_transfer_file, &fd, hash);
 
     /* delete the hash */
     kvtree_delete(&hash);
@@ -450,7 +450,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
     /* open transfer file with lock */
     int fd = -1;
-    kvtree_lock_open_read(scr_transfer_file, &fd, hash);
+    kvtree_lock_open_read(axl_transfer_file, &fd, hash);
 
     /* merge our data to the file data */
     kvtree_merge(hash, scr_flush_async_hash);
@@ -484,7 +484,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
     kvtree_unset_kv(hash, AXL_TRANSFER_KEY_FLAG, AXL_TRANSFER_KEY_FLAG_DONE);
 
     /* close the transfer file and release the lock */
-    kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
+    kvtree_write_close_unlock(axl_transfer_file, &fd, hash);
 
     /* delete the hash */
     kvtree_delete(&hash);
@@ -534,7 +534,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
     kvtree* hash = kvtree_new();
 
     /* read transfer file with lock */
-    if (kvtree_read_with_lock(scr_transfer_file, hash) == AXL_SUCCESS) {
+    if (kvtree_read_with_lock(axl_transfer_file, hash) == AXL_SUCCESS) {
       /* test each file listed in the transfer hash */
       if (axl_flush_async_file_test(hash, &bytes_written) != AXL_SUCCESS) {
         transfer_complete = 0;
@@ -632,7 +632,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 
     /* lock the transfer file, open it, and read it into the hash */
     int fd = -1;
-    kvtree_lock_open_read(scr_transfer_file, &fd, transfer_hash);
+    kvtree_lock_open_read(axl_transfer_file, &fd, transfer_hash);
 
     /* remove files from the list */
     axl_flush_async_file_dequeue(transfer_hash, scr_flush_async_hash);
@@ -641,7 +641,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
     kvtree_util_set_str(transfer_hash, AXL_TRANSFER_KEY_COMMAND, AXL_TRANSFER_KEY_COMMAND_STOP);
 
     /* write the hash back to the file */
-    kvtree_write_close_unlock(scr_transfer_file, &fd, transfer_hash);
+    kvtree_write_close_unlock(axl_transfer_file, &fd, transfer_hash);
 
     /* delete the hash */
     kvtree_delete(&transfer_hash);
@@ -743,7 +743,7 @@ int axl_flush_async_init(char* cntl_dir){
   /* done by all ranks (to avoid mpi dependency)
    * Could go back to one/node (or other storage desc as appropriate
    */
-  axl_file_unlink(scr_transfer_file);
+  axl_file_unlink(axl_transfer_file);
 #endif
 
   return AXL_SUCCESS;
