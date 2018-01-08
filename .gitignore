@@ -1,0 +1,7 @@
+## Backup files
+*~
+\#*\#
+
+## Out of source builds and installs
+build/*
+install/*
