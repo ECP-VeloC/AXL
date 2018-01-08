@@ -11,6 +11,7 @@
 
 #include "kvtree.h"
 #include "scr_globals.h"
+#include "axl_keys.h"
 
 #ifdef HAVE_LIBCPPR
 #include "axl_cppr.h"
@@ -85,7 +86,7 @@ double axl_get_time() {
 static int axl_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
 {
   /* for each file listed in hash2, remove it from hash1 */
-  kvtree* file_hash = kvtree_get(hash2, SCR_TRANSFER_KEY_FILES);
+  kvtree* file_hash = kvtree_get(hash2, AXL_TRANSFER_KEY_FILES);
   if (file_hash != NULL) {
     kvtree_elem* elem;
     for (elem = kvtree_elem_first(file_hash);
@@ -94,7 +95,7 @@ static int axl_flush_async_file_dequeue(kvtree* hash1, kvtree* hash2)
     {
       /* get the filename, and dequeue it */
       char* file = kvtree_elem_key(elem);
-      kvtree_unset_kv(hash1, SCR_TRANSFER_KEY_FILES, file);
+      kvtree_unset_kv(hash1, AXL_TRANSFER_KEY_FILES, file);
     }
   }
   return AXL_SUCCESS;
@@ -113,7 +114,7 @@ static int axl_flush_async_file_test(const kvtree* hash, double* bytes)
   *bytes = 0.0;
 
   /* get the FILES hash */
-  kvtree* files_hash = kvtree_get(hash, SCR_TRANSFER_KEY_FILES);
+  kvtree* files_hash = kvtree_get(hash, AXL_TRANSFER_KEY_FILES);
   if (files_hash == NULL) {
     /* can't tell whether this flush has completed */
     return AXL_FAILURE;
@@ -174,7 +175,7 @@ static int axl_flush_async_command_set(char* command)
     kvtree_lock_open_read(scr_transfer_file, &fd, hash);
 
     /* set the command */
-    kvtree_util_set_str(hash, SCR_TRANSFER_KEY_COMMAND, command);
+    kvtree_util_set_str(hash, AXL_TRANSFER_KEY_COMMAND, command);
 
     /* write the hash back */
     kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
@@ -204,7 +205,7 @@ static int axl_flush_async_state_wait(char* state)
 
       /* check for the specified state */
       kvtree* state_hash = kvtree_get_kv(hash,
-                                             SCR_TRANSFER_KEY_STATE,
+                                             AXL_TRANSFER_KEY_STATE,
                                              state);
       if (state_hash == NULL) {
         valid = 0;
@@ -240,7 +241,7 @@ static int axl_flush_async_file_clear_all()
     kvtree_lock_open_read(scr_transfer_file, &fd, hash);
 
     /* clear the FILES entry */
-    kvtree_unset(hash, SCR_TRANSFER_KEY_FILES);
+    kvtree_unset(hash, AXL_TRANSFER_KEY_FILES);
 
     /* write the hash back */
     kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
@@ -272,10 +273,10 @@ int axl_flush_async_stop()
   }
 
   /* write stop command to transfer file */
-  axl_flush_async_command_set(SCR_TRANSFER_KEY_COMMAND_STOP);
+  axl_flush_async_command_set(AXL_TRANSFER_KEY_COMMAND_STOP);
 
   /* wait until all tasks know the transfer is stopped */
-  axl_flush_async_state_wait(SCR_TRANSFER_KEY_STATE_STOP);
+  axl_flush_async_state_wait(AXL_TRANSFER_KEY_STATE_STOP);
 
   /* remove the files list from the transfer file */
   axl_flush_async_file_clear_all();
@@ -283,7 +284,7 @@ int axl_flush_async_stop()
   /* remove FLUSHING state from flush file */
   scr_flush_async_in_progress = 0;
   /*
-  scr_flush_file_location_unset(id, SCR_FLUSH_KEY_LOCATION_FLUSHING);
+  scr_flush_file_location_unset(id, AXL_FLUSH_KEY_LOCATION_FLUSHING);
   */
 
   /* clear internal flush_async variables to indicate there is no flush */
@@ -339,7 +340,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
   /* mark that we've started a flush */
   scr_flush_async_in_progress = 1;
   scr_flush_async_dataset_id = id;
-  scr_flush_file_location_set(id, SCR_FLUSH_KEY_LOCATION_FLUSHING);
+  scr_flush_file_location_set(id, AXL_FLUSH_KEY_LOCATION_FLUSHING);
 
   /* get list of files to flush and create directories */
   scr_flush_async_file_list = kvtree_new();
@@ -366,7 +367,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
   scr_flush_async_num_files = 0;
   double my_bytes = 0.0;
   kvtree_elem* elem;
-  kvtree* files = kvtree_get(scr_flush_async_file_list, SCR_KEY_FILE);
+  kvtree* files = kvtree_get(scr_flush_async_file_list, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
        elem = kvtree_elem_next(elem))
@@ -379,13 +380,13 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
      /* get directory to flush file to */
      char* dest_dir;
-     if (kvtree_util_get_str(file_hash, SCR_KEY_PATH, &dest_dir) !=
+     if (kvtree_util_get_str(file_hash, AXL_KEY_PATH, &dest_dir) !=
          AXL_SUCCESS) {
        continue;
      }
 
      /* get meta data for file */
-     scr_meta* meta = kvtree_get(file_hash, SCR_KEY_META);
+     scr_meta* meta = kvtree_get(file_hash, AXL_KEY_META);
 
      /* get the file size */
      unsigned long filesize = 0;
@@ -397,7 +398,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
      /* add this file to the hash, and add its filesize
       * to the number of bytes written */
      kvtree* transfer_file_hash = kvtree_set_kv(scr_flush_async_hash,
-                                                    SCR_TRANSFER_KEY_FILES,
+                                                    AXL_TRANSFER_KEY_FILES,
                                                     file);
      /* TODO BUG FIX HERE: file_hash should be transfer_file_hash?? */
      if (file_hash != NULL) {
@@ -408,13 +409,13 @@ int axl_flush_async_start(fu_filemap* map, int id)
              char* dest_file = scr_path_strdup(path_dest_file);
 
              kvtree_util_set_str(transfer_file_hash,
-                                   SCR_TRANSFER_KEY_DESTINATION,
+                                   AXL_TRANSFER_KEY_DESTINATION,
                                    dest_file);
              kvtree_util_set_bytecount(transfer_file_hash,
-                                         SCR_TRANSFER_KEY_SIZE,
+                                         AXL_TRANSFER_KEY_SIZE,
                                          filesize);
              kvtree_util_set_bytecount(transfer_file_hash,
-                                         SCR_TRANSFER_KEY_WRITTEN,
+                                         AXL_TRANSFER_KEY_WRITTEN,
                                          0);
 
              /* delete path and string for the file name */
@@ -455,26 +456,26 @@ int axl_flush_async_start(fu_filemap* map, int id)
     int writers;
     MPI_Comm_size(scr_comm_node_across, &writers);
     double bw;
-    if (kvtree_util_get_double(hash, SCR_TRANSFER_KEY_BW, &bw) !=
+    if (kvtree_util_get_double(hash, AXL_TRANSFER_KEY_BW, &bw) !=
         AXL_SUCCESS) {
       bw = (double) scr_flush_async_bw / (double) writers;
-      kvtree_util_set_double(hash, SCR_TRANSFER_KEY_BW, bw);
+      kvtree_util_set_double(hash, AXL_TRANSFER_KEY_BW, bw);
     }
 
     /* set PERCENT if it's not already set */
     double percent;
-    if (kvtree_util_get_double(hash, SCR_TRANSFER_KEY_PERCENT, &percent) !=
+    if (kvtree_util_get_double(hash, AXL_TRANSFER_KEY_PERCENT, &percent) !=
         AXL_SUCCESS) {
-      kvtree_util_set_double(hash, SCR_TRANSFER_KEY_PERCENT,
+      kvtree_util_set_double(hash, AXL_TRANSFER_KEY_PERCENT,
                                scr_flush_async_percent);
     }
 
     /* set the RUN command */
-    kvtree_util_set_str(hash, SCR_TRANSFER_KEY_COMMAND,
-                          SCR_TRANSFER_KEY_COMMAND_RUN);
+    kvtree_util_set_str(hash, AXL_TRANSFER_KEY_COMMAND,
+                          AXL_TRANSFER_KEY_COMMAND_RUN);
 
     /* unset the DONE flag */
-    kvtree_unset_kv(hash, SCR_TRANSFER_KEY_FLAG, SCR_TRANSFER_KEY_FLAG_DONE);
+    kvtree_unset_kv(hash, AXL_TRANSFER_KEY_FLAG, AXL_TRANSFER_KEY_FLAG_DONE);
 
     /* close the transfer file and release the lock */
     kvtree_write_close_unlock(scr_transfer_file, &fd, hash);
@@ -503,7 +504,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 {
 
 #ifdef HAVE_LIBCPPR
-  scr_dbg(1, "scr_flush_async_cppr_test being called by axl_flush_async_test \
+  scr_dbg(1, "axl_flush_async_cppr_test being called by axl_flush_async_test \
 @ %s:%d", __FILE__, __LINE__);
   return axl_flush_async_test_cppr(map, id, bytes);
 #endif
@@ -546,7 +547,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
   /* determine whether the transfer is complete on all tasks */
   if (scr_alltrue(transfer_complete)) {
     if (scr_my_rank_world == 0) {
-      scr_dbg(0, "#demo SCR async daemon successfully transferred dset %d", id);
+      scr_dbg(0, "#demo AXL async daemon successfully transferred dset %d", id);
     }
     return AXL_SUCCESS;
   }
@@ -572,7 +573,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   kvtree* data = kvtree_new();
 
   /* fill in metadata info for the files this process flushed */
-  kvtree* files = kvtree_get(scr_flush_async_file_list, SCR_KEY_FILE);
+  kvtree* files = kvtree_get(scr_flush_async_file_list, AXL_KEY_FILE);
   kvtree_elem* elem = NULL;
   for (elem = kvtree_elem_first(files);
        elem != NULL;
@@ -595,7 +596,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
     /* TODO: check that this file was written successfully */
 
     /* get meta data for this file */
-    scr_meta* meta = kvtree_get(hash, SCR_KEY_META);
+    scr_meta* meta = kvtree_get(hash, AXL_KEY_META);
 
     /* successfully flushed this file, record the filesize */
     unsigned long filesize = 0;
@@ -628,7 +629,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
     axl_flush_async_file_dequeue(transfer_hash, scr_flush_async_hash);
 
     /* set the STOP command */
-    kvtree_util_set_str(transfer_hash, SCR_TRANSFER_KEY_COMMAND, SCR_TRANSFER_KEY_COMMAND_STOP);
+    kvtree_util_set_str(transfer_hash, AXL_TRANSFER_KEY_COMMAND, AXL_TRANSFER_KEY_COMMAND_STOP);
 
     /* write the hash back to the file */
     kvtree_write_close_unlock(scr_transfer_file, &fd, transfer_hash);
@@ -639,7 +640,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 
   /* mark that we've stopped the flush */
   scr_flush_async_in_progress = 0;
-  scr_flush_file_location_unset(id, SCR_FLUSH_KEY_LOCATION_FLUSHING);
+  scr_flush_file_location_unset(id, AXL_FLUSH_KEY_LOCATION_FLUSHING);
 
   /* free data structures */
   kvtree_delete(&data);
