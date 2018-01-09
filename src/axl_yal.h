@@ -9,8 +9,8 @@
  * Please also read this file: LICENSE.TXT.
 */
 
-#ifndef AXL_H
-#define AXL_H
+#ifndef AXL_YAL_H
+#define AXL_YAL_H
 
 #include "fu_filemap.h"
 
@@ -44,4 +44,4 @@ int axl_flush_async_init(void);
 /* finalize the async transfer processes */
 int axl_flush_async_finalize(void);
 
-#endif // AXL_H
+#endif // AXL_YAL_H
