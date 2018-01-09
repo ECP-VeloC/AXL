@@ -12,36 +12,40 @@
 #ifndef AXL_H
 #define AXL_H
 
-#include "fu_filemap.h"
-
-#define AXL_MAJOR "0"
-#define AXL_MINOR "0"
-#define AXL_PATCH "1"
-#define AXL_VERSION "0.0.1"
 #define AXL_SUCCESS (0)
 
-/* do a synchronous flush operation */
-int axl_flush_sync(fu_filemap* map, int id);
+/* Read configuration from non-AXL-specific file
+ * Also, start up vendor specific services */
+int AXL_Init (char* conf_file);
 
-/* stop all ongoing asynchronous flush operations */
-int axl_flush_async_stop(void);
+/* Shutdown any vendor services */
+int AXL_Finalize (void);
 
-/* start an asynchronous flush */
-int axl_flush_async_start(fu_filemap* map, int id);
+/* Create a transfer handle (used for 0+ files)
+ * Type specifies a particular method to use
+ * Name is a user/application provided string
+ * Returns an ID to the transfer handle */
+int AXL_Create (char* type, const char* name);
 
-/* check whether the flush from cache to parallel file system has completed */
-int axl_flush_async_test(fu_filemap* map, int id, double* bytes);
+/* Add a file to an existing transfer handle */
+int AXL_Add (int id, char* source, char* destination);
 
-/* complete the flush from cache to parallel file system */
-int axl_flush_async_complete(fu_filemap* map, int id);
+/* Initiate a transfer for all files in handle ID */
+int AXL_Dispatch (int id);
 
-/* wait until the checkpoint currently being flushed completes */
-int axl_flush_async_wait(fu_filemap* map);
+/* Test if a transfer has completed
+ * Returns 1 if the transfer has completed */
+int AXL_Test(int id);
 
-/* initialize the async transfer processes */
-int axl_flush_async_init(void);
+/* BLOCKING
+ * Wait for a transfer to complete */
+int AXL_Wait (int id);
 
-/* finalize the async transfer processes */
-int axl_flush_async_finalize(void);
+/* Cancel an existing transfer */
+// TODO: Does cancel call free?
+int AXL_Cancel (int id);
 
-#endif // AXL_H
+/* Perform cleanup of internal data associated with ID */
+int AXL_Free (int id);
+
+#endif

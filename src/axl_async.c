@@ -423,7 +423,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
      axl_flush_async_num_files++;
   }
 
-  /* have master on each node write the transfer file, everyone else sends data to him */
+  /* have master on each node write the transfer file, everyone else sends data to it */
   // TODO: Clean up paralleism
   //if (scr_storedesc_cntl->rank == 0) {
     /* receive hash data from other processes on the same node and merge with our data */

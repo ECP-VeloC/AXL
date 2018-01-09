@@ -50,8 +50,7 @@ int axl_bool_flush_file(
 
 /*
 =========================================
-Prepare for flush by building list of files, creating directories,
-and creating container files (if any)
+Prepare for flush by building list of files and creating directories
 =========================================
 */
 
@@ -115,7 +114,7 @@ int axl_flush_pick_writer(
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data */
+    /* if we have a right partner, send it our right-going data */
     int right = rank + step;
     if (right < ranks) {
       MPI_Isend(send, 3, MPI_INT, right, 0, comm, &request[k]);
@@ -127,7 +126,7 @@ int axl_flush_pick_writer(
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, merge his data with our result */
+    /* if we have a left partner, merge its data with our result */
     if (left >= 0) {
       /* reduce data into right-going buffer */
       send[SCR_FLUSH_SCAN_COUNT] += recv[SCR_FLUSH_SCAN_COUNT];
@@ -372,131 +371,7 @@ static int scr_flush_identify_dirs(scr_hash* file_list)
   return AXL_SUCCESS;
 }
 
-/* identify the container to write each file to */
-static int scr_flush_identify_containers(scr_hash* file_list)
-{
-  int rc = AXL_SUCCESS;
-
-  /* get our rank on the node */
-  int rank_node;
-  MPI_Comm_rank(scr_comm_node, &rank_node);
-
-  /* get the maximum container size */
-  unsigned long container_size = scr_container_size;
-
-  /* get the dataset for the file list */
-/*  scr_dataset* dataset = scr_hash_get(file_list, SCR_KEY_DATASET); */
-
-  /* create base container path */
-  scr_path* container_base_path = scr_path_from_str(".scr");
-
-  /* compute total number of bytes we'll flush on this process */
-  unsigned long my_bytes = 0;
-  scr_hash_elem* elem = NULL;
-  scr_hash* files = scr_hash_get(file_list, SCR_KEY_FILE);
-  for (elem = scr_hash_elem_first(files);
-       elem != NULL;
-       elem = scr_hash_elem_next(elem))
-  {
-    /* get meta data for this file */
-    scr_hash* hash = scr_hash_elem_hash(elem);
-    fu_meta* meta = scr_hash_get(hash, SCR_KEY_META);
-
-    /* get filesize from meta data */
-    unsigned long filesize;
-    if (fu_meta_get_filesize(meta, &filesize) == AXL_SUCCESS) {
-      my_bytes += filesize;
-    } else {
-       /* TODO: error */
-      rc = AXL_FAILURE;
-    }
-  }
-
-  /* compute total number of bytes we need to write across all processes */
-  unsigned long total_bytes;
-  MPI_Allreduce(&my_bytes, &total_bytes, 1, MPI_UNSIGNED_LONG, MPI_SUM, scr_comm_world);
-
-  /* compute total number of bytes we need to write on the node */
-  unsigned long node_bytes;
-  MPI_Reduce(&my_bytes, &node_bytes, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, scr_comm_node);
-
-  /* compute offset for each node */
-  unsigned long node_offset = 0;
-  if (rank_node == 0) {
-    MPI_Scan(&node_bytes, &node_offset, 1, MPI_UNSIGNED_LONG, MPI_SUM, scr_comm_node_across);
-    node_offset -= node_bytes;
-  }
-
-  /* compute offset for each process,
-   * note that node_offset == 0 for all procs on the node except for rank == 0,
-   * which contains the offset for the node */
-  unsigned long my_offset = 0;
-  node_offset += my_bytes;
-  MPI_Scan(&node_offset, &my_offset, 1, MPI_UNSIGNED_LONG, MPI_SUM, scr_comm_node);
-  my_offset -= my_bytes;
-
-  /* compute offset for each file on this process */
-  unsigned long file_offset = my_offset;
-  for (elem = scr_hash_elem_first(files);
-       elem != NULL;
-       elem = scr_hash_elem_next(elem))
-  {
-    /* get meta data for this file */
-    scr_hash* hash = scr_hash_elem_hash(elem);
-    fu_meta* meta = scr_hash_get(hash, SCR_KEY_META);
-
-    /* get filesize from meta data */
-    unsigned long filesize;
-    if (fu_meta_get_filesize(meta, &filesize) == AXL_SUCCESS) {
-      /* compute container id, offset, and length */
-      int file_segment = 0;
-      unsigned long remaining = filesize;
-      while (remaining > 0) {
-        /* compute container id, offset, and length */
-        int container_id = file_offset / container_size;
-        unsigned long container_offset = file_offset - (container_id * container_size);
-        unsigned long container_length = container_size - container_offset;
-        if (container_length > remaining) {
-          container_length = remaining;
-        }
-
-        /* compute container name */
-        scr_path* container_path = scr_path_dup(container_base_path);
-        scr_path_append_strf(container_path, "ctr.%d.scr", container_id);
-        char* container_name = scr_path_strdup(container_path);
-
-        /* store segment id, host file, offset, and length */
-        scr_hash* segment_hash = scr_hash_set_kv_int(hash, SCR_SUMMARY_6_KEY_SEGMENT, file_segment);
-        scr_hash_util_set_bytecount(segment_hash, SCR_SUMMARY_6_KEY_LENGTH, container_length);
-        scr_hash_util_set_str(segment_hash, SCR_SUMMARY_6_KEY_FILE, container_name);
-        scr_hash_util_set_bytecount(segment_hash, SCR_SUMMARY_6_KEY_OFFSET, container_offset);
-
-        /* free container name and path */
-        scr_free(&container_name);
-        scr_path_delete(&container_path);
-
-        /* move on to the next file segment */
-        remaining   -= container_length;
-        file_offset += container_length;
-        file_segment++;
-      }
-    } else {
-      /* TODO: error */
-      rc = AXL_FAILURE;
-    }
-  }
-
-  /* delete container path */
-  scr_path_delete(&container_base_path);
-
-  /* determine whether all processes successfully computed their containers */
-  if (! scr_alltrue((rc == AXL_SUCCESS))) {
-    return AXL_FAILURE;
-  }
-  return AXL_SUCCESS;
-}
-
-/* given file map and dataset id, identify files, containers, and
+/* given file map and dataset id, identify files and
  * directories needed for flush and return in file list hash */
 static int scr_flush_identify(
   const fu_filemap* map,
@@ -532,15 +407,6 @@ static int scr_flush_identify(
     scr_abort(-1, "Failed to get list of directories for dataset %d @ %s:%d",
       id, __FILE__, __LINE__
     );
-  }
-
-  /* identify containers for our files */
-  if (scr_use_containers) {
-    if (scr_flush_identify_containers(file_list) != AXL_SUCCESS) {
-      scr_abort(-1, "Failed to identify containers for dataset %d @ %s:%d",
-        id, __FILE__, __LINE__
-      );
-    }
   }
 
   return AXL_SUCCESS;
@@ -624,145 +490,26 @@ static int scr_flush_create_dirs(scr_hash* file_list)
   return AXL_SUCCESS;
 }
 
-/* create container files
- * could do different things here depending on the file system, for example:
- *   Lustre - have first process writing to container create it
- *   GPFS   - gather container names to rank 0 and have it create them all */
-static int scr_flush_create_containers(const scr_hash* file_list)
-{
-  /* here, we look at each segment a process writes,
-   * and the process which writes data to offset 0 is
-   * responsible for creating the container */
-  int success = AXL_SUCCESS;
-
-  /* get top level path */
-  char* flushdir;
-  if (scr_hash_util_get_str(file_list, SCR_KEY_PATH, &flushdir) != AXL_SUCCESS) {
-    scr_abort(-1, "Failed to get flush directory @ %s:%d",
-      __FILE__, __LINE__
-    );
-  }
-
-  /* get permissions for files */
-  mode_t mode_file = scr_getmode(1, 1, 0);
-
-  /* iterate over each of our files */
-  scr_hash_elem* file_elem;
-  scr_hash* files = scr_hash_get(file_list, SCR_KEY_FILE);
-  for (file_elem = scr_hash_elem_first(files);
-       file_elem != NULL;
-       file_elem = scr_hash_elem_next(file_elem))
-  {
-    /* get the hash for this file */
-    scr_hash* hash = scr_hash_elem_hash(file_elem);
-
-    /* iterate over the segments for this file */
-    scr_hash_elem* segment_elem;
-    scr_hash* segments = scr_hash_get(hash, SCR_SUMMARY_6_KEY_SEGMENT);
-    for (segment_elem = scr_hash_elem_first(segments);
-         segment_elem != NULL;
-         segment_elem = scr_hash_elem_next(segment_elem))
-    {
-      /* get the hash for this segment */
-      scr_hash* segment = scr_hash_elem_hash(segment_elem);
-
-      /* lookup the container details for this segment */
-      char* name;
-      unsigned long offset, length;
-      if (scr_container_get_name_offset_length(segment, &name, &offset, &length) == AXL_SUCCESS) {
-        /* if we write something to offset 0 of this container,
-         * we are responsible for creating the file */
-        if (offset == 0 && length > 0) {
-          /* create full path to container file */
-          scr_path* container_path = scr_path_from_str(flushdir);
-          scr_path_append_str(container_path, name);
-          char* container_name = scr_path_strdup(container_path);
-
-          /* open the file with create and truncate options,
-           * then just immediately close it */
-          int fd = scr_open(container_name, O_WRONLY | O_CREAT | O_TRUNC, mode_file);
-          if (fd < 0) {
-            /* the create failed */
-            scr_err("Opening file for writing: scr_open(%s) errno=%d %s @ %s:%d",
-              container_name, errno, strerror(errno), __FILE__, __LINE__
-            );
-            success = AXL_FAILURE;
-          } else {
-            /* the create succeeded, now just close the file */
-            scr_close(container_name, fd);
-          }
-
-          /* free the container name and string */
-          scr_free(&container_name);
-          scr_path_delete(&container_path);
-        }
-      } else {
-        /* failed to read container details from segment hash, consider this an error */
-        success = AXL_FAILURE;
-      }
-    }
-  }
-
-  /* determine whether all processes successfully created their containers */
-  if (scr_alltrue((success == AXL_SUCCESS))) {
-    return AXL_SUCCESS;
-  }
-  return AXL_FAILURE;
-}
-
-/* TODO: attach this info to file map */
-/* run some checks to verify that dataset can be flushed */
-int scr_flush_verify(
-  const fu_filemap* map,
-  int id)
-{
-  scr_hash* file_list = scr_hash_new();
-
-  /* build the list of files to flush, which includes meta data for each one */
-  if (scr_flush_identify(map, id, file_list) != AXL_SUCCESS) {
-    scr_abort(-1, "Failed to identify data for flush of dataset %d @ %s:%d",
-      id, __FILE__, __LINE__
-    );
-  }
-
-  scr_hash_delete(&file_list);
-
-  return AXL_SUCCESS;
-}
-
 /* given a filemap and a dataset id, prepare and return a list of
- * files to be flushed, also create corresponding directories and
- * container files */
-int scr_flush_prepare(const fu_filemap* map, int id, scr_hash* file_list)
+ * files to be flushed, also create corresponding directories */
+int axl_flush_prepare(const fu_filemap* map, int id, scr_hash* file_list)
 {
   /* build the list of files to flush, which includes meta data for each one */
-  if (scr_flush_identify(map, id, file_list) != AXL_SUCCESS) {
-    scr_abort(-1, "Failed to identify data for flush of dataset %d @ %s:%d",
+  if (axl_flush_identify(map, id, file_list) != AXL_SUCCESS) {
+    axl_abort(-1, "Failed to identify data for flush of dataset %d @ %s:%d",
       id, __FILE__, __LINE__
     );
   }
 
   /* create directories for flush */
-  if (scr_flush_create_dirs(file_list) != AXL_SUCCESS) {
+  if (axl_flush_create_dirs(file_list) != AXL_SUCCESS) {
     /* TODO: delete the directories that we just created above? */
     if (scr_my_rank_world == 0) {
-      scr_err("Failed to create flush directories for dataset %d @ %s:%d",
+      axl_err("Failed to create flush directories for dataset %d @ %s:%d",
         id, __FILE__, __LINE__
       );
     }
     return AXL_FAILURE;
-  }
-
-  /* create container files */
-  if (scr_use_containers) {
-    if (scr_flush_create_containers(file_list) != AXL_SUCCESS) {
-      /* TODO: delete the directories that we just created above?
-       * and the partial set of files we just created here? */
-      scr_err("Failed to create container files for dataset %d @ %s:%d",
-        id, __FILE__, __LINE__
-      );
-      return AXL_FAILURE;
-    }
   }
 
   return AXL_SUCCESS;
