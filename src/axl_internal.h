@@ -12,6 +12,8 @@
 #ifndef AXL_INTERNAL_H
 #define AXL_INTERNAL_H
 
+#define AXL_FAILURE (1)
+
 extern char* axl_transfer_file;
 extern char* axl_flush_file;
 extern int axl_flush_async_in_progress; /* tracks whether an async flush is currently underway */
