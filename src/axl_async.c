@@ -18,7 +18,7 @@
 #endif
 
 #ifdef HAVE_DATAWARP
-#include "datawarp.h"
+#include "axl_async_datawarp.h"
 #endif
 
 #ifdef HAVE_BBABI
@@ -64,8 +64,8 @@ static time_t axl_flush_async_timestamp_start;
 /* records the time the async flush started */
 static double axl_flush_async_time_start;
 
-/* tracks list of files written with flush */
-static kvtree* axl_flush_async_file_list = NULL;
+/* tracks list of lists of files written with flush */
+static kvtree* axl_flush_async_file_lists = kvtree_new();
 
 /* tracks list of files written with flush */
 static kvtree* axl_flush_async_hash = NULL;
@@ -270,7 +270,7 @@ static int axl_flush_async_file_clear_all()
 
 /* stop all ongoing asynchronous flush operations */
 // TODO: Caller must check value of scr_flush
-int axl_flush_async_stop()
+int axl_flush_async_stop(fu_filemap* map, int id)
 {
   /* cppr: just call wait_all, once complete, set state, notify everyone */
   /*  cppr_return_t cppr_wait_all(uint32_t count,
@@ -302,8 +302,12 @@ int axl_flush_async_stop()
   if (axl_flush_async_hash != NULL) {
     kvtree_delete(&axl_flush_async_hash);
   }
-  if (axl_flush_async_file_list != NULL) {
-    kvtree_delete(&axl_flush_async_file_list);
+
+  char* id_str = char[20];
+  printf(id_str, "%d", id);
+  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
+  if (file_list != NULL) {
+    kvtree_delete(&file_list);
   }
 
   return AXL_SUCCESS;
@@ -344,13 +348,17 @@ int axl_flush_async_start(fu_filemap* map, int id)
   axl_flush_file_location_set(id, AXL_FLUSH_KEY_LOCATION_FLUSHING);
 
   /* get list of files to flush and create directories */
-  axl_flush_async_file_list = kvtree_new();
-  if (scr_flush_prepare(map, id, axl_flush_async_file_list) != AXL_SUCCESS) {
+  char* id_str = char[20];
+  sprintf(id_str, "%d", id);
+  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
+  file_list = kvtree_new();
+
+  if (scr_flush_prepare(map, id, file_list) != AXL_SUCCESS) {
       axl_err("axl_flush_async_start: Failed to prepare flush @ %s:%d",
         __FILE__, __LINE__
       );
-    kvtree_delete(&axl_flush_async_file_list);
-    axl_flush_async_file_list = NULL;
+    kvtree_delete(&file_list);
+    file_list = NULL;
     return AXL_FAILURE;
   }
 
@@ -359,7 +367,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
   axl_flush_async_num_files = 0;
   double my_bytes = 0.0;
   kvtree_elem* elem;
-  kvtree* files = kvtree_get(axl_flush_async_file_list, AXL_KEY_FILE);
+  kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
        elem = kvtree_elem_next(elem))
@@ -561,7 +569,11 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   kvtree* data = kvtree_new();
 
   /* fill in metadata info for the files this process flushed */
-  kvtree* files = kvtree_get(axl_flush_async_file_list, AXL_KEY_FILE);
+  char* id_str = char[20];
+  sprintf(id_str, "%d", id);
+  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
+
+  kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   kvtree_elem* elem = NULL;
   for (elem = kvtree_elem_first(files);
        elem != NULL;
@@ -600,7 +612,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   }
 
   /* write summary file */
-  if (scr_flush_complete(id, axl_flush_async_file_list, data) != AXL_SUCCESS) {
+  if (scr_flush_complete(id, file_list, data) != AXL_SUCCESS) {
     flushed = AXL_FAILURE;
   }
 
@@ -636,9 +648,9 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 
   /* free the file list for this checkpoint */
   kvtree_delete(&axl_flush_async_hash);
-  kvtree_delete(&axl_flush_async_file_list);
+  kvtree_delete(&file_list);
   axl_flush_async_hash      = NULL;
-  axl_flush_async_file_list = NULL;
+  file_list = NULL;
 
   /* stop timer, compute bandwidth, and report performance */
   // TODO: Clean up parallelism
