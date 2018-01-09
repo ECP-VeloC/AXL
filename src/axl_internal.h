@@ -10,6 +10,7 @@
 */
 
 extern char* axl_transfer_file;
+extern char* axl_flush_file;
 
 /*
 =========================================

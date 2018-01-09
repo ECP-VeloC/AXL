@@ -47,7 +47,10 @@ Global Variables
 */
 
 /* transfer file */
-int axl_transfer_file = NULL;
+char* axl_transfer_file = NULL;
+
+/* AXL's flush file, SCR has one as well */
+char* axl_flush_file = NULL;
 
 /* records the time the async flush started */
 static time_t axl_flush_async_timestamp_start;
@@ -711,17 +714,26 @@ int axl_flush_async_wait(fu_filemap* map)
 
 /* start any processes for later asynchronous flush operations */
 int axl_flush_async_init(char* cntl_dir){
+
+    char* axl_cntl_dir;
+    if (cntl_dir){
+        axl_cntl_dir = strcpy(cntl_dir);
+    }else{
+        axl_cntl_dir = getcwd(NULL, 0);
+    }
+
+    /* TODO: AXL or SCR owns flush file?
+       For now, AXL has its own version, kept in cntl_dir */
+    char* axl_flush_file_name = "/axl_flush.info";
+    axl_flush_file = malloc(strlen(axl_cntl_dir) + strlen(axl_flush_file_name));
+    strcpy(axl_flush_file, axl_cntl_dir);
+    strcat(axl_flush_file, axl_flush_file_name);
+
 #ifdef HAVE_DAEMON
-  char* axl_cntl_dir;
-  if (cntl_dir){
-    axl_cntl_dir = strcpy(cntl_dir);
-  }else{
-    axl_cntl_dir = getcwd(NULL, 0);
-  }
   /* daemon stuff */
-  axl_transfer_file_name = "/axl_transfer.info";
+  char* axl_transfer_file_name = "/axl_transfer.info";
   axl_transfer_file = malloc(strlen(axl_cntl_dir) + strlen(axl_transfer_file_name));
-  strcpy(axl_transfer_file, axl_cntl_prefix);
+  strcpy(axl_transfer_file, axl_cntl_dir);
   strcat(axl_transfer_file, axl_transfer_file_name);
 
   axl_free(&axl_cntl_dir);
@@ -745,6 +757,8 @@ int axl_flush_async_finalize()
 #ifdef HAVE_DAEMON
   axl_free(&axl_transfer_file);
 #endif
+
+  axl_file_unlink(axl_flush_file);
 
   return AXL_SUCCESS;
 }

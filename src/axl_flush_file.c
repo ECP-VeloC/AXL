@@ -9,7 +9,8 @@
  * Please also read this file: LICENSE.TXT.
 */
 
-#include "scr_globals.h"
+#include "axl_internals.h"
+#include "kvtree.h"
 
 /*
 =========================================
@@ -18,184 +19,176 @@ Flush file functions
 */
 
 /* returns true if the given dataset id needs to be flushed */
-int scr_flush_file_need_flush(int id)
+int axl_flush_file_need_flush(int id)
 {
   int need_flush = 0;
 
-  /* just have rank 0 read the file */
-  if (scr_my_rank_world == 0) {
+  // TODO: Clean up parallelism
+
     /* read the flush file */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* if we have the dataset in cache, but not on the parallel file system,
      * then it needs to be flushed */
-    scr_hash* dset_hash = scr_hash_get_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash* in_cache = scr_hash_get_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, SCR_FLUSH_KEY_LOCATION_CACHE);
-    scr_hash* in_pfs   = scr_hash_get_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, SCR_FLUSH_KEY_LOCATION_PFS);
+    kvtree_hash* dset_hash = kvtree_hash_get_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash* in_cache = kvtree_hash_get_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, AXL_FLUSH_KEY_LOCATION_CACHE);
+    kvtree_hash* in_pfs   = kvtree_hash_get_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, AXL_FLUSH_KEY_LOCATION_PFS);
     if (in_cache != NULL && in_pfs == NULL) {
       need_flush = 1;
     }
 
     /* free the hash object */
-    scr_hash_delete(&hash);
-  }
-
-  /* broadcast decision from rank 0 */
-  MPI_Bcast(&need_flush, 1, MPI_INT, 0, scr_comm_world);
+    kvtree_hash_delete(&hash);
 
   return need_flush;
 }
 
 /* checks whether the specified dataset id is currently being flushed */
-int scr_flush_file_is_flushing(int id)
+int axl_flush_file_is_flushing(int id)
 {
   /* assume we are not flushing this checkpoint */
   int is_flushing = 0;
 
-  /* only rank 0 tests the file */
-  if (scr_my_rank_world == 0) {
+  // TODO: Cleas up paralleism
+
     /* read flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* attempt to look up the FLUSHING state for this checkpoint */
-    scr_hash* dset_hash = scr_hash_get_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash* flushing_hash = scr_hash_get_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, SCR_FLUSH_KEY_LOCATION_FLUSHING);
+    kvtree_hash* dset_hash = kvtree_hash_get_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash* flushing_hash = kvtree_hash_get_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, AXL_FLUSH_KEY_LOCATION_FLUSHING);
     if (flushing_hash != NULL) {
       is_flushing = 1;
     }
 
     /* delete the hash */
-    scr_hash_delete(&hash);
-  }
-
-  /* broadcast decision from rank 0 */
-  MPI_Bcast(&is_flushing, 1, MPI_INT, 0, scr_comm_world);
+    kvtree_hash_delete(&hash);
 
   return is_flushing;
 }
 
 /* removes entries in flush file for given dataset id */
-int scr_flush_file_dataset_remove(int id)
+int axl_flush_file_dataset_remove(int id)
 {
-  /* only rank 0 needs to write the file */
-  if (scr_my_rank_world == 0) {
+  // TODO: Clean up parallelism
+
     /* read the flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* delete this dataset id from the flush file */
-    scr_hash_unset_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
+    kvtree_hash_unset_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
 
     /* write the hash back to the flush file */
-    scr_hash_write_path(scr_flush_file, hash);
+    kvtree_hash_write_path(axl_flush_file, hash);
 
     /* delete the hash */
-    scr_hash_delete(&hash);
+    kvtree_hash_delete(&hash);
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* adds a location for the specified dataset id to the flush file */
-int scr_flush_file_location_set(int id, const char* location)
+int axl_flush_file_location_set(int id, const char* location)
 {
-  /* only rank 0 updates the file */
-  if (scr_my_rank_world == 0) {
+
+  //TODO: Clean up parallelism
+
     /* read the flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* set the location for this dataset */
-    scr_hash* dset_hash = scr_hash_set_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash_set_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, location);
+    kvtree_hash* dset_hash = kvtree_hash_set_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash_set_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, location);
 
     /* write the hash back to the flush file */
-    scr_hash_write_path(scr_flush_file, hash);
+    kvtree_hash_write_path(axl_flush_file, hash);
 
     /* delete the hash */
-    scr_hash_delete(&hash);
+    kvtree_hash_delete(&hash);
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
-/* returns SCR_SUCCESS if specified dataset id is at specified location */
-int scr_flush_file_location_test(int id, const char* location)
+/* returns AXL_SUCCESS if specified dataset id is at specified location */
+int axl_flush_file_location_test(int id, const char* location)
 {
-  /* only rank 0 checks the status, bcasts the results to everyone else */
+ // TODO: Clean up parallelism
   int at_location = 0;
-  if (scr_my_rank_world == 0) {
+
     /* read the flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* check the location for this dataset */
-    scr_hash* dset_hash = scr_hash_get_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash* value     = scr_hash_get_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, location);
+    kvtree_hash* dset_hash = kvtree_hash_get_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash* value     = kvtree_hash_get_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, location);
     if (value != NULL) {
       at_location = 1;
     }
 
     /* delete the hash */
-    scr_hash_delete(&hash);
-  }
-  MPI_Bcast(&at_location, 1, MPI_INT, 0, scr_comm_world);
+    kvtree_hash_delete(&hash);
 
   if (! at_location) {
-    return SCR_FAILURE;
+    return AXL_FAILURE;
   }
-  return SCR_SUCCESS;
+  return AXL_SUCCESS;
 }
 
 /* removes a location for the specified dataset id from the flush file */
-int scr_flush_file_location_unset(int id, const char* location)
+int axl_flush_file_location_unset(int id, const char* location)
 {
-  /* only rank 0 updates the file */
-  if (scr_my_rank_world == 0) {
+
+  // TODO: Clean up parallelism
+
     /* read the flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* unset the location for this dataset */
-    scr_hash* dset_hash = scr_hash_get_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash_unset_kv(dset_hash, SCR_FLUSH_KEY_LOCATION, location);
+    kvtree_hash* dset_hash = kvtree_hash_get_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash_unset_kv(dset_hash, AXL_FLUSH_KEY_LOCATION, location);
 
     /* write the hash back to the flush file */
-    scr_hash_write_path(scr_flush_file, hash);
+    kvtree_hash_write_path(axl_flush_file, hash);
 
     /* delete the hash */
-    scr_hash_delete(&hash);
-  }
-  return SCR_SUCCESS;
+    kvtree_hash_delete(&hash);
+
+  return AXL_SUCCESS;
 }
 
 /* create an entry in the flush file for a dataset for scavenge,
  * including name, location, and flags */
-int scr_flush_file_new_entry(int id, const char* name, const char* location, int ckpt, int output)
+int axl_flush_file_new_entry(int id, const char* name, const char* location, int ckpt, int output)
 {
-  /* only rank 0 updates the file */
-  if (scr_my_rank_world == 0) {
+
+  // TODO: Clean up parallelism
+
     /* read the flush file into hash */
-    scr_hash* hash = scr_hash_new();
-    scr_hash_read_path(scr_flush_file, hash);
+    kvtree_hash* hash = kvtree_hash_new();
+    kvtree_hash_read_path(axl_flush_file, hash);
 
     /* set the name, location, and flags for this dataset */
-    scr_hash* dset_hash = scr_hash_set_kv_int(hash, SCR_FLUSH_KEY_DATASET, id);
-    scr_hash_util_set_str(dset_hash, SCR_FLUSH_KEY_NAME, name);
-    scr_hash_util_set_str(dset_hash, SCR_FLUSH_KEY_LOCATION, location);
+    kvtree_hash* dset_hash = kvtree_hash_set_kv_int(hash, AXL_FLUSH_KEY_DATASET, id);
+    kvtree_hash_util_set_str(dset_hash, AXL_FLUSH_KEY_NAME, name);
+    kvtree_hash_util_set_str(dset_hash, AXL_FLUSH_KEY_LOCATION, location);
     if (ckpt) {
-      scr_hash_util_set_int(dset_hash, SCR_FLUSH_KEY_CKPT, ckpt);
+      kvtree_hash_util_set_int(dset_hash, AXL_FLUSH_KEY_CKPT, ckpt);
     }
     if (output) {
-      scr_hash_util_set_int(dset_hash, SCR_FLUSH_KEY_OUTPUT, output);
+      kvtree_hash_util_set_int(dset_hash, AXL_FLUSH_KEY_OUTPUT, output);
     }
 
     /* write the hash back to the flush file */
-    scr_hash_write_path(scr_flush_file, hash);
+    kvtree_hash_write_path(axl_flush_file, hash);
 
     /* delete the hash */
-    scr_hash_delete(&hash);
-  }
-  return SCR_SUCCESS;
-}
+    kvtree_hash_delete(&hash);
 
+  return AXL_SUCCESS;
+}
