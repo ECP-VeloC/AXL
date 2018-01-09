@@ -9,8 +9,13 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+#ifndef AXL_INTERNAL_H
+#define AXL_INTERNAL_H
+
 extern char* axl_transfer_file;
 extern char* axl_flush_file;
+extern int axl_flush_async_in_progress; /* tracks whether an async flush is currently underway */
+extern int axl_flush_async_dataset_id; /* tracks the id of the checkpoint being flushed */
 
 /*
 =========================================
@@ -94,3 +99,19 @@ void axl_dbg(int level, const char *fmt, ...);
 
 /* print error message to stdout */
 void scr_err(const char *fmt, ...);
+
+/*
+=========================================
+axl_flush.c functions
+========================================
+*/
+
+/* given a filemap and a dataset id, prepare and return a list of files to be flushed,
+ * also create corresponding directories and container files */
+int axl_flush_prepare(const scr_filemap* map, int id, scr_hash* file_list);
+
+/* given a dataset id that has been flushed, the list provided by axl_flush_prepare,
+ * and data to include in the summary file, complete the flush by writing the summary file */
+int scr_flush_complete(int id, scr_hash* file_list, scr_hash* data);
+
+#endif // AXL_INTERNAL_H
