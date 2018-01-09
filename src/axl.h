@@ -14,6 +14,12 @@
 
 #include "fu_filemap.h"
 
+#define AXL_MAJOR "0"
+#define AXL_MINOR "0"
+#define AXL_PATCH "1"
+#define AXL_VERSION "0.0.1"
+#define AXL_SUCCESS (0)
+
 /* do a synchronous flush operation */
 int axl_flush_sync(fu_filemap* map, int id);
 
