@@ -275,9 +275,7 @@ int axl_flush_async_stop()
 #endif
 
   /* this may take a while, so tell user what we're doing */
-  if (scr_my_rank_world == 0) {
-    scr_dbg(1, "axl_flush_async_stop_all: Stopping flush");
-  }
+  axl_dbg(1, "axl_flush_async_stop_all: Stopping flush");
 
   /* write stop command to transfer file */
   axl_flush_async_command_set(AXL_TRANSFER_KEY_COMMAND_STOP);
@@ -324,9 +322,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
   }
 
   /* this may take a while, so tell user what we're doing */
-  if (scr_my_rank_world == 0) {
-    scr_dbg(1, "axl_flush_async_start: Initiating flush of dataset %d", id);
-  }
+  axl_dbg(1, "axl_flush_async_start: Initiating flush of dataset %d", id);
 
   /* start timer */
   if (scr_my_rank_world == 0) {
@@ -348,18 +344,9 @@ int axl_flush_async_start(fu_filemap* map, int id)
   /* get list of files to flush and create directories */
   scr_flush_async_file_list = kvtree_new();
   if (scr_flush_prepare(map, id, scr_flush_async_file_list) != AXL_SUCCESS) {
-    if (scr_my_rank_world == 0) {
-      scr_err("axl_flush_async_start: Failed to prepare flush @ %s:%d",
+      axl_err("axl_flush_async_start: Failed to prepare flush @ %s:%d",
         __FILE__, __LINE__
       );
-      if (scr_log_enable) {
-        double time_end = axl_get_time();
-        double time_diff = time_end - scr_flush_async_time_start;
-        time_t now = scr_log_seconds();
-        scr_log_event("ASYNC FLUSH FAILED", "Failed to prepare flush",
-                      &id, &now, &time_diff);
-      }
-    }
     kvtree_delete(&scr_flush_async_file_list);
     scr_flush_async_file_list = NULL;
     return AXL_FAILURE;
@@ -426,7 +413,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
              scr_path_delete(&path_dest_file);
      }
      else{
-       scr_dbg(1,"-----file_hash was null BUG?-----'%s' @ %s:%d", file, __FILE__, __LINE__);
+       axl_dbg(1,"-----file_hash was null BUG?-----'%s' @ %s:%d", file, __FILE__, __LINE__);
 
      }
 
@@ -511,7 +498,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 {
 
 #ifdef HAVE_LIBCPPR
-  scr_dbg(1, "axl_flush_async_cppr_test being called by axl_flush_async_test \
+  axl_dbg(1, "axl_flush_async_cppr_test being called by axl_flush_async_test \
 @ %s:%d", __FILE__, __LINE__);
   return axl_flush_async_test_cppr(map, id, bytes);
 #endif
@@ -519,7 +506,7 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
   /* initialize bytes to 0 */
   *bytes = 0.0;
 
-  scr_dbg(1,"axl_flush_async_test called @ %s:%d", __FILE__, __LINE__);
+  axl_dbg(1,"axl_flush_async_test called @ %s:%d", __FILE__, __LINE__);
   /* assume the transfer is complete */
   int transfer_complete = 1;
 
@@ -550,11 +537,9 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
   //MPI_Allreduce(&bytes_written, bytes, 1, MPI_DOUBLE, MPI_SUM, scr_comm_world);
 
   /* determine whether the transfer is complete on all tasks */
-  if (scr_alltrue(transfer_complete)) {
-    if (scr_my_rank_world == 0) {
-      scr_dbg(0, "#demo AXL async daemon successfully transferred dset %d", id);
-    }
-    return AXL_SUCCESS;
+  if (transfer_complete) {
+      axl_dbg(0, "#demo AXL async daemon successfully transferred dset %d", id);
+      return AXL_SUCCESS;
   }
   return AXL_FAILURE;
 }
@@ -569,7 +554,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   int flushed = AXL_SUCCESS;
 
   /* TODO: have master tell each rank on node whether its files were written successfully */
-  scr_dbg(1,"axl_flush_async_complete called @ %s:%d", __FILE__, __LINE__);
+  axl_dbg(1,"axl_flush_async_complete called @ %s:%d", __FILE__, __LINE__);
   /* allocate structure to hold metadata info */
   kvtree* data = kvtree_new();
 
@@ -654,18 +639,19 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   scr_flush_async_file_list = NULL;
 
   /* stop timer, compute bandwidth, and report performance */
-  if (scr_my_rank_world == 0) {
+  // TODO: Clean up parallelism
+  //if (scr_my_rank_world == 0) {
     double time_end = axl_get_time();
     double time_diff = time_end - scr_flush_async_time_start;
     double bw = scr_flush_async_bytes / (1024.0 * 1024.0 * time_diff);
-    scr_dbg(1, "axl_flush_async_complete: %f secs, %e bytes, %f MB/s, %f MB/s per proc",
+    axl_dbg(1, "axl_flush_async_complete: %f secs, %e bytes, %f MB/s, %f MB/s per proc",
       time_diff, scr_flush_async_bytes, bw, bw/scr_ranks_world
     );
 
     /* log messages about flush */
     if (flushed == AXL_SUCCESS) {
       /* the flush worked, print a debug message */
-      scr_dbg(1, "axl_flush_async_complete: Flush of dataset %d succeeded", id);
+      axl_dbg(1, "axl_flush_async_complete: Flush of dataset %d succeeded", id);
 
       /* log details of flush */
       if (scr_log_enable) {
@@ -674,13 +660,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
       }
     } else {
       /* the flush failed, this is more serious so print an error message */
-      scr_err("axl_flush_async_complete: Flush failed");
-
-      /* log details of flush */
-      if (scr_log_enable) {
-        time_t now = scr_log_seconds();
-        scr_log_event("ASYNC FLUSH FAILED", NULL, &id, &now, &time_diff);
-      }
+      axl_err("axl_flush_async_complete: Flush failed");
     }
   }
 
@@ -699,12 +679,10 @@ int axl_flush_async_wait(fu_filemap* map)
         axl_flush_async_complete(map, scr_flush_async_dataset_id);
       } else {
         /* otherwise, sleep to get out of the way */
-        if (scr_my_rank_world == 0) {
-          scr_dbg(1, "Flush of checkpoint %d is %d%% complete",
+        axl_dbg(1, "Flush of checkpoint %d is %d%% complete",
             scr_flush_async_dataset_id,
             (int) (bytes / scr_flush_async_bytes * 100.0)
-          );
-        }
+        );
         usleep(10*1000*1000);
       }
     }

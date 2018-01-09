@@ -82,3 +82,15 @@ AXL Owned Keys
 #define AXL_FLUSH_KEY_NAME ("NAME")
 #define AXL_FLUSH_KEY_CKPT ("CKPT")
 #define AXL_FLUSH_KEY_OUTPUT ("OUTPUT")
+
+/*
+=========================================
+axl_err.c functions
+========================================
+*/
+
+/* print message to stdout if axl_debug is set and it is >= level */
+void axl_dbg(int level, const char *fmt, ...);
+
+/* print error message to stdout */
+void scr_err(const char *fmt, ...);
