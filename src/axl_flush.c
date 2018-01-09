@@ -115,7 +115,7 @@ int axl_flush_pick_writer(
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data */
+    /* if we have a right partner, send it our right-going data */
     int right = rank + step;
     if (right < ranks) {
       MPI_Isend(send, 3, MPI_INT, right, 0, comm, &request[k]);
@@ -127,7 +127,7 @@ int axl_flush_pick_writer(
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, merge his data with our result */
+    /* if we have a left partner, merge its data with our result */
     if (left >= 0) {
       /* reduce data into right-going buffer */
       send[SCR_FLUSH_SCAN_COUNT] += recv[SCR_FLUSH_SCAN_COUNT];

@@ -519,7 +519,7 @@ static int axl_flush_async_start_cppr(fu_filemap* map, int id)
   }
 
   /* have master on each node write the transfer file, everyone else
-   * sends data to him */
+   * sends data to it */
   if (scr_storedesc_cntl->rank == 0) {
     /* receive hash data from other processes on the same node
      * and merge with our data */
