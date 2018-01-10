@@ -81,15 +81,6 @@ int axl_flush_async_stop_datawarp(int id){
 #ifdef HAVE_DATAWARP
   if (axl_flush_async_in_progress){
     kvtree_elem* elem;
-    int complete = 0;
-    int pending = 0;
-    int deferred = 0;
-    int failed = 0;
-    int test_complete;
-    int test_pending;
-    int test_deferred;
-    int test_failed;
-
     kvtree* files = kvtree_getf(axl_flush_async_file_lists, "%s %d %s", AXL_HANDLE_UID, id, AXL_KEY_FILE);
     for (elem = kvtree_elem_first(files);
          elem != NULL;
