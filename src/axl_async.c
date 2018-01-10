@@ -303,9 +303,7 @@ int axl_flush_async_stop(fu_filemap* map, int id)
     kvtree_delete(&axl_flush_async_hash);
   }
 
-  char* id_str = char[20];
-  printf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
+  kvtree* file_list = kvtree_getf(axl_flush_async_file_lists, "%s %d", AXL_HANDLE_UID, id);
   if (file_list != NULL) {
     kvtree_delete(&file_list);
   }
@@ -348,11 +346,7 @@ int axl_flush_async_start(fu_filemap* map, int id)
   axl_flush_file_location_set(id, AXL_FLUSH_KEY_LOCATION_FLUSHING);
 
   /* get list of files to flush and create directories */
-  char* id_str = char[20];
-  sprintf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-  file_list = kvtree_new();
-
+  kvtree* file_list = kvtree_getf(axl_flush_async_file_lists, "%s %d", AXL_HANDLE_UID, id);  file_list = kvtree_new();
   if (scr_flush_prepare(map, id, file_list) != AXL_SUCCESS) {
       axl_err("axl_flush_async_start: Failed to prepare flush @ %s:%d",
         __FILE__, __LINE__
@@ -569,10 +563,7 @@ int axl_flush_async_complete(fu_filemap* map, int id)
   kvtree* data = kvtree_new();
 
   /* fill in metadata info for the files this process flushed */
-  char* id_str = char[20];
-  sprintf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-
+  kvtree* file_list = kvtree_getf(axl_flush_async_file_lists, "%s %d", AXL_HANDLE_UID, id);
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   kvtree_elem* elem = NULL;
   for (elem = kvtree_elem_first(files);

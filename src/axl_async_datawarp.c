@@ -23,11 +23,7 @@ int axl_flush_async_start_datawarp(fu_filemap* map, int id){
   /* For each file figure out where it goes */
   kvtree_elem* elem;
 
-  char* id_str = char[20];
-  sprintf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-
-  kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
+  kvtree* files = kvtree_getf(axl_flush_async_file_lists, "%s %d %s", AXL_HANDLE_UID, id, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
        elem = kvtree_elem_next(elem))
@@ -94,11 +90,7 @@ int axl_flush_async_stop_datawarp(fu_filemap* map, int id){
     int test_deferred;
     int test_failed;
 
-    char* id_str = char[20];
-    sprintf(id_str, "%d", id);
-    kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-
-    kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
+    kvtree* files = kvtree_getf(axl_flush_async_file_lists, "%s %d %s", AXL_HANDLE_UID, id, AXL_KEY_FILE);
     for (elem = kvtree_elem_first(files);
          elem != NULL;
          elem = kvtree_elem_next(elem))
@@ -128,11 +120,7 @@ int axl_flush_async_test_datawarp(fu_filemap* map, int id){
   int test_deferred;
   int test_failed;
 
-  char* id_str = char[20];
-  printf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-
-  kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
+  kvtree* files = kvtree_getf(axl_flush_async_file_lists, "%s %d %s", AXL_HANDLE_UID, id, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
        elem = kvtree_elem_next(elem))
@@ -173,11 +161,7 @@ int axl_flush_async_wait_datawarp(fu_filemap* map, int id){
   kvtree_elem* elem = NULL;
   int dw_wait = 0;
 
-  char* id_str = char[20];
-  printf(id_str, "%d", id);
-  kvtree* file_list = kvtree_get(axl_flush_async_file_lists, id_str);
-
-  kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
+  kvtree* files = kvtree_getf(axl_async_flush_file_lists, "%s %d %s", AXL_HANDLE_UID, id, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
        elem = kvtree_elem_next(elem))
