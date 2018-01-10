@@ -14,6 +14,12 @@
 
 #define AXL_SUCCESS (0)
 
+typedef enum { AXL_XFER_DAEMON,
+               AXL_XFER_SYNC,
+               AXL_XFER_DATAWARP,
+               AXL_XFER_CPPR,
+               AXL_XFER_BBAPI } axl_xfer_t;
+
 /* Read configuration from non-AXL-specific file
  * Also, start up vendor specific services */
 int AXL_Init (char* conf_file);

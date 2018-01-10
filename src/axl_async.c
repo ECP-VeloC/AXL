@@ -270,7 +270,7 @@ static int axl_flush_async_file_clear_all()
 
 /* stop all ongoing asynchronous flush operations */
 // TODO: Caller must check value of scr_flush
-int axl_flush_async_stop(fu_filemap* map, int id)
+int axl_flush_async_stop(int id, axl_xfer_t TYPE)
 {
   /* cppr: just call wait_all, once complete, set state, notify everyone */
   /*  cppr_return_t cppr_wait_all(uint32_t count,
@@ -315,7 +315,7 @@ int axl_flush_async_stop(fu_filemap* map, int id)
 /* start an asynchronous flush from cache to parallel file
  * system under SCR_PREFIX */
 // TODO: Caller must check value of scr_flush
-int axl_flush_async_start(fu_filemap* map, int id)
+int axl_flush_async_start(fu_filemap* map, int id, axl_xfer_t TYPE)
 {
 #ifdef HAVE_LIBCPPR
   return axl_flush_async_start_cppr(map, id) ;
@@ -499,13 +499,13 @@ int axl_flush_async_start(fu_filemap* map, int id)
 
 /* check whether the flush from cache to parallel file system has completed */
 // TODO: Caller must check value of scr_flush
-int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
+int axl_flush_async_test(int id, double* bytes, axl_xfer_t TYPE)
 {
 
 #ifdef HAVE_LIBCPPR
   axl_dbg(1, "axl_flush_async_cppr_test being called by axl_flush_async_test \
 @ %s:%d", __FILE__, __LINE__);
-  return axl_flush_async_test_cppr(map, id, bytes);
+  return axl_flush_async_test_cppr(id, bytes);
 #endif
 
   /* initialize bytes to 0 */
@@ -551,10 +551,10 @@ int axl_flush_async_test(fu_filemap* map, int id, double* bytes)
 
 /* complete the flush from cache to parallel file system */
 // TODO: Caller must check value of scr_flush
-int axl_flush_async_complete(fu_filemap* map, int id)
+int axl_flush_async_complete(int id, axl_xfer_t TYPE)
 {
 #ifdef HAVE_LIBCPPR
-  return axl_flush_async_complete_cppr(map, id);
+  return axl_flush_async_complete_cppr(id);
 #endif
   int flushed = AXL_SUCCESS;
 
@@ -670,15 +670,15 @@ int axl_flush_async_complete(fu_filemap* map, int id)
 }
 
 /* wait until the checkpoint currently being flushed completes */
-int axl_flush_async_wait(fu_filemap* map)
+int axl_flush_async_wait(int id, axl_xfer_t TYPE)
 {
   if (axl_flush_async_in_progress) {
     while (scr_flush_file_is_flushing(axl_flush_async_dataset_id)) {
       /* test whether the flush has completed, and if so complete the flush */
       double bytes = 0.0;
-      if (axl_flush_async_test(map, axl_flush_async_dataset_id, &bytes) == AXL_SUCCESS) {
+      if (axl_flush_async_test(id, &bytes, TYPE) == AXL_SUCCESS) {
         /* complete the flush */
-        axl_flush_async_complete(map, axl_flush_async_dataset_id);
+        axl_flush_async_complete(id, TYPE);
       } else {
         /* otherwise, sleep to get out of the way */
         axl_dbg(1, "Flush of checkpoint %d is %d%% complete",
@@ -719,7 +719,7 @@ int axl_flush_async_init(char* cntl_dir){
   axl_free(&axl_cntl_dir);
 
   /* wait until transfer daemon is stopped */
-  axl_flush_async_stop();
+  axl_flush_async_stop(id, TYPE);
 
   /* clear out the file */
   /* done by all ranks (to avoid mpi dependency)

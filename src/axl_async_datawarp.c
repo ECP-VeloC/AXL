@@ -18,7 +18,7 @@
 #include "datawarp.h"
 #endif
 
-int axl_flush_async_start_datawarp(fu_filemap* map, int id){
+int axl_flush_async_start_datawarp(int id){
 #ifdef HAVE_DATAWARP
   /* For each file figure out where it goes */
   kvtree_elem* elem;
@@ -71,13 +71,13 @@ int axl_flush_async_start_datawarp(fu_filemap* map, int id){
 }
 
 
-int axl_flush_async_complete_datawarp(fu_filemap* map, int id){
+int axl_flush_async_complete_datawarp(int id){
   /* no datawarp specific code for async complete */
   return AXL_SUCCESS;
 }
 
 
-int axl_flush_async_stop_datawarp(fu_filemap* map, int id){
+int axl_flush_async_stop_datawarp(int id){
 #ifdef HAVE_DATAWARP
   if (axl_flush_async_in_progress){
     kvtree_elem* elem;
@@ -105,7 +105,7 @@ int axl_flush_async_stop_datawarp(fu_filemap* map, int id){
 }
 
 
-int axl_flush_async_test_datawarp(fu_filemap* map, int id){
+int axl_flush_async_test_datawarp(int id){
 #ifdef HAVE_DATAWARP
   /* assume transfer is complete */
   int transfer_complete = 1;
@@ -155,7 +155,7 @@ int axl_flush_async_test_datawarp(fu_filemap* map, int id){
 }
 
 
-int axl_flush_async_wait_datawarp(fu_filemap* map, int id){
+int axl_flush_async_wait_datawarp(int id){
 #ifdef HAVE_DATAWARP
   /* Get the list of files */
   kvtree_elem* elem = NULL;
@@ -175,7 +175,7 @@ int axl_flush_async_wait_datawarp(fu_filemap* map, int id){
 		    );
     }
   }
-  return axl_flush_async_complete(map, id, AXL_XFER_DATAWARP);
+  return axl_flush_async_complete(id, AXL_XFER_DATAWARP);
 #else
   return AXL_FAILURE;
 #endif
