@@ -12,7 +12,7 @@
 #include "axl_internal.h"
 
 /* synchonous flush of files */
-int axl_flush_file_lists (int id) {
+int axl_flush_sync_start (int id) {
 
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
@@ -37,6 +37,7 @@ int axl_flush_file_lists (int id) {
             continue;
         }
 
+        /* Copy the file */
         char* destination;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
         tmp_rc = axl_file_copy(src_file, dst_file, axl_file_buf_size, NULL);
@@ -46,7 +47,7 @@ int axl_flush_file_lists (int id) {
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_ERROR);
             flushed = AXL_FAILURE;
         }
-        axl_dbg(2, "axl_flush_file_lists: Read and copied %s to %s with success code %d @ %s:%d",
+        axl_dbg(2, "axl_flush_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
                 src_file, dst_file, tmp_rc, __FILE__, __LINE__
                 );
     }

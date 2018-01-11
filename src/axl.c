@@ -15,17 +15,7 @@
 // uLong type for CRCs
 #include <zlib.h>
 
-#ifdef HAVE_CPPR
-#include "cppr.h"
-#endif /* HAVE_CPPR */
-
-typedef enum {
-    AXL_XFER_SYNC,
-    AXL_XFER_ASYNC_DAEMON,
-    AXL_XFER_ASYNC_DW,
-    AXL_XFER_ASYNC_BBAPI,
-    AXL_XFER_ASYNC_CPPR,
-} axl_xfer_t;
+#include "axl_internal.h"
 
 /*
 =========================================
@@ -43,7 +33,7 @@ char* axl_transfer_file = NULL;
 static int axl_next_handle_UID = -1;
 
 /* tracks list of files written with flush */
-static kvtree* axl_flush_async_file_lists = NULL;
+kvtree* axl_flush_async_file_lists = NULL;
 
 /*
 =========================================
@@ -247,7 +237,7 @@ int AXL_Dispatch (int id) {
      * all well as AXL_KEY_FILE_STATUS for each file */
     switch (xtype) {
     case AXL_XFER_SYNC:
-        return axl_flush_file_list(id);
+        return axl_flush_sync_start(id);
     case AXL_XFER_ASYNC_DAEMON:
         return axl_flush_async_start_daemon(id);
     case AXL_XFER_ASYNC_DW:
