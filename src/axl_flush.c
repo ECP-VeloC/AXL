@@ -107,7 +107,7 @@ int axl_flush_pick_writer(
   while (step < ranks) {
     int k = 0;
 
-    /* if we have a left partner, recv his right-going data */
+    /* if we have a left partner, recv its right-going data */
     int left = rank - step;
     if (left >= 0) {
       MPI_Irecv(recv, 3, MPI_INT, left, 0, comm, &request[k]);
