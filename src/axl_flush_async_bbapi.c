@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2009, Lawrence Livermore National Security, LLC.
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by Elsa Gonsiorowski <gonsie@llnl.gov>.
+ * LLNL-CODE-411039.
+ * All rights reserved.
+ * This file is part of The Scalable Checkpoint / Restart (SCR) library.
+ * For details, see https://sourceforge.net/projects/scalablecr/
+ * Please also read this file: LICENSE.TXT.
+*/
+
 #include <bbapi.h>
 #define AXL_IBM_TAG_OFFSET (100)
 
