@@ -19,6 +19,11 @@ extern char* axl_flush_file;
 extern int axl_flush_async_in_progress; /* tracks whether an async flush is currently underway */
 extern int axl_flush_async_dataset_id; /* tracks the id of the checkpoint being flushed */
 
+/* AXL internal data structure
+ * this structure is accessed by the each transfer interface
+ * any changes of the existing structure must be documented */
+extern kvtree* axl_async_flush_file_lists;
+
 // "KEYS"
 #define AXL_KEY_HANDLE_UID ("handle_uid")
 #define AXL_KEY_UNAME ("uname")
