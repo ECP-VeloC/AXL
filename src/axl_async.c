@@ -316,6 +316,7 @@ int axl_flush_async_stop(int id, axl_xfer_t TYPE)
  * system under SCR_PREFIX */
 // TODO: Caller must check value of scr_flush
 int axl_flush_async_start(fu_filemap* map, int id, axl_xfer_t TYPE)
+
 {
 #ifdef HAVE_LIBCPPR
   return axl_flush_async_start_cppr(map, id) ;
