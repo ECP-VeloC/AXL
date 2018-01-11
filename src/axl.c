@@ -288,8 +288,8 @@ int AXL_Test(int id) {
 
     switch (xtype) {
     case AXL_XFER_SYNC:
-        // error: sync should never be inprogress
-        return AXL_FAILURE;
+        // Weird case: sync was on going
+        return axl_flush_sync_test(id);
     case AXL_XFER_ASYNC_DAEMON:
         return axl_flush_async_test_daemon(id);
     case AXL_XFER_ASYNC_DW:
@@ -304,8 +304,40 @@ int AXL_Test(int id) {
 /* BLOCKING
  * Wait for a transfer to complete */
 int AXL_Wait (int id) {
-    axl_abort("ABORT ABORT SYNC DIDNT WORK");
-    return AXL_SUCCESS;
+
+    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (file_list == NULL) {
+        axl_err("AXL_Wait failed: could not find fileset UID=%d", id);
+        return AXL_FAILURE;
+    }
+
+    axl_xfer_t xtype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
+
+    int status;
+    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
+    if (status == AXL_STATUS_DEST) {
+        return AXL_SUCCESS;
+    } else if (status == AXL_STATUS_ERROR) {
+        return AXL_FAILURE;
+    } else if (status == AXL_STATUS_SOURCE) {
+        axl_err("AXL_Wait failed: testing a transfer which was never started UID=%d", id);
+        return AXL_FAILURE;
+    } // else (status == AXL_STATUS_INPROG) send to XFER interfaces
+
+    switch (xtype) {
+    case AXL_XFER_SYNC:
+        // Weird case: sync was on going
+        return axl_flush_sync_wait(id);
+    case AXL_XFER_ASYNC_DAEMON:
+        return axl_flush_async_wait_daemon(id);
+    case AXL_XFER_ASYNC_DW:
+        return axl_flush_async_wait_datawarp(id);
+    case AXL_XFER_ASYNC_BBAPI:
+        return axl_flush_async_wait_bbapi(id);
+    case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_wait_cppr(id);
+    }
 }
 
 /* Cancel an existing transfer */

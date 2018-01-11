@@ -62,5 +62,10 @@ int axl_flush_file_lists (int id) {
 
 int axl_flush_sync_test (int id) {
     // something when really wrong, but let's just keep flushing
-    return axl_flush_sync_start (int id);
+    return axl_flush_sync_start(id);
+}
+
+int axl_flush_sync_wait (int id) {
+    // something when really wrong, but let's just keep flushing
+    return axl_flush_sync_start(id);
 }
