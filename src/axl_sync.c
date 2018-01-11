@@ -15,6 +15,7 @@
 int axl_flush_file_lists (int id) {
 
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
     int flushed = AXL_SUCCESS;
 
@@ -27,9 +28,17 @@ int axl_flush_file_lists (int id) {
 
         /* get the hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
+
+        /* WEIRD case: we've restarted a sync flush that was going */
+        int status;
+        kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
+        if (status == AXL_FLUSH_STATUS_DEST) {
+            /* this file was already flushed */
+            continue;
+        }
+
         char* destination;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
-
         tmp_rc = axl_file_copy(src_file, dst_file, axl_file_buf_size, NULL);
         if (tmp_rc == AXL_SUCCESS) {
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_DEST);
@@ -49,4 +58,9 @@ int axl_flush_file_lists (int id) {
     }
 
     return flushed;
+}
+
+int axl_flush_sync_test (int id) {
+    // something when really wrong, but let's just keep flushing
+    return axl_flush_sync_start (int id);
 }
