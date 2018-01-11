@@ -184,9 +184,8 @@ int AXL_Add (int id, char* source, char* destination) {
     axl_xfer_t xtype;
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
 
-
-    kvtree_setf(file_list, NULL, "%s %s %s", AXL_KEY_FILES, source, AXL_KEY_FILE_DEST, destination);
-    kvtree_setf(file_list, NULL, "%s %s %s", AXL_KEY_FILES, source, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
+    kvtree_setf(file_list, NULL, "%s %s %s %s", AXL_KEY_FILES, source, AXL_KEY_FILE_DEST, destination);
+    kvtree_setf(file_list, NULL, "%s %s %s %d", AXL_KEY_FILES, source, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
 
     switch (xtype) {
     case AXL_XFER_SYNC:
