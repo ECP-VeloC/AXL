@@ -20,7 +20,7 @@ int axl_flush_async_complete_bbapi(int id);
 int axl_flush_async_stop_bbapi(int id);
 int axl_flush_async_test_bbapi(int id);
 int axl_flush_async_wait_bbapi(int id);
-int axl_flush_async_add_bbapi(int id);
+int axl_flush_async_add_bbapi(int id, char* source, char* destination);
 int axl_flush_async_init_bbapi(void);
 int axl_flush_async_finalize_bbapi(void);
 

@@ -37,8 +37,8 @@ struct axl_cppr_info {
   char *src_dir;
   char *dst_dir;
   char *filename;
-  bool has_completed;
-  bool alloced;
+  int has_completed;
+  int alloced;
   unsigned long filesize;
 
   /* below is a placeholder */
@@ -71,8 +71,9 @@ static int axl_cppr_currently_alloced = 0;
  * lengths of the two arrays will always be the same */
 static void __free_axl_cppr_info(struct axl_cppr_info *metadata_ptr, struct cppr_op_info *handles_ptr, const int length);
 
-static int axl_flush_async_test_cppr(fu_filemap* map, int id, double* bytes);
-static int axl_flush_async_complete_cppr(fu_filemap* map, int id);
-static int axl_flush_async_stop_cppr(void);
-static int axl_flush_async_start_cppr(fu_filemap* map, int id);
-static int axl_init_cppr();
+int axl_flush_async_test_cppr(int id);
+int axl_flush_async_complete_cppr(int id);
+int axl_flush_async_stop_cppr(int id);
+int axl_flush_async_start_cppr(int id);
+int axl_flush_async_init_cppr(void);
+int axl_flush_async_finalize_cppr(void);

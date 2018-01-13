@@ -9,13 +9,27 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+#include <stdlib.h>
+#include <string.h>
+
 // dirname and basename
 #include <libgen.h>
 
 // uLong type for CRCs
 #include <zlib.h>
 
+// axl_xfer_t
+#include "axl.h"
+
+// kvtree & everything else
 #include "axl_internal.h"
+
+// xfer methods
+#include "axl_sync.h"
+#include "axl_async_bbapi.h"
+#include "axl_async_cppr.h"
+#include "axl_async_daemon.h"
+#include "axl_async_datawarp.h"
 
 /*
 =========================================
@@ -43,7 +57,7 @@ Helper Functions
 
 // TODO: implement this
 axl_xfer_t axl_parse_type_string (char* type) {
-    return SYNC;
+    return AXL_XFER_SYNC;
 }
 
 /*
@@ -68,18 +82,15 @@ int AXL_Init (char* conf_file) {
     strcpy(axl_flush_file, axl_cntl_dir);
     strcat(axl_flush_file, axl_flush_file_name);
 
-    switch (xtype) {
-    case AXL_XFER_SYNC:
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_init_daemon();
-    case AXL_XFER_ASYNC_DW:
-        break;
-    case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_init_bbapi();
-    case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_init_cppr();
-    }
+#ifdef HAVE_DAEMON
+    return axl_flush_async_init_daemon();
+#endif
+#ifdef HAVE_BBAPI
+    return axl_flush_async_init_bbapi();
+#endif
+#ifdef HAVE_LIBCPPR
+    return axl_flush_async_init_cppr();
+#endif
 
     return AXL_SUCCESS;
 }
@@ -88,18 +99,15 @@ int AXL_Init (char* conf_file) {
 int AXL_Finalize (void) {
     axl_file_unlink(axl_flush_file);
 
-    switch (xtype) {
-    case AXL_XFER_SYNC:
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_finalize_daemon();
-    case AXL_XFER_ASYNC_DW:
-        break;
-    case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_finalize_bbapi();
-    case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_finalize_cppr();
-    }
+#ifdef HAVE_DAEMON
+    return axl_flush_async_finalize_daemon();
+#endif
+#ifdef HAVE_BBAPI
+    return axl_flush_async_finalize_bbapi();
+#endif
+#ifdef HAVE_LIBCPPR
+    return axl_flush_async_finalize_cppr();
+#endif
 
     return AXL_SUCCESS;
 }
@@ -114,11 +122,11 @@ int AXL_Create (char* type, const char* name) {
     axl_xfer_t xtype = axl_parse_type_string(type);
 
     /* Generate next unique ID */
-    int cur_id = ++axl_next_handle_UID;
+    int id = ++axl_next_handle_UID;
 
     /* Create an entry for this transfer handle
      * record user string and transfer type */
-    kvtree* file_list = kvtree_util_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, cur_id);
+    kvtree* file_list = kvtree_util_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
@@ -138,12 +146,12 @@ int AXL_Create (char* type, const char* name) {
         break;
     }
 
-    return cur_id;
+    return id;
 }
 
 /* Add a file to an existing transfer handle */
 int AXL_Add (int id, char* source, char* destination) {
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Add failed: could not find fileset for UID %d", id);
         return AXL_FAILURE;
@@ -163,7 +171,7 @@ int AXL_Add (int id, char* source, char* destination) {
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_add_file_bbapi(id, source, destination);
+        return axl_flush_async_add_bbapi(id, source, destination);
     case AXL_XFER_ASYNC_CPPR:
         break;
     }
@@ -245,11 +253,11 @@ int AXL_Test(int id) {
 
     int status;
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
-    if (status == AXL_STATUS_DEST) {
+    if (status == AXL_FLUSH_STATUS_DEST) {
         return 1;
-    } else if (status == AXL_STATUS_ERROR) {
+    } else if (status == AXL_FLUSH_STATUS_ERROR) {
         return AXL_FAILURE;
-    } else if (status == AXL_STATUS_SOURCE) {
+    } else if (status == AXL_FLUSH_STATUS_SOURCE) {
         axl_err("AXL_Test failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } // else (status == AXL_STATUS_INPROG) send to XFER interfaces
@@ -284,11 +292,11 @@ int AXL_Wait (int id) {
 
     int status;
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
-    if (status == AXL_STATUS_DEST) {
+    if (status == AXL_FLUSH_STATUS_DEST) {
         return AXL_SUCCESS;
-    } else if (status == AXL_STATUS_ERROR) {
+    } else if (status == AXL_FLUSH_STATUS_ERROR) {
         return AXL_FAILURE;
-    } else if (status == AXL_STATUS_SOURCE) {
+    } else if (status == AXL_FLUSH_STATUS_SOURCE) {
         axl_err("AXL_Wait failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } // else (status == AXL_STATUS_INPROG) send to XFER interfaces

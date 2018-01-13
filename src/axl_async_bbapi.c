@@ -74,7 +74,7 @@ int axl_flush_async_create_bbapi(int id) {
 
 /* Called from AXL_Add
  * Adds file source/destination to BBTransferDef */
-int axl_flush_async_add_file_bbapi (int id, char* source, char* destination) {
+int axl_flush_async_add_bbapi (int id, char* source, char* destination) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_util_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
 

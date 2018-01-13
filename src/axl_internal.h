@@ -55,7 +55,7 @@ void axl_dbg(int level, const char *fmt, ...);
 void axl_err(const char *fmt, ...);
 
 /* print abort message and kill run */
-void axl_abort(int rc, const char *fmt, ...)
+void axl_abort(int rc, const char *fmt, ...);
 
 /*
 =========================================
@@ -87,6 +87,6 @@ axl_util.c functions
 */
 
 extern size_t axl_file_buf_size;
-int axl_read_config(void);
+int axl_read_config(char *cntl_dir);
 
 #endif // AXL_INTERNAL_H
