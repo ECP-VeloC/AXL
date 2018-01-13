@@ -41,6 +41,7 @@ Helper Functions
 ========================================
 */
 
+// TODO: implement this
 axl_xfer_t axl_parse_type_string (char* type) {
     return SYNC;
 }
@@ -61,67 +62,44 @@ int AXL_Init (char* conf_file) {
     char* axl_cntl_dir;
     axl_read_config(axl_cntl_dir);
 
+    // TODO: what is the flush file for?
     char* axl_flush_file_name = "/axl_flush.info";
     axl_flush_file = malloc(strlen(axl_cntl_dir) + strlen(axl_flush_file_name));
     strcpy(axl_flush_file, axl_cntl_dir);
     strcat(axl_flush_file, axl_flush_file_name);
 
-#ifdef HAVE_DAEMON
-    /* daemon stuff */
-    char* axl_transfer_file_name = "/axl_transfer.info";
-    axl_transfer_file = malloc(strlen(axl_cntl_dir) + strlen(axl_transfer_file_name));
-    strcpy(axl_transfer_file, axl_cntl_dir);
-    strcat(axl_transfer_file, axl_transfer_file_name);
-
-    axl_free(&axl_cntl_dir);
-
-    /* wait until transfer daemon is stopped */
-    axl_flush_async_stop();
-
-    /* clear out the file */
-    /* done by all ranks (to avoid mpi dependency)
-     * Could go back to one/node (or other storage desc as appropriate
-     */
-    axl_file_unlink(axl_transfer_file);
-#endif
-
-#ifdef HAVE_LIBCPPR
-    /* attempt to init cppr */
-    int cppr_ret = cppr_status();
-    if (cppr_ret != CPPR_SUCCESS) {
-        axl_abort(-1, "libcppr cppr_status() failed: %d '%s' @ %s:%d",
-                  cppr_ret, cppr_err_to_str(cppr_ret), __FILE__, __LINE__
-                  );
+    switch (xtype) {
+    case AXL_XFER_SYNC:
+        break;
+    case AXL_XFER_ASYNC_DAEMON:
+        return axl_flush_async_init_daemon();
+    case AXL_XFER_ASYNC_DW:
+        break;
+    case AXL_XFER_ASYNC_BBAPI:
+        return axl_flush_async_init_bbapi();
+    case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_init_cppr();
     }
-    axl_dbg(1, "#bold CPPR is present @ %s:%d", __FILE__, __LINE__);
-#endif /* HAVE_LIBCPPR */
 
-#ifdef HAVE_BBAPI
-    // TODO: BBAPI wants MPI rank information here?
-    int rank = 0;
-    int bbapi_ret = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
-    if (bbapi_ret != 0) {
-        axl_abort(-1, "BBAPI Failed to initialize");
-    }
-#endif
-
-  return AXL_SUCCESS;
+    return AXL_SUCCESS;
 }
 
 /* Shutdown any vendor services */
 int AXL_Finalize (void) {
-#ifdef HAVE_DAEMON
-    axl_free(&axl_transfer_file);
-#endif
     axl_file_unlink(axl_flush_file);
 
-#ifdef HAVE_LIBCPPR
-
-#endif
-
-#ifdef HAVE_BBAPI
-    int rc = BB_TerminateLibrary();
-#endif
+    switch (xtype) {
+    case AXL_XFER_SYNC:
+        break;
+    case AXL_XFER_ASYNC_DAEMON:
+        return axl_flush_async_finalize_daemon();
+    case AXL_XFER_ASYNC_DW:
+        break;
+    case AXL_XFER_ASYNC_BBAPI:
+        return axl_flush_async_finalize_bbapi();
+    case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_finalize_cppr();
+    }
 
     return AXL_SUCCESS;
 }

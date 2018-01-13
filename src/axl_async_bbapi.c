@@ -30,6 +30,27 @@ static int bb_check(int rc) {
 }
 #endif
 
+/* Called from AXL_Init */
+int axl_flush_async_init_bbapi(void) {
+#ifdef HAVE_BBAPI
+    // TODO: BBAPI wants MPI rank information here?
+    int rank = 0;
+    int rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
+    return bb_check(rc);
+#endif
+    return AXL_FAILURE;
+}
+
+/* Called from AXL_Finalize */
+int axl_flush_async_finalize_bbapi(void) {
+#ifdef HAVE_BBAPI
+    int rc = BB_TerminateLibrary();
+    return bb_check(rc);
+#endif
+    return AXL_FAILURE;
+}
+
+
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_flush_async_create_bbapi(int id) {

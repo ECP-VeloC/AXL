@@ -782,10 +782,16 @@ END: CPPR Asynchronous flush wrapper functions
 */
 
 static int axl_init_cppr() {
+#ifdef HAVE_LIBCPPR
     /* attempt to init cppr */
     int cppr_ret = cppr_status();
     if (cppr_ret != CPPR_SUCCESS) {
-        scr_abort(-1, "libcppr cppr_status() failed: %d '%s' @ %s:%d", cppr_ret, cppr_err_to_str(cppr_ret), __FILE__, __LINE__);
+        axl_abort(-1, "libcppr cppr_status() failed: %d '%s' @ %s:%d",
+                  cppr_ret, cppr_err_to_str(cppr_ret), __FILE__, __LINE__
+                  );
     }
-    scr_dbg(1, "#bold CPPR is present @ %s:%d", __FILE__, __LINE__);
+    axl_dbg(1, "#bold CPPR is present @ %s:%d", __FILE__, __LINE__);
+    return AXL_SUCCESS;
+#endif /* HAVE_LIBCPPR */
+    return AXL_FAILURE;
 }
