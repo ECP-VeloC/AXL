@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
- * Written by Adam Moody <moody20@llnl.gov>.
+ * Written by Greg Becker <becker33@llnl.gov>.
  * LLNL-CODE-411039.
  * All rights reserved.
  * This file was originally part of The Scalable Checkpoint / Restart (SCR) library.
@@ -9,10 +9,11 @@
  * Please also read this file: LICENSE.TXT.
 */
 
-#include "axl_async_datawarp.h"
 #include "kvtree.h"
-#include "fu_meta.h"
 #include "axl_internals.h"
+
+// TODO: technically not needed
+#include "axl_async_datawarp.h"
 
 #ifdef HAVE_DATAWARP
 #include "datawarp.h"
