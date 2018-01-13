@@ -12,12 +12,12 @@
 #ifndef AXL_INTERNAL_H
 #define AXL_INTERNAL_H
 
+#include "kvtree.h"
+
 #define AXL_FAILURE (1)
 
 extern char* axl_transfer_file;
 extern char* axl_flush_file;
-extern int axl_flush_async_in_progress; /* tracks whether an async flush is currently underway */
-extern int axl_flush_async_dataset_id; /* tracks the id of the checkpoint being flushed */
 
 /* AXL internal data structure
  * this structure is accessed by the each transfer interface
@@ -35,10 +35,6 @@ extern kvtree* axl_async_flush_file_lists;
 #define AXL_KEY_FILE_STATUS ("file_status")
 #define AXL_KEY_FILE_CRC ("file_crc")
 
-// VENDOR "KEYS"
-#define AXL_BBAPI_KEY_TRANSFERHANDLE ("BB_TransferHandle")
-#define AXL_BBAPI_KEY_TRANSFERDEF ("BB_TransferDef")
-
 // FLUSH STATUSES
 #define AXL_FLUSH_STATUS_SOURCE (1)
 #define AXL_FLUSH_STATUS_INPROG (2)
@@ -48,6 +44,7 @@ extern kvtree* axl_async_flush_file_lists;
 /*
 =========================================
 axl_err.c functions
+Note: these functions are taken directly from SCR
 ========================================
 */
 
@@ -74,6 +71,7 @@ int scr_flush_complete(int id, scr_hash* file_list, scr_hash* data);
 /*
 =========================================
 axl_io.c functions
+Note: these functions are taken directly from SCR
 ========================================
 */
 

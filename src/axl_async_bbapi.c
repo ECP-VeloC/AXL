@@ -9,6 +9,8 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+#include "axl_internal.h"
+
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
 #define AXL_IBM_TAG_OFFSET (100)
@@ -186,6 +188,22 @@ int axl_flush_async_wait_bbapi (int id) {
     } else {
         return AXL_FAILURE
     }
+#endif
+    return AXL_FAILURE;
+}
+
+int axl_flush_async_stop_bbapi (int id) {
+#ifdef HAVE_BBAPI
+    // TODO: implement
+    return AXL_SUCCESS;
+#endif
+    return AXL_FAILURE;
+}
+
+int axl_flush_async_complete_bbapi (int id) {
+#ifdef HAVE_BBAPI
+    // TODO: implement
+    return AXL_SUCCESS;
 #endif
     return AXL_FAILURE;
 }
