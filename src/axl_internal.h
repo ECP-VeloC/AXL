@@ -54,6 +54,9 @@ void axl_dbg(int level, const char *fmt, ...);
 /* print error message to stdout */
 void axl_err(const char *fmt, ...);
 
+/* print abort message and kill run */
+void axl_abort(int rc, const char *fmt, ...)
+
 /*
 =========================================
 axl_io.c functions

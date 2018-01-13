@@ -48,3 +48,22 @@ void axl_err(const char *fmt, ...)
   va_end(argp);
   fprintf(stdout, "\n");
 }
+
+/* print abort message and kill run */
+void axl_abort(int rc, const char *fmt, ...)
+{
+  /* get my hostname */
+  char hostname[256];
+  if (gethostname(hostname, sizeof(hostname)) != 0) {
+    /* TODO: error! */
+  }
+
+  va_list argp;
+  fprintf(stderr, "AXL %s ABORT: %s: ", SCR_ERR_VERSION, hostname);
+  va_start(argp, fmt);
+  vfprintf(stderr, fmt, argp);
+  va_end(argp);
+  fprintf(stderr, "\n");
+
+  exit(rc);
+}
