@@ -10,8 +10,7 @@
 */
 
 #include "kvtree.h"
-#include "scr_globals.h"
-#include "axl_internals.h"
+#include "axl_internal.h"
 
 /** NOP all functions. Code is available in scr in scr_flush_async.c */
 int axl_flush_async_test_daemon(int id) {
@@ -36,7 +35,7 @@ int axl_flush_async_complete_daemon(int id){
 
 int axl_flush_async_init_daemon(){
 
-#ifdef 0
+#if 0
     //#ifdef HAVE_DAEMON
     /* daemon stuff */
     char* axl_transfer_file_name = "/axl_transfer.info";

@@ -72,6 +72,7 @@ static int axl_cppr_currently_alloced = 0;
 static void __free_axl_cppr_info(struct axl_cppr_info *metadata_ptr, struct cppr_op_info *handles_ptr, const int length);
 
 int axl_flush_async_test_cppr(int id);
+int axl_flush_async_wait_cppr(int id);
 int axl_flush_async_complete_cppr(int id);
 int axl_flush_async_stop_cppr(int id);
 int axl_flush_async_start_cppr(int id);

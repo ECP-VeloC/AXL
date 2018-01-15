@@ -10,7 +10,7 @@
 */
 
 #include "kvtree.h"
-#include "axl_internals.h"
+#include "axl_internal.h"
 
 // TODO: technically not needed
 #include "axl_async_datawarp.h"

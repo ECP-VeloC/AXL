@@ -12,17 +12,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-// dirname and basename
-#include <libgen.h>
-
 // uLong type for CRCs
 #include <zlib.h>
+
+// mkdir
+#include <sys/types.h>
+#include <sys/stat.h>
 
 // axl_xfer_t
 #include "axl.h"
 
 // kvtree & everything else
 #include "axl_internal.h"
+#include "kvtree_util.h"
 
 // xfer methods
 #include "axl_sync.h"
@@ -126,7 +128,7 @@ int AXL_Create (char* type, const char* name) {
 
     /* Create an entry for this transfer handle
      * record user string and transfer type */
-    kvtree* file_list = kvtree_util_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
@@ -157,8 +159,9 @@ int AXL_Add (int id, char* source, char* destination) {
         return AXL_FAILURE;
     }
 
-    axl_xfer_t xtype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
+    int itype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
+    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     kvtree_setf(file_list, NULL, "%s %s %s %s", AXL_KEY_FILES, source, AXL_KEY_FILE_DEST, destination);
     kvtree_setf(file_list, NULL, "%s %s %s %d", AXL_KEY_FILES, source, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
@@ -188,8 +191,9 @@ int AXL_Dispatch (int id) {
         return AXL_FAILURE;
     }
 
-    axl_xfer_t xtype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
+    int itype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
+    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
@@ -204,16 +208,16 @@ int AXL_Dispatch (int id) {
         /* figure out and create dirs that should exist */
         /* TODO: vendors may implement smarter functions for mkdir */
         char* dest_path = strdup(destination);
-        dirname(dest_path);
-        mkdir(dest_path);
-        free(dest_path);
+        mode_t mode_dir = axl_getmode(1, 1, 1);
+        axl_mkdir(dest_path, mode_dir);
+        axl_free(dest_path);
 
         /* calculate CRCs for each file */
         uLong* crc;
-        int rc = kvtree_util_get_crc32(elem_hash, AXL_KEY_FILE_CRC, &crc);
+        int rc = kvtree_util_get_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
         if (rc != KVTREE_SUCCESS) {
             axl_crc32(source, crc);
-            kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
+            kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, *crc);
         }
 
     }
@@ -248,11 +252,12 @@ int AXL_Test(int id) {
         return AXL_FAILURE;
     }
 
-    axl_xfer_t xtype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
+    int itype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
+    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
+    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
     if (status == AXL_FLUSH_STATUS_DEST) {
         return 1;
     } else if (status == AXL_FLUSH_STATUS_ERROR) {
@@ -287,11 +292,12 @@ int AXL_Wait (int id) {
         return AXL_FAILURE;
     }
 
-    axl_xfer_t xtype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &xtype);
+    int itype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
+    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
+    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
     if (status == AXL_FLUSH_STATUS_DEST) {
         return AXL_SUCCESS;
     } else if (status == AXL_FLUSH_STATUS_ERROR) {

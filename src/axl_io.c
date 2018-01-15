@@ -9,11 +9,36 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+/* CRC and uLong */
 #include <zlib.h>
-#include <stdarg.h>
+
+/* mode bits */
+#include <sys/stat.h>
+
+/* file open modes */
+#include <sys/file.h>
+
+/* exit & malloc */
+#include <stdlib.h>
+
+// dirname and basename
+#include <libgen.h>
+
+#include <errno.h>
+#include <string.h>
+
 #include "axl_internal.h"
 
-/* returns user's current mode as determine by his umask */
+/* Configurations */
+#ifndef AXL_OPEN_TRIES
+#define AXL_OPEN_TRIES (5)
+#endif
+
+#ifndef AXL_OPEN_USLEEP
+#define AXL_OPEN_USLEEP (100)
+#endif
+
+/* returns user's current mode as determine by their umask */
 mode_t axl_getmode(int read, int write, int execute) {
     /* lookup current mask and set it back */
     mode_t old_mask = umask(S_IWGRP | S_IWOTH);
@@ -35,6 +60,65 @@ mode_t axl_getmode(int read, int write, int execute) {
     return mode;
 }
 
+/* recursively create directory and subdirectories */
+int axl_mkdir(const char* dir, mode_t mode) {
+    int rc = AXL_SUCCESS;
+
+    /* With dirname, either the original string may be modified or the function may return a
+     * pointer to static storage which will be overwritten by the next call to dirname,
+     * so we need to strdup both the argument and the return string. */
+
+    /* extract leading path from dir = full path - basename */
+    char* dircopy = strdup(dir);
+    char* path    = strdup(dirname(dircopy));
+
+    /* if we can read path or path=="." or path=="/", then there's nothing to do,
+     * otherwise, try to create it */
+    if (access(path, R_OK) < 0 && strcmp(path,".") != 0  && strcmp(path,"/") != 0) {
+        rc = axl_mkdir(path, mode);
+    }
+
+    /* if we can write to path, try to create subdir within path */
+    if (access(path, W_OK) == 0 && rc == AXL_SUCCESS) {
+        int tmp_rc = mkdir(dir, mode);
+        if (tmp_rc < 0) {
+            if (errno == EEXIST) {
+                /* don't complain about mkdir for a directory that already exists */
+                axl_free(&dircopy);
+                axl_free(&path);
+                return AXL_SUCCESS;
+            } else {
+                axl_err("Creating directory: mkdir(%s, %x) path=%s errno=%d %s @ %s:%d",
+                        dir, mode, path, errno, strerror(errno), __FILE__, __LINE__
+                        );
+                rc = AXL_FAILURE;
+            }
+        }
+    } else {
+        axl_err("Cannot write to directory: %s @ %s:%d",
+                path, __FILE__, __LINE__
+                );
+        rc = AXL_FAILURE;
+    }
+
+    /* free our dup'ed string and return error code */
+    axl_free(&dircopy);
+    axl_free(&path);
+    return rc;
+}
+
+/* delete a file */
+int axl_file_unlink(const char* file) {
+    if (unlink(file) != 0) {
+        axl_dbg(2, "Failed to delete file: %s errno=%d %s @ %s:%d",
+                file, errno, strerror(errno), __FILE__, __LINE__
+                );
+        return AXL_FAILURE;
+    }
+    return AXL_SUCCESS;
+}
+
+/* open file with specified flags and mode, retry open a few times on failure */
 int axl_open(const char* file, int flags, ...) {
     /* extract the mode (see man 2 open) */
     int mode_set = 0;
@@ -59,9 +143,9 @@ int axl_open(const char* file, int flags, ...) {
                 );
 
         /* try again */
-        int tries = SCR_OPEN_TRIES;
+        int tries = AXL_OPEN_TRIES;
         while (tries && fd < 0) {
-            usleep(SCR_OPEN_USLEEP);
+            usleep(AXL_OPEN_USLEEP);
             if (mode_set) {
                 fd = open(file, flags, mode);
             } else {
@@ -110,6 +194,82 @@ ssize_t axl_read(const char* file, int fd, void* buf, size_t size) {
                         file, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
                         );
                 exit(1);
+            }
+        }
+    }
+    return n;
+}
+
+/* make a good attempt to read from file (retries, if necessary, return error if fail) */
+ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size) {
+    ssize_t n = 0;
+    int retries = 10;
+    while (n < size) {
+        int rc = read(fd, (char*) buf + n, size - n);
+        if (rc  > 0) {
+            n += rc;
+        } else if (rc == 0) {
+            /* EOF */
+            return n;
+        } else { /* (rc < 0) */
+            /* got an error, check whether it was serious */
+            if (errno == EINTR || errno == EAGAIN) {
+                continue;
+            }
+
+            /* something worth printing an error about */
+            retries--;
+            if (retries) {
+                /* print an error and try again */
+                axl_err("Error reading file %s errno=%d %s @ %s:%d",
+                        file, errno, strerror(errno), __FILE__, __LINE__
+                        );
+            } else {
+                /* too many failed retries, give up */
+                axl_err("Giving up read on file %s errno=%d %s @ %s:%d",
+                        file, errno, strerror(errno), __FILE__, __LINE__
+                        );
+                return -1;
+            }
+        }
+    }
+    return n;
+}
+
+
+/* make a good attempt to write to file (retries, if necessary, return error if fail) */
+ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size) {
+    ssize_t n = 0;
+    int retries = 10;
+    while (n < size) {
+        ssize_t rc = write(fd, (char*) buf + n, size - n);
+        if (rc > 0) {
+            n += rc;
+        } else if (rc == 0) {
+            /* something bad happened, print an error and abort */
+            axl_err("Error writing file %s write returned 0 @ %s:%d",
+                    file, __FILE__, __LINE__
+                    );
+            return -1;
+        } else { /* (rc < 0) */
+            /* got an error, check whether it was serious */
+            if (errno == EINTR || errno == EAGAIN) {
+                continue;
+            }
+
+            /* something worth printing an error about */
+            retries--;
+            if (retries) {
+                /* print an error and try again */
+                axl_err("Error writing file %s errno=%d %s @ %s:%d",
+                        file, errno, strerror(errno), __FILE__, __LINE__
+                        );
+            } else {
+                /* too many failed retries, give up */
+                axl_err("Giving up write of file %s errno=%d %s @ %s:%d",
+                        file, errno, strerror(errno), __FILE__, __LINE__
+                        );
+                return -1;
             }
         }
     }

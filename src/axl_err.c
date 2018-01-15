@@ -9,6 +9,21 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+/* variable length args */
+#include <stdarg.h>
+
+/* stdout & stderr */
+#include <stdio.h>
+
+/* exit */
+#include <stdlib.h>
+
+/* gethostname */
+#include <unistd.h>
+
+/* axl version */
+#include "axl.h"
+
 /* print message to stdout if axl_debug is set and it is >= level */
 void axl_dbg(int level, const char *fmt, ...)
 {
@@ -59,7 +74,7 @@ void axl_abort(int rc, const char *fmt, ...)
   }
 
   va_list argp;
-  fprintf(stderr, "AXL %s ABORT: %s: ", SCR_ERR_VERSION, hostname);
+  fprintf(stderr, "AXL %s ABORT: %s: ", AXL_VERSION, hostname);
   va_start(argp, fmt);
   vfprintf(stderr, fmt, argp);
   va_end(argp);

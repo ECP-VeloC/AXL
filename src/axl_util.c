@@ -9,6 +9,8 @@
  * Please also read this file: LICENSE.TXT.
 */
 
+#include <string.h>
+#include <stdlib.h>
 #include "axl_internal.h"
 
 size_t axl_file_buf_size;
@@ -31,4 +33,20 @@ int axl_read_config (char *cntl_dir) {
     }
     */
     return AXL_SUCCESS;
+}
+
+/* caller really passes in a void**, but we define it as just void* to avoid printing
+ * a bunch of warnings */
+void axl_free(void* p) {
+    /* verify that we got a valid pointer to a pointer */
+    if (p != NULL) {
+        /* free memory if there is any */
+        void* ptr = *(void**)p;
+        if (ptr != NULL) {
+            free(ptr);
+        }
+
+        /* set caller's pointer to NULL */
+        *(void**)p = NULL;
+    }
 }

@@ -9,15 +9,15 @@
  * Please also read this file: LICENSE.TXT.
 */
 
-#ifndef AXL_ASYNC_DATAWARP_H
-#define AXL_ASYNC_DATAWARP_H
+#ifndef AXL_ASYNC_DAEMON_H
+#define AXL_ASYNC_DAEMON_H
 
-int axl_flush_async_start_datawarp(int id);
-int axl_flush_async_complete_datawarp(int id);
-int axl_flush_async_stop_datawarp(int id);
-int axl_flush_async_test_datawarp(int id);
-int axl_flush_async_wait_datawarp(int id);
-int axl_flush_async_init_datawarp(void);
-int axl_flush_async_finalize_datawarp(void);
+int axl_flush_async_start_daemon(int id);
+int axl_flush_async_complete_daemon(int id);
+int axl_flush_async_stop_daemon(int id);
+int axl_flush_async_test_daemon(int id);
+int axl_flush_async_wait_daemon(int id);
+int axl_flush_async_init_daemon(void);
+int axl_flush_async_finalize_daemon(void);
 
-#endif //AXL_ASYNC_DATAWARP_H
+#endif //AXL_ASYNC_DAEMON_H

@@ -12,9 +12,11 @@
 #ifndef AXL_INTERNAL_H
 #define AXL_INTERNAL_H
 
+#include <zlib.h>
 #include "kvtree.h"
 
-#define AXL_FAILURE (1)
+#define AXL_SUCCESS (0)
+#define AXL_FAILURE (-1)
 
 extern char* axl_transfer_file;
 extern char* axl_flush_file;
@@ -64,6 +66,15 @@ Note: these functions are taken directly from SCR
 ========================================
 */
 
+/* returns user's current mode as determine by their umask */
+mode_t axl_getmode(int read, int write, int execute);
+
+/* recursively create directory and subdirectories */
+int axl_mkdir(const char* dir, mode_t mode);
+
+/* delete a file */
+int axl_file_unlink(const char* file);
+
 /* open file with specified flags and mode, retry open a few times on failure */
 int axl_open(const char* file, int flags, ...);
 
@@ -72,6 +83,12 @@ int axl_close(const char* file, int fd);
 
 /* reliable read from opened file descriptor (retries, if necessary, until hard error) */
 ssize_t axl_read(const char* file, int fd, void* buf, size_t size);
+
+/* make a good attempt to read to file (retries, if necessary, return error if fail) */
+ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size);
+
+/* make a good attempt to write to file (retries, if necessary, return error if fail) */
+ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size);
 
 /* copy a file from src to dst and calculate CRC32 in the process
  * if crc == NULL, the CRC32 value is not computed */
@@ -88,5 +105,7 @@ axl_util.c functions
 
 extern size_t axl_file_buf_size;
 int axl_read_config(char *cntl_dir);
+
+void axl_free(void* p);
 
 #endif // AXL_INTERNAL_H
