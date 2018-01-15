@@ -24,7 +24,7 @@ extern char* axl_flush_file;
 /* AXL internal data structure
  * this structure is accessed by the each transfer interface
  * any changes of the existing structure must be documented */
-extern kvtree* axl_async_flush_file_lists;
+extern kvtree* axl_flush_async_file_lists;
 
 // "KEYS"
 #define AXL_KEY_HANDLE_UID ("handle_uid")

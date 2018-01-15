@@ -234,8 +234,8 @@ int AXL_Dispatch (int id) {
         return axl_flush_async_start_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_start_bbapi(id);
-    case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_start_cppr(id);
+    //case AXL_XFER_ASYNC_CPPR:
+        //return axl_flush_async_start_cppr(id);
     }
 
     return AXL_SUCCESS;
@@ -277,8 +277,8 @@ int AXL_Test(int id) {
         return axl_flush_async_test_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_test_bbapi(id);
-    case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_test_cppr(id);
+    //case AXL_XFER_ASYNC_CPPR:
+        //return axl_flush_async_test_cppr(id);
     }
 }
 
@@ -317,8 +317,8 @@ int AXL_Wait (int id) {
         return axl_flush_async_wait_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_wait_bbapi(id);
-    case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_wait_cppr(id);
+    //case AXL_XFER_ASYNC_CPPR:
+        //return axl_flush_async_wait_cppr(id);
     }
 }
 

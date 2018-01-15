@@ -30,8 +30,9 @@
 * (C) Copyright 2015-2016 Intel Corporation.
 */
 
+#ifdef HAVE_LIBCPPR
 #include "cppr.h"
-#include "fu_filemap.h"
+#endif
 
 static void __free_axl_cppr_info(struct axl_cppr_info *metadata_ptr, struct cppr_op_info *handles_ptr, const int length) {
   struct axl_cppr_info* tmp_ptr = NULL;
@@ -64,7 +65,8 @@ CPPR Asynchronous flush wrapper functions
 */
 
 /* check whether the flush from cache to parallel file system has completed */
-static int axl_flush_async_test_cppr(fu_filemap* map, int id, double* bytes) {
+static int axl_flush_async_test_cppr(int id) {
+#ifdef HAVE_LIBCPPR
   /* CPPR: essentially test the grp
    * cppr_return_t cppr_test_all(uint32_t count, struct cppr_op_info info[]);
    * each rank 0 on a node needs to call test_all, then report that in
@@ -83,98 +85,87 @@ static int axl_flush_async_test_cppr(fu_filemap* map, int id, double* bytes) {
 
   cppr_return_t cppr_retval;
 
-  /* initialize bytes to 0 */
-  *bytes = 0.0;
-
-  /* if user has disabled flush, return failure */
-  if (scr_flush <= 0) {
-    return SCR_FAILURE;
-  }
-  scr_dbg(1,"axl_cppr_flush_async_test called @ %s:%d",
-    __FILE__, __LINE__
-  );
-
   /* have master on each node check whether the flush is complete */
   double bytes_written = 0.0;
   if (scr_storedesc_cntl->rank == 0) {
-    cppr_retval = cppr_test_all(scr_flush_async_cppr_index + 1, cppr_ops);
+      cppr_retval = cppr_test_all(scr_flush_async_cppr_index + 1, cppr_ops);
 
-    /* if this fails, treat it as just an incomplete transfer for now */
-    if (cppr_retval != CPPR_SUCCESS) {
-      scr_dbg(0, "CPPR ERROR WITH initial call to cppr_test(): %d",
-        cppr_retval
-      );
-      transfer_complete = 0;
-      goto mpi_collectives;
-    }
-
-    /* loop through all the responses and check status */
-    int i;
-    for (i = 0; i < scr_flush_async_cppr_index; i++) {
-      scr_dbg(1, "cppr async test being called for index %d", i);
-
-      /* set the current pointer to the correct index */
-      current_cppr_metadata = &scr_flush_async_cppr_metadata[i];
-      current_cppr_handle = &cppr_ops[i];
-
-      if (current_cppr_metadata->has_completed == true) {
-        /* can skip this handle because it was already marked complete */
-        scr_dbg(1, "handle [%d] %x %s was marked complete", i,
-                current_cppr_handle->handle,
-                current_cppr_metadata->filename
-        );
-        continue;
-      } else {
-        /* check the state of the handle */
-        /* check the status */
-        if (current_cppr_handle->status == CPPR_STATUS_COMPLETE) {
-          /* mark as complete */
-          current_cppr_metadata->has_completed = true;
-          scr_dbg(1, "cppr op status is COMPLETE, so setting transfer complete to \
-1: handle %d, file '%s' @ %s:%d",
-            i, current_cppr_metadata->filename, __FILE__, __LINE__
-          );
-
-          /* check for bad values: */
-          if (current_cppr_handle->retcode != CPPR_SUCCESS) {
-            scr_dbg(1, "CPPR cppr_test unsuccessful async flush for '%s' %d",
-              current_cppr_metadata->filename, current_cppr_handle->retcode
-            );
-          } else {
-            /* the file was transferred successfully */
-            bytes_written += current_cppr_metadata->filesize;
-            scr_dbg(2, "#bold CPPR successfully transfered file '%s' in async mode",
-              current_cppr_metadata->filename
-            );
-          }
-        } else if (current_cppr_handle->retcode == CPPR_OP_EXECUTING) {
-          /* if the operation is still executing, handle accordingly */
-          /* calculate bytes written */
-          double percent_written = (double)
-                  (current_cppr_handle->progress) / 100;
-
-          /* bytes_written += percent_written * current_cppr_metadata->filesize; */
+      /* if this fails, treat it as just an incomplete transfer for now */
+      if (cppr_retval != CPPR_SUCCESS) {
+          axl_dbg(0, "CPPR ERROR WITH initial call to cppr_test(): %d",
+                  cppr_retval
+                  );
           transfer_complete = 0;
-          scr_dbg(1,"cppr op status is EXECUTING for file '%s'; percent: \
-(int %d, double %f), bytes written %f @ %s:%d",
-            current_cppr_metadata->filename, current_cppr_handle->progress,
-            percent_written, bytes_written,
-            __FILE__, __LINE__
-          );
-        } else {
-          scr_dbg(0,"CPPR ERROR UNHANDLED: cppr_test: unhandled values for \
-src:'%s', dst:'%s', file:'%s' status %d and retcode %d; handle:[%d]: %x",
-            current_cppr_metadata->src_dir,
-            current_cppr_metadata->dst_dir,
-            current_cppr_metadata->filename,
-            current_cppr_handle->status,
-            current_cppr_handle->retcode,
-            i,
-            current_cppr_handle->handle
-          );
-        }
+          goto mpi_collectives;
       }
-    }
+
+      /* loop through all the responses and check status */
+      int i;
+      for (i = 0; i < scr_flush_async_cppr_index; i++) {
+          scr_dbg(1, "cppr async test being called for index %d", i);
+
+          /* set the current pointer to the correct index */
+          current_cppr_metadata = &scr_flush_async_cppr_metadata[i];
+          current_cppr_handle = &cppr_ops[i];
+
+          if (current_cppr_metadata->has_completed == true) {
+              /* can skip this handle because it was already marked complete */
+              scr_dbg(1, "handle [%d] %x %s was marked complete", i,
+                      current_cppr_handle->handle,
+                      current_cppr_metadata->filename
+                      );
+              continue;
+          } else {
+              /* check the state of the handle */
+              /* check the status */
+              if (current_cppr_handle->status == CPPR_STATUS_COMPLETE) {
+                  /* mark as complete */
+                  current_cppr_metadata->has_completed = true;
+                  scr_dbg(1, "cppr op status is COMPLETE, so setting transfer complete to \
+1: handle %d, file '%s' @ %s:%d",
+                          i, current_cppr_metadata->filename, __FILE__, __LINE__
+                          );
+
+                  /* check for bad values: */
+                  if (current_cppr_handle->retcode != CPPR_SUCCESS) {
+                      scr_dbg(1, "CPPR cppr_test unsuccessful async flush for '%s' %d",
+                              current_cppr_metadata->filename, current_cppr_handle->retcode
+                              );
+                  } else {
+                      /* the file was transferred successfully */
+                      bytes_written += current_cppr_metadata->filesize;
+                      scr_dbg(2, "#bold CPPR successfully transfered file '%s' in async mode",
+                              current_cppr_metadata->filename
+                              );
+                  }
+              } else if (current_cppr_handle->retcode == CPPR_OP_EXECUTING) {
+                  /* if the operation is still executing, handle accordingly */
+                  /* calculate bytes written */
+                  double percent_written = (double)
+                      (current_cppr_handle->progress) / 100;
+
+                  /* bytes_written += percent_written * current_cppr_metadata->filesize; */
+                  transfer_complete = 0;
+                  scr_dbg(1,"cppr op status is EXECUTING for file '%s'; percent: \
+(int %d, double %f), bytes written %f @ %s:%d",
+                          current_cppr_metadata->filename, current_cppr_handle->progress,
+                          percent_written, bytes_written,
+                          __FILE__, __LINE__
+                          );
+              } else {
+                  scr_dbg(0,"CPPR ERROR UNHANDLED: cppr_test: unhandled values for \
+src:'%s', dst:'%s', file:'%s' status %d and retcode %d; handle:[%d]: %x",
+                          current_cppr_metadata->src_dir,
+                          current_cppr_metadata->dst_dir,
+                          current_cppr_metadata->filename,
+                          current_cppr_handle->status,
+                          current_cppr_handle->retcode,
+                          i,
+                          current_cppr_handle->handle
+                          );
+              }
+          }
+      }
   }
 
 mpi_collectives:
@@ -183,14 +174,14 @@ mpi_collectives:
 
   /* determine whether the transfer is complete on all tasks */
   if (scr_alltrue(transfer_complete)) {
-    if (scr_my_rank_world == 0) {
-      scr_dbg(0, "#demo CPPR successfully transferred dset %d", id);
-    }
-    return SCR_SUCCESS;
+      if (scr_my_rank_world == 0) {
+          scr_dbg(0, "#demo CPPR successfully transferred dset %d", id);
+      }
+      return SCR_SUCCESS;
   }
   scr_dbg(1, "about to return failure from axl_cppr_flush_async_test @ %s:%d",
-    __FILE__, __LINE__
-  );
+          __FILE__, __LINE__
+          );
   return SCR_FAILURE;
 }
 

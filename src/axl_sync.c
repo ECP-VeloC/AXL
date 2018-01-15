@@ -10,11 +10,12 @@
 */
 
 #include "axl_internal.h"
+#include "kvtree_util.h"
 
 /* synchonous flush of files */
 int axl_flush_sync_start (int id) {
 
-    kvtree* file_list = kvtree_get_kv_int(axl_async_flush_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
     int flushed = AXL_SUCCESS;
