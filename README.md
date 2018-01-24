@@ -15,7 +15,7 @@ mkdir build
 mkdir install
 
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=../install ../kvtree
+cmake -DCMAKE_INSTALL_PREFIX=../install ../axl
 make
 make install
 make test
@@ -23,13 +23,14 @@ make test
 
 Some useful CMake command line options:
 
-- `-DCMAKE_INSTALL_PREFIX=[path]`: Place to install the KVTree library
+- `-DCMAKE_INSTALL_PREFIX=[path]`: Place to install the AXL library
 - `-DCMAKE_BUILD_TYPE=[Debug/Release]`: Build with debugging or optimizations
 
 ### Dependencies
 
 - C
 - CMake, Version 2.8+
+- [KVTree](https://github.com/LLNL/KVTree)
 
 ## Authors
 
