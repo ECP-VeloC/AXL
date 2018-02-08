@@ -34,7 +34,7 @@ Some useful CMake command line options:
 
 ## Authors
 
-AXL is part of the SCR project
+AXL is part of the SCR project (LLNL-CODE-411039)
 
 Numerous people have [contributed](https://github.com/llnl/scr/graphs/contributors) to the SCR project.
 
