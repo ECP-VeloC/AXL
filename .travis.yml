@@ -1,0 +1,21 @@
+langauge: c
+
+before_script:
+  - git clone https://github.com/llnl/kvtree
+  - mkdir kvtree-build
+  - mkdir kvtree-install
+  - cd kvtree-build
+  - cmake ../kvtree -DMPI=OFF -DCMAKE_INSTALL_PREFIX=`pwd`/../kvtree-install
+  - make
+  - make install
+  - cd ..
+
+script:
+  - mkdir build
+  - cd build
+  - cmake .. -DWITH_KVTREE_PREFIX=`pwd`/kvtree-install -DCMAKE_C_FLAGS="-coverage"
+  - make
+  - make check
+
+after_success:
+#  - bash <(curl -s https://codecov.io/bash) ; fi
