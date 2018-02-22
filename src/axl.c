@@ -29,7 +29,7 @@
 // xfer methods
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
-#include "axl_async_cppr.h"
+//#include "axl_async_cppr.h"
 #include "axl_async_daemon.h"
 #include "axl_async_datawarp.h"
 
@@ -71,12 +71,11 @@ API Functions
 /* Read configuration from non-AXL-specific file
   Also, start up vendor specific services */
 int AXL_Init (char* conf_file) {
-
     axl_next_handle_UID = 0;
     axl_flush_async_file_lists = kvtree_new();
 
     char* axl_cntl_dir;
-    axl_read_config(axl_cntl_dir);
+    axl_read_config(&axl_cntl_dir);
 
     // TODO: what is the flush file for?
     char* axl_flush_file_name = "/axl_flush.info";
@@ -99,7 +98,7 @@ int AXL_Init (char* conf_file) {
 
 /* Shutdown any vendor services */
 int AXL_Finalize (void) {
-    axl_file_unlink(axl_flush_file);
+//    axl_file_unlink(axl_flush_file);
 
 #ifdef HAVE_DAEMON
     return axl_flush_async_finalize_daemon();
@@ -208,16 +207,17 @@ int AXL_Dispatch (int id) {
         /* figure out and create dirs that should exist */
         /* TODO: vendors may implement smarter functions for mkdir */
         char* dest_path = strdup(destination);
+        char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
-        axl_mkdir(dest_path, mode_dir);
-        axl_free(dest_path);
+        axl_mkdir(dest_dir, mode_dir);
+        axl_free(&dest_path);
 
         /* calculate CRCs for each file */
-        uLong* crc;
-        int rc = kvtree_util_get_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
+        uLong crc;
+        int rc = kvtree_util_get_crc32(elem_hash, AXL_KEY_FILE_CRC, &crc);
         if (rc != KVTREE_SUCCESS) {
-            axl_crc32(source, crc);
-            kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, *crc);
+            axl_crc32(source, &crc);
+            kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
         }
 
     }

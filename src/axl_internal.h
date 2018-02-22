@@ -104,7 +104,7 @@ axl_util.c functions
 */
 
 extern size_t axl_file_buf_size;
-int axl_read_config(char *cntl_dir);
+int axl_read_config(char **cntl_dir);
 
 void axl_free(void* p);
 
