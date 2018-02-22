@@ -15,10 +15,10 @@
 
 size_t axl_file_buf_size;
 
-int axl_read_config (char *cntl_dir) {
+int axl_read_config (char **cntl_dir) {
 
     axl_file_buf_size = (size_t) 1048576;
-    cntl_dir = strdup("/tmp");
+    *cntl_dir = strdup("/tmp");
 
     /* set file copy buffer size (file chunk size) */
     /*
