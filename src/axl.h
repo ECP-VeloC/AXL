@@ -43,7 +43,7 @@ int AXL_Finalize (void);
 int AXL_Create (char* type, const char* name);
 
 /* Add a file to an existing transfer handle */
-int AXL_Add (int id, char* source, char* destination);
+int AXL_Add (int id, const char* source, const char* destination);
 
 /* Initiate a transfer for all files in handle ID */
 int AXL_Dispatch (int id);
