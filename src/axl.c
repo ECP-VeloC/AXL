@@ -155,7 +155,7 @@ int AXL_Create (char* type, const char* name) {
 }
 
 /* Add a file to an existing transfer handle */
-int AXL_Add (int id, char* source, char* destination) {
+int AXL_Add (int id, const char* source, const char* destination) {
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Add failed: could not find fileset for UID %d", id);
