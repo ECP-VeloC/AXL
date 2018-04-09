@@ -74,7 +74,7 @@ int AXL_Init (char* conf_file) {
     axl_next_handle_UID = 0;
     axl_flush_async_file_lists = kvtree_new();
 
-    char* axl_cntl_dir;
+    char* axl_cntl_dir = NULL;
     axl_read_config(&axl_cntl_dir);
 
     // TODO: what is the flush file for?
@@ -82,6 +82,10 @@ int AXL_Init (char* conf_file) {
     axl_flush_file = malloc(strlen(axl_cntl_dir) + strlen(axl_flush_file_name));
     strcpy(axl_flush_file, axl_cntl_dir);
     strcat(axl_flush_file, axl_flush_file_name);
+
+    if (axl_cntl_dir != NULL) {
+      free(axl_cntl_dir);
+    }
 
 #ifdef HAVE_DAEMON
     return axl_flush_async_init_daemon();
