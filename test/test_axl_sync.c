@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
 
 #define TEST_PASS (0)
 #define TEST_FAIL (1)
@@ -35,12 +36,12 @@ int test_axl_sync(){
   fclose(fp);
 
   /* Create dest path */
-  char* pwd = get_current_dir_name();
+  char pwd[PATH_MAX];
+  getcwd(pwd, sizeof(pwd));
   char* dest_path = malloc(strlen(pwd) + strlen(TEST_DEST) + 2);
   strcpy(dest_path, pwd);
   strcat(dest_path, "/");
   strcat(dest_path, TEST_DEST);
-  free(pwd);
 
   /* Launch axl, reate a transfer, add test file, dispatch */
   if (AXL_Init(NULL) != AXL_SUCCESS) rc = TEST_FAIL;

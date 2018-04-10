@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// dirname
+#include <libgen.h>
+
 // uLong type for CRCs
 #include <zlib.h>
 
