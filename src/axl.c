@@ -264,7 +264,7 @@ int AXL_Test(int id) {
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
+    kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
     if (status == AXL_FLUSH_STATUS_DEST) {
         return 1;
     } else if (status == AXL_FLUSH_STATUS_ERROR) {
@@ -307,7 +307,7 @@ int AXL_Wait (int id) {
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
+    kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
     if (status == AXL_FLUSH_STATUS_DEST) {
         return AXL_SUCCESS;
     } else if (status == AXL_FLUSH_STATUS_ERROR) {
