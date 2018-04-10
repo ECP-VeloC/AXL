@@ -287,6 +287,9 @@ int AXL_Test(int id) {
     //case AXL_XFER_ASYNC_CPPR:
         //return axl_flush_async_test_cppr(id);
     }
+
+    // assume failure if we fall through
+    return AXL_FAILURE;
 }
 
 /* BLOCKING
@@ -327,6 +330,9 @@ int AXL_Wait (int id) {
     //case AXL_XFER_ASYNC_CPPR:
         //return axl_flush_async_wait_cppr(id);
     }
+
+    // assume failure if we fall through
+    return AXL_FAILURE;
 }
 
 /* Cancel an existing transfer */
