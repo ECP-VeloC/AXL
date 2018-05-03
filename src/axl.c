@@ -1,27 +1,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-// dirname
+/* dirname */
 #include <libgen.h>
 
-// uLong type for CRCs
+/* uLong type for CRCs */
 #include <zlib.h>
 
-// mkdir
+/* mkdir */
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// axl_xfer_t
+/* axl_xfer_t */
 #include "axl.h"
 
-// kvtree & everything else
+/* kvtree & everything else */
 #include "axl_internal.h"
 #include "kvtree_util.h"
 
-// xfer methods
+/* xfer methods */
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
-//#include "axl_async_cppr.h"
+/*#include "axl_async_cppr.h" */
 #include "axl_async_daemon.h"
 #include "axl_async_datawarp.h"
 
@@ -49,8 +49,9 @@ Helper Functions
 ========================================
 */
 
-// TODO: implement this
-axl_xfer_t axl_parse_type_string (char* type) {
+/* TODO: implement this */
+axl_xfer_t axl_parse_type_string (const char* type)
+{
     return AXL_XFER_SYNC;
 }
 
@@ -62,22 +63,21 @@ API Functions
 
 /* Read configuration from non-AXL-specific file
   Also, start up vendor specific services */
-int AXL_Init (char* conf_file) {
+int AXL_Init (const char* conf_file)
+{
     axl_next_handle_UID = 0;
     axl_flush_async_file_lists = kvtree_new();
 
     char* axl_cntl_dir = NULL;
     axl_read_config(&axl_cntl_dir);
 
-    // TODO: what is the flush file for?
+    /* TODO: what is the flush file for? */
     char* axl_flush_file_name = "/axl_flush.info";
     axl_flush_file = malloc(strlen(axl_cntl_dir) + strlen(axl_flush_file_name));
     strcpy(axl_flush_file, axl_cntl_dir);
     strcat(axl_flush_file, axl_flush_file_name);
 
-    if (axl_cntl_dir != NULL) {
-      free(axl_cntl_dir);
-    }
+    axl_free(&axl_cntl_dir);
 
 #ifdef HAVE_DAEMON
     return axl_flush_async_init_daemon();
@@ -93,8 +93,9 @@ int AXL_Init (char* conf_file) {
 }
 
 /* Shutdown any vendor services */
-int AXL_Finalize (void) {
-//    axl_file_unlink(axl_flush_file);
+int AXL_Finalize (void)
+{
+/*    axl_file_unlink(axl_flush_file); */
 
 #ifdef HAVE_DAEMON
     return axl_flush_async_finalize_daemon();
@@ -113,8 +114,8 @@ int AXL_Finalize (void) {
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int AXL_Create (char* type, const char* name) {
-
+int AXL_Create (const char* type, const char* name)
+{
     /* Parse type of transfer */
     axl_xfer_t xtype = axl_parse_type_string(type);
 
@@ -122,13 +123,24 @@ int AXL_Create (char* type, const char* name) {
     int id = ++axl_next_handle_UID;
 
     /* Create an entry for this transfer handle
-     * record user string and transfer type */
+     * record user string and transfer type 
+     * UID
+     *   id
+     *     NAME
+     *       name
+     *     TYPE
+     *       typestr
+     *     TYPE
+     *       type_enum
+     *     STATUS
+     *       SOURCE */
     kvtree* file_list = kvtree_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
 
+    /* create a structure based on transfer type */
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
@@ -147,21 +159,32 @@ int AXL_Create (char* type, const char* name) {
 }
 
 /* Add a file to an existing transfer handle */
-int AXL_Add (int id, const char* source, const char* destination) {
+int AXL_Add (int id, const char* source, const char* destination)
+{
+    /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Add failed: could not find fileset for UID %d", id);
         return AXL_FAILURE;
     }
 
+    /* extract the transfer type */
     int itype;
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
+    /* add record for this file
+     * FILES
+     *   /path/to/src/file
+     *     DEST
+     *       /path/to/dest/file
+     *     STATUS
+     *       SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, source);
     kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, destination);
     kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
 
+    /* add file to transfer data structure, depending on its type */
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
@@ -179,25 +202,31 @@ int AXL_Add (int id, const char* source, const char* destination) {
 }
 
 /* Initiate a transfer for all files in handle ID */
-int AXL_Dispatch (int id) {
-
+int AXL_Dispatch (int id)
+{
+    /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Dispatch failed: could not find fileset for UID %d", id);
         return AXL_FAILURE;
     }
 
+    /* extract the transfer type */
     int itype;
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
+    /* create destination directories and compute CRC32 for each file */
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+        /* get path to source file */
         char* source = kvtree_elem_key(elem);
 
-        /* destination for a file */
+        /* get hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
+
+        /* get destination for this file */
         char* destination;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
 
@@ -216,7 +245,6 @@ int AXL_Dispatch (int id) {
             axl_crc32(source, &crc);
             kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
         }
-
     }
 
     /* NOTE FOR XFER INTERFACES
@@ -231,8 +259,8 @@ int AXL_Dispatch (int id) {
         return axl_flush_async_start_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_start_bbapi(id);
-    //case AXL_XFER_ASYNC_CPPR:
-        //return axl_flush_async_start_cppr(id);
+    /* case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_start_cppr(id); */
     }
 
     return AXL_SUCCESS;
@@ -241,14 +269,16 @@ int AXL_Dispatch (int id) {
 /* Test if a transfer has completed
  * Returns 1 if the transfer has completed
  * Returns <0 if there is an error */
-int AXL_Test(int id) {
-
+int AXL_Test(int id)
+{
+    /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Test failed: could not find fileset UID=%d", id);
         return AXL_FAILURE;
     }
 
+    /* extract the transfer type */
     int itype;
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
     axl_xfer_t xtype = (axl_xfer_t) itype;
@@ -262,11 +292,11 @@ int AXL_Test(int id) {
     } else if (status == AXL_FLUSH_STATUS_SOURCE) {
         axl_err("AXL_Test failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
-    } // else (status == AXL_STATUS_INPROG) send to XFER interfaces
+    } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
     switch (xtype) {
     case AXL_XFER_SYNC:
-        // Weird case: sync was on going
+        /* Weird case: sync was on going */
         return axl_flush_sync_test(id);
     case AXL_XFER_ASYNC_DAEMON:
         return axl_flush_async_test_daemon(id);
@@ -274,28 +304,31 @@ int AXL_Test(int id) {
         return axl_flush_async_test_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_test_bbapi(id);
-    //case AXL_XFER_ASYNC_CPPR:
-        //return axl_flush_async_test_cppr(id);
+    /* case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_test_cppr(id); */
     }
 
-    // assume failure if we fall through
+    /* assume failure if we fall through */
     return AXL_FAILURE;
 }
 
 /* BLOCKING
  * Wait for a transfer to complete */
-int AXL_Wait (int id) {
-
+int AXL_Wait (int id)
+{
+    /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Wait failed: could not find fileset UID=%d", id);
         return AXL_FAILURE;
     }
 
+    /* extract the transfer type */
     int itype;
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
+    /* lookup status for the transfer, return if done */
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
     if (status == AXL_FLUSH_STATUS_DEST) {
@@ -305,11 +338,12 @@ int AXL_Wait (int id) {
     } else if (status == AXL_FLUSH_STATUS_SOURCE) {
         axl_err("AXL_Wait failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
-    } // else (status == AXL_STATUS_INPROG) send to XFER interfaces
+    } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
+    /* if not done, call vendor API to wait */
     switch (xtype) {
     case AXL_XFER_SYNC:
-        // Weird case: sync was on going
+        /* Weird case: sync was on going */
         return axl_flush_sync_wait(id);
     case AXL_XFER_ASYNC_DAEMON:
         return axl_flush_async_wait_daemon(id);
@@ -317,21 +351,23 @@ int AXL_Wait (int id) {
         return axl_flush_async_wait_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_wait_bbapi(id);
-    //case AXL_XFER_ASYNC_CPPR:
-        //return axl_flush_async_wait_cppr(id);
+    /* case AXL_XFER_ASYNC_CPPR:
+        return axl_flush_async_wait_cppr(id); */
     }
 
-    // assume failure if we fall through
+    /* assume failure if we fall through */
     return AXL_FAILURE;
 }
 
 /* Cancel an existing transfer */
-// TODO: Does cancel call free?
-int AXL_Cancel (int id) {
+/* TODO: Does cancel call free? */
+int AXL_Cancel (int id)
+{
     return AXL_SUCCESS;
 }
 
 /* Perform cleanup of internal data associated with ID */
-int AXL_Free (int id) {
+int AXL_Free (int id)
+{
     return AXL_SUCCESS;
 }

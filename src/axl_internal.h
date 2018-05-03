@@ -15,7 +15,7 @@ extern char* axl_flush_file;
  * any changes of the existing structure must be documented */
 extern kvtree* axl_flush_async_file_lists;
 
-// "KEYS"
+/* "KEYS" */
 #define AXL_KEY_HANDLE_UID ("handle_uid")
 #define AXL_KEY_UNAME ("uname")
 #define AXL_KEY_XFER_TYPE_STR ("xfer_type_string")
@@ -26,7 +26,7 @@ extern kvtree* axl_flush_async_file_lists;
 #define AXL_KEY_FILE_STATUS ("file_status")
 #define AXL_KEY_FILE_CRC ("file_crc")
 
-// FLUSH STATUSES
+/* FLUSH STATUSES */
 #define AXL_FLUSH_STATUS_SOURCE (1)
 #define AXL_FLUSH_STATUS_INPROG (2)
 #define AXL_FLUSH_STATUS_DEST   (3)
@@ -97,4 +97,4 @@ int axl_read_config(char **cntl_dir);
 
 void axl_free(void* p);
 
-#endif // AXL_INTERNAL_H
+#endif /* AXL_INTERNAL_H */

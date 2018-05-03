@@ -20,7 +20,7 @@ typedef enum {
 
 /* Read configuration from non-AXL-specific file
  * Also, start up vendor specific services */
-int AXL_Init (char* conf_file);
+int AXL_Init (const char* conf_file);
 
 /* Shutdown any vendor services */
 int AXL_Finalize (void);
@@ -29,7 +29,7 @@ int AXL_Finalize (void);
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int AXL_Create (char* type, const char* name);
+int AXL_Create (const char* type, const char* name);
 
 /* Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
@@ -46,7 +46,7 @@ int AXL_Test(int id);
 int AXL_Wait (int id);
 
 /* Cancel an existing transfer */
-// TODO: Does cancel call free?
+/* TODO: Does cancel call free? */
 int AXL_Cancel (int id);
 
 /* Perform cleanup of internal data associated with ID */
