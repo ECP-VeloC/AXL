@@ -38,9 +38,6 @@ Global Variables
 /* AXL's flush file, SCR has one as well */
 char* axl_flush_file = NULL;
 
-/* transfer file */
-char* axl_transfer_file = NULL;
-
 /* Transfer handle unique IDs */
 static int axl_next_handle_UID = -1;
 
