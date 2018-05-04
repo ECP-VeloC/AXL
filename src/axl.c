@@ -18,11 +18,15 @@
 #include "axl_internal.h"
 #include "kvtree_util.h"
 
+#include "config.h"
+
 /* xfer methods */
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
 /*#include "axl_async_cppr.h" */
+#ifdef HAVE_DAEMON
 #include "axl_async_daemon.h"
+#endif
 #include "axl_async_datawarp.h"
 
 /*
@@ -52,7 +56,13 @@ Helper Functions
 /* TODO: implement this */
 axl_xfer_t axl_parse_type_string (const char* type)
 {
-    return AXL_XFER_SYNC;
+    if (strcmp(type, "AXL_XFER_SYNC") == 0) {
+      return AXL_XFER_SYNC;
+    } else if (strcmp(type, "AXL_XFER_ASYNC_DAEMON") == 0) {
+      return AXL_XFER_ASYNC_DAEMON;
+    } else {
+      return -1;
+    }
 }
 
 /*
@@ -80,7 +90,8 @@ int AXL_Init (const char* conf_file)
     axl_free(&axl_cntl_dir);
 
 #ifdef HAVE_DAEMON
-    return axl_flush_async_init_daemon();
+    char axl_flush_async_daemon_file[] = "/dev/shm/axld";
+    return axl_flush_async_init_daemon(axl_flush_async_daemon_file);
 #endif
 #ifdef HAVE_BBAPI
     return axl_flush_async_init_bbapi();
@@ -144,14 +155,19 @@ int AXL_Create (const char* type, const char* name)
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
+#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
         axl_flush_async_create_bbapi(id);
         break;
     case AXL_XFER_ASYNC_CPPR:
+        break;
+    default:
+        axl_err("AXL_Create failed: unknown transfer type '%s' (%d)", type, (int) xtype);
         break;
     }
 
@@ -174,12 +190,14 @@ int AXL_Add (int id, const char* source, const char* destination)
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
     /* add record for this file
-     * FILES
-     *   /path/to/src/file
-     *     DEST
-     *       /path/to/dest/file
-     *     STATUS
-     *       SOURCE */
+     * UID
+     *   id
+     *     FILES
+     *       /path/to/src/file
+     *         DEST
+     *           /path/to/dest/file
+     *         STATUS
+     *           SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, source);
     kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, destination);
     kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
@@ -188,13 +206,18 @@ int AXL_Add (int id, const char* source, const char* destination)
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
+#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_add_bbapi(id, source, destination);
     case AXL_XFER_ASYNC_CPPR:
+        break;
+    default:
+        axl_err("AXL_Add failed: unknown transfer type (%d)", (int) xtype);
         break;
     }
 
@@ -253,14 +276,19 @@ int AXL_Dispatch (int id)
     switch (xtype) {
     case AXL_XFER_SYNC:
         return axl_flush_sync_start(id);
+#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_start_daemon(id);
+        return axl_flush_async_start_daemon(axl_flush_async_file_lists, id);
+#endif
     case AXL_XFER_ASYNC_DW:
         return axl_flush_async_start_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_start_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
         return axl_flush_async_start_cppr(id); */
+    default:
+        axl_err("AXL_Dispatch failed: unknown transfer type (%d)", (int) xtype);
+        break;
     }
 
     return AXL_SUCCESS;
@@ -294,18 +322,24 @@ int AXL_Test(int id)
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
+    double bytes_total, bytes_written;
     switch (xtype) {
     case AXL_XFER_SYNC:
         /* Weird case: sync was on going */
         return axl_flush_sync_test(id);
+#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_test_daemon(id);
+        return axl_flush_async_test_daemon(axl_flush_async_file_lists, id, &bytes_total, &bytes_written);
+#endif
     case AXL_XFER_ASYNC_DW:
         return axl_flush_async_test_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_test_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
         return axl_flush_async_test_cppr(id); */
+    default:
+        axl_err("AXL_Test failed: unknown transfer type (%d)", (int) xtype);
+        break;
     }
 
     /* assume failure if we fall through */
@@ -345,14 +379,19 @@ int AXL_Wait (int id)
     case AXL_XFER_SYNC:
         /* Weird case: sync was on going */
         return axl_flush_sync_wait(id);
+#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_wait_daemon(id);
+        return axl_flush_async_wait_daemon(axl_flush_async_file_lists, id);
+#endif
     case AXL_XFER_ASYNC_DW:
         return axl_flush_async_wait_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_flush_async_wait_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
         return axl_flush_async_wait_cppr(id); */
+    default:
+        axl_err("AXL_Wait failed: unknown transfer type (%d)", (int) xtype);
+        break;
     }
 
     /* assume failure if we fall through */

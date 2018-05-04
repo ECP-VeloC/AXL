@@ -86,6 +86,9 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
 /* opens, reads, and computes the crc32 value for the given filename */
 int axl_crc32(const char* filename, uLong* crc);
 
+/* given a filename, return number of bytes in file */
+unsigned long axl_file_size(const char* file);
+
 /*
 =========================================
 axl_util.c functions
