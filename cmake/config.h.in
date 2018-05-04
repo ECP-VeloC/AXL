@@ -1,4 +1,5 @@
 // Machine Specific Libs
+#cmakedefine HAVE_DAEMON
 #cmakedefine HAVE_LIBCPPR
 #cmakedefine HAVE_DATAWARP
 #cmakedefine HAVE_BBAPI

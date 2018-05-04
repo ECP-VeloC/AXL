@@ -455,3 +455,16 @@ int axl_crc32(const char* filename, uLong* crc) {
 
     return AXL_SUCCESS;
 }
+
+/* given a filename, return number of bytes in file */
+unsigned long axl_file_size(const char* file)
+{
+  /* get file size in bytes */
+  unsigned long bytes = 0;
+  struct stat stat_buf;
+  int stat_rc = stat(file, &stat_buf);
+  if (stat_rc == 0) {
+    bytes = stat_buf.st_size;
+  }
+  return bytes;
+}
