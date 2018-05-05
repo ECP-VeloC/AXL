@@ -44,12 +44,15 @@ int test_axl_sync(){
 
   /* Check that file arrived properly */
   FILE* dfp = fopen(dest_path, "r");
-  if(!dfp) rc = TEST_FAIL;
-
-  char* read_str = malloc(strlen(TEST_STRING) + 1);
-  fgets(read_str, strlen(TEST_STRING) + 1, dfp);
-  if(strcmp(read_str, TEST_STRING)) rc = TEST_FAIL;
-  free(read_str);
+  if(!dfp) {
+    rc = TEST_FAIL;
+  } else {
+    char* read_str = malloc(strlen(TEST_STRING) + 1);
+    fgets(read_str, strlen(TEST_STRING) + 1, dfp);
+    if(strcmp(read_str, TEST_STRING)) rc = TEST_FAIL;
+    free(read_str);
+    fclose(dfp);
+  }
 
   /* Unlink test files and return rc */
   unlink(TEST_FILE);
