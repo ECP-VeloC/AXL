@@ -12,12 +12,15 @@
  *         SIZE
  *           filesize
  *         WRITTEN
- *           bytes_written */
+ *           bytes_written
+ *         ERROR
+ *           error message */
 #define AXL_TRANSFER_KEY_ID          ("ID")
 #define AXL_TRANSFER_KEY_FILES       ("FILES")
 #define AXL_TRANSFER_KEY_DESTINATION ("DESTINATION")
 #define AXL_TRANSFER_KEY_SIZE        ("SIZE")
 #define AXL_TRANSFER_KEY_WRITTEN     ("WRITTEN")
+#define AXL_TRANSFER_KEY_ERROR       ("ERROR")
 
 /* defines throttling parameters */
 #define AXL_TRANSFER_KEY_BW          ("BW")
