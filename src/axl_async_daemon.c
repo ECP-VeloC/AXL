@@ -9,7 +9,6 @@
 
 static double axl_async_daemon_bw = 0.0;
 static double axl_async_daemon_percent = 0.0;
-
 static char* axl_async_daemon_file = NULL;
 
 /*
@@ -18,7 +17,7 @@ Asynchronous transfer functions
 =========================================
 */
 
-/* given a hash, test whether the files in that hash have completed their transfer,
+/* given a hash of data from transfer file, test whether the files have completed their transfer,
  * update corresponding files in map if done */
 static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfer_hash, double* bytes_total, double* bytes_written)
 {
@@ -35,7 +34,6 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
 
   /* get the FILES hash */
   kvtree* files_hash = kvtree_get(hash, AXL_TRANSFER_KEY_FILES);
-//  kvtree* files_hash = kvtree_get(transfer_hash, AXL_TRANSFER_KEY_FILES);
   if (files_hash == NULL) {
     /* can't tell whether this transfer has completed */
     return AXL_FAILURE;
@@ -43,6 +41,7 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
 
   /* assume we're done, look for a file that says we're not */
   int transfer_complete = 1;
+  int transfer_error = 0;
 
   /* for each file, check whether the WRITTEN field matches the SIZE field,
    * which indicates the file has completed its transfer */
@@ -63,31 +62,49 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
 
     /* lookup the values for the size and bytes written */
     unsigned long size, written;
-    if (kvtree_util_get_bytecount(file_hash, "SIZE",    &size)    != KVTREE_SUCCESS ||
-        kvtree_util_get_bytecount(file_hash, "WRITTEN", &written) != KVTREE_SUCCESS)
+    if (kvtree_util_get_bytecount(file_hash, AXL_TRANSFER_KEY_SIZE,    &size)    != KVTREE_SUCCESS ||
+        kvtree_util_get_bytecount(file_hash, AXL_TRANSFER_KEY_WRITTEN, &written) != KVTREE_SUCCESS)
     {
       transfer_complete = 0;
       continue;
     }
 
+    /* add up number of bytes written */
+    *bytes_total   += (double) size;
+    *bytes_written += (double) written;
+
+    /* check for error message */
+    char* errmsg = NULL;
+    if (kvtree_util_get_str(file_hash, AXL_TRANSFER_KEY_ERROR, &errmsg) == KVTREE_SUCCESS) {
+      /* found an error */
+      transfer_complete = 0;
+      transfer_error = 1;
+
+      /* mark this file as having an error in map */
+      kvtree* src_hash = kvtree_get(map_files, file);
+      kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+      continue;
+    }
+
     /* check whether the number of bytes written is less than the filesize */
     if (written < size) {
+      /* not done with this file yet */
       transfer_complete = 0;
     } else {
-      /* TODO: move this to main axl driver? */
       /* mark this file as being complete in map */
       kvtree* src_hash = kvtree_get(map_files, file);
       kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
     }
-
-    /* add up number of bytes written */
-    *bytes_total   += (double) size;
-    *bytes_written += (double) written;
   }
 
   /* return our decision */
+  if (transfer_error) {
+    /* mark entire transfer as being failed in map,
+     * return SUCCESS to indicate that we're done waiting */
+    kvtree_set_kv_int(map_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+    return AXL_SUCCESS;
+  }
   if (transfer_complete) {
-    /* TODO: move this to main axl driver? */
     /* mark entire transfer as being complete in map */
     kvtree_util_set_int(map_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
     return AXL_SUCCESS;
@@ -177,7 +194,7 @@ int axl_flush_async_stop_daemon()
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_STOP);
 
-  /* wait until all tasks know the transfer is stopped */
+  /* wait until the daemon has stopped */
   axl_async_daemon_state_wait(AXL_TRANSFER_KEY_STATE_STOP);
 
   /* remove the files list from the transfer file */
@@ -195,7 +212,7 @@ int axl_flush_async_start_daemon(kvtree* map, int id)
   /* lookup transfer info for id */
   kvtree* file_list = kvtree_get_kv_int(map, AXL_KEY_HANDLE_UID, id);
 
-  /* add each of my files to the transfer file list */
+  /* add each file to the transfer file list */
   kvtree* transfer_list = kvtree_new();
   kvtree_elem* elem;
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
@@ -264,9 +281,6 @@ int axl_flush_async_start_daemon(kvtree* map, int id)
   /* delete transfer list */
   kvtree_delete(&transfer_list);
 
-  /* TODO: start transfer thread / process */
-
-  /* TODO: want to do this here or up in main axl driver? */
   /* update transfer status as started */
   if (rc == AXL_SUCCESS) {
     kvtree_set_kv_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
@@ -296,8 +310,6 @@ static int axl_async_daemon_complete(kvtree* map, int id)
   if (transfers == NULL) {
     /* set the STOP command */
     kvtree_util_set_str(transfer_hash, AXL_TRANSFER_KEY_COMMAND, AXL_TRANSFER_KEY_COMMAND_STOP);
-
-    /* TODO: wait until it is stopped here? */
   }
 
   /* write the hash back to the file */
@@ -306,7 +318,7 @@ static int axl_async_daemon_complete(kvtree* map, int id)
   /* delete the hash */
   kvtree_delete(&transfer_hash);
 
-  /* TODO: update map to indicate files are done */
+  /* TODO: wait until transfer process is stopped? */
 
   return AXL_SUCCESS;
 }

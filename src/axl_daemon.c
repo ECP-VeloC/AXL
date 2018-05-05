@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "kvtree.h"
 #include "kvtree_util.h"
@@ -99,6 +100,8 @@ static int axl_atod(const char* str, double* val)
   return AXL_SUCCESS;
 }
 
+/* TODO: check for errors here */
+/* close source and destination files if we have them open */
 int close_files(char* src, int* fd_src, char* dst, int* fd_dst)
 {
   /* close the source file, if it's open */
@@ -168,6 +171,12 @@ int need_transfer(kvtree* files, char* src, char** dst, off_t* position, off_t* 
   /* lookup the specified file in the hash */
   kvtree* file_hash = kvtree_get(files, src);
   if (file_hash == NULL) {
+    return AXL_FAILURE;
+  }
+
+  /* skip any files marked as having an error */
+  char* errmsg;
+  if (kvtree_util_get_str(file_hash, AXL_TRANSFER_KEY_ERROR, &errmsg) == KVTREE_SUCCESS) {
     return AXL_FAILURE;
   }
 
@@ -435,7 +444,7 @@ int update_transfer_file(int id, char* src, char* dst, off_t position)
       kvtree* file_hash = kvtree_get_kv(files_hash, AXL_TRANSFER_KEY_FILES, src);
       if (file_hash != NULL) {
         /* update the bytes written field */
-        kvtree_util_set_bytecount(file_hash, "WRITTEN", (uint64_t) position);
+        kvtree_util_set_bytecount(file_hash, AXL_TRANSFER_KEY_WRITTEN, (uint64_t) position);
       }
     }
 
@@ -445,6 +454,67 @@ int update_transfer_file(int id, char* src, char* dst, off_t position)
 
   /* free the hash */
   kvtree_delete(&hash);
+
+  return AXL_SUCCESS;
+}
+
+/* write error message to source file in transfer file */
+int update_transfer_file_err(int id, char* src, const char* format, ...)
+{
+  va_list args;
+  char* str = NULL;
+
+  /* check that we have a format string */
+  if (format == NULL) {
+    return NULL;
+  }
+
+  /* compute the size of the string we need to allocate */
+  va_start(args, format);
+  int size = vsnprintf(NULL, 0, format, args) + 1;
+  va_end(args);
+
+  /* allocate and print the string */
+  if (size > 0) {
+    str = (char*) malloc(size);
+
+    /* create formatted string */
+    va_start(args, format);
+    vsnprintf(str, size, format, args);
+    va_end(args);
+  }
+
+  /* get pointer to error message string */
+  char* errmsg = "Unknown error";
+  if (str != NULL) {
+    errmsg = str;
+  }
+
+  /* create a hash to store data from file */
+  kvtree* hash = kvtree_new();
+
+  /* attempt to open transfer file with lock,
+   * if we fail to open the file, don't bother writing to it */
+  int fd = -1;
+  if (kvtree_lock_open_read(axl_transfer_file, &fd, hash) == KVTREE_SUCCESS) {
+    /* search for the source file, and update the bytes written if found */
+    if (src != NULL) {
+      kvtree* files_hash = kvtree_get_kv_int(hash, AXL_TRANSFER_KEY_ID, id);
+      kvtree* file_hash = kvtree_get_kv(files_hash, AXL_TRANSFER_KEY_FILES, src);
+      if (file_hash != NULL) {
+        /* update the error field */
+        kvtree_util_set_str(file_hash, AXL_TRANSFER_KEY_ERROR, errmsg);
+      }
+    }
+
+    /* close the transfer file and release the lock */
+    kvtree_write_close_unlock(axl_transfer_file, &fd, hash);
+  }
+
+  /* free the hash */
+  kvtree_delete(&hash);
+
+  axl_free(&str);
 
   return AXL_SUCCESS;
 }
@@ -673,6 +743,9 @@ int main (int argc, char *argv[])
       off_t filesize = 0;
       find_file(hash, &new_id, &new_file_src, &new_file_dst, &new_position, &filesize);
 
+      /* we'll stop if we detect an error */
+      int error = 0;
+
       /* if we got a new file, close the old one (if open),
        * open the new file */
       if (bool_diff_files(new_id, old_id, new_file_src, old_file_src)) {
@@ -691,7 +764,13 @@ int main (int argc, char *argv[])
         /* open the file and remember the filename if we have one */
         if (new_file_src != NULL) {
           fd_src = axl_open(new_file_src, O_RDONLY);
-          /* TODO: check for errors here */
+          if (fd_src == -1) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to open: %s: %s",
+              new_file_src, strerror(errno)
+            );
+            error = 1;
+          }
+
           old_file_src = strdup(new_file_src);
           /* TODO: check for errors here */
         }
@@ -715,7 +794,13 @@ int main (int argc, char *argv[])
         /* open the file and remember the filename if we have one */
         if (new_file_dst != NULL) {
           fd_dst = axl_open(new_file_dst, O_RDWR | O_CREAT, mode_file);
-          /* TODO: check for errors here */
+          if (fd_dst == -1) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to open: %s: %s",
+              new_file_dst, strerror(errno)
+            );
+            error = 1;
+          }
+
           old_file_dst = strdup(new_file_dst);
           /* TODO: check for errors here */
         }
@@ -728,13 +813,21 @@ int main (int argc, char *argv[])
        * (may need to seek) */
       if (new_position != old_position) {
         if (fd_src >= 0) {
-          lseek(fd_src, new_position, SEEK_SET);
-          /* TODO: check for errors here */
+          if (lseek(fd_src, new_position, SEEK_SET) == (off_t)-1) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to seek to byte %llu: %s: %s",
+              (unsigned long long) new_position, new_file_src, strerror(errno)
+            );
+            error = 1;
+          }
         }
 
         if (fd_dst >= 0) {
-          lseek(fd_dst, new_position, SEEK_SET);
-          /* TODO: check for errors here */
+          if (lseek(fd_dst, new_position, SEEK_SET) == (off_t)-1) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to seek to byte %llu: %s: %s",
+              (unsigned long long) new_position, new_file_dst, strerror(errno)
+            );
+            error = 1;
+          }
         }
 
         /* remember the new position */
@@ -753,22 +846,49 @@ int main (int argc, char *argv[])
 
         /* read a chunk */
         nread = axl_read(new_file_src, fd_src, buf, count);
+        if (nread < 0) {
+          update_transfer_file_err(new_id, new_file_src, "Failed to read from byte %llu: %s: %s",
+            (unsigned long long) new_position, new_file_src, strerror(errno)
+          );
+          error = 1;
+        }
 
         /* if we read data, write it out */
         if (nread > 0) {
           /* record the time of our write */
           secs_last_write = axl_seconds();
 
-          /* write the chunk and force it out with an fsync */
-          axl_write_attempt(new_file_dst, fd_dst, buf, nread);
-          fsync(fd_dst);
+          /* write the chunk */
+          size_t nwrite = axl_write_attempt(new_file_dst, fd_dst, buf, nread);
+          if (nwrite < 0) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to write to byte %llu: %s: %s",
+              (unsigned long long) new_position, new_file_dst, strerror(errno)
+            );
+            error = 1;
+          } else if (nwrite < nread) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to write to byte %llu: %s",
+              (unsigned long long) new_position, new_file_dst
+            );
+            error = 1;
+          }
 
-          /* update our position */
-          new_position += (off_t) nread;
-          old_position = new_position;
+          /* flush bytes to disk with fsync */
+          if (fsync(fd_dst) < 0) {
+            update_transfer_file_err(new_id, new_file_src, "Failed to fsync at byte %llu: %s: %s",
+              (unsigned long long) new_position, new_file_dst, strerror(errno)
+            );
+            error = 1;
+          }
 
-          /* record the updated position in the transfer file */
-          update_transfer_file(new_id, new_file_src, new_file_dst, new_position);
+          /* if there was no error during write, update status on this file */
+          if (! error) {
+            /* update our position */
+            new_position += (off_t) nread;
+            old_position = new_position;
+
+            /* record the updated position in the transfer file */
+            update_transfer_file(new_id, new_file_src, new_file_dst, new_position);
+          }
         }
 
         /* if we've written all of the bytes, close the files */
@@ -787,6 +907,12 @@ int main (int argc, char *argv[])
           state = STOPPED;
           set_transfer_file_state(AXL_TRANSFER_KEY_STATE_STOP, 1);
         }
+      }
+
+      /* stop if we found an error */
+      if (error) {
+        state = STOPPED;
+        set_transfer_file_state(AXL_TRANSFER_KEY_STATE_STOP, 1);
       }
     }
   }
