@@ -7,7 +7,6 @@
 #define AXL_SUCCESS (0)
 #define AXL_FAILURE (-1)
 
-extern char* axl_transfer_file;
 extern char* axl_flush_file;
 
 /* AXL internal data structure
