@@ -236,7 +236,15 @@ int axl_flush_async_start_daemon(kvtree* map, int id)
      /* get the file size */
      unsigned long filesize = axl_file_size(file);
 
-     /* add this file and its filesize to the list */
+     /* add this file and its filesize to the list
+      * ID
+      *   id
+      *     FILES
+      *       /path/to/file
+      *         SIZE
+      *           filesize
+      *         WRITTEN
+      *           0 */
      kvtree* transfer_id_hash = kvtree_set_kv_int(transfer_list, AXL_TRANSFER_KEY_ID, id);
      kvtree* transfer_file_hash = kvtree_set_kv(transfer_id_hash, AXL_TRANSFER_KEY_FILES, file);
      kvtree_util_set_str(transfer_file_hash, AXL_TRANSFER_KEY_DESTINATION, dest_file);
