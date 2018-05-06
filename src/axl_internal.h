@@ -12,14 +12,14 @@ extern char* axl_flush_file;
 /* AXL internal data structure
  * this structure is accessed by the each transfer interface
  * any changes of the existing structure must be documented */
-extern kvtree* axl_flush_async_file_lists;
+extern kvtree* axl_file_lists;
 
 /* "KEYS" */
 #define AXL_KEY_HANDLE_UID ("handle_uid")
 #define AXL_KEY_UNAME ("uname")
 #define AXL_KEY_XFER_TYPE_STR ("xfer_type_string")
 #define AXL_KEY_XFER_TYPE_INT ("xfer_type_enum")
-#define AXL_KEY_FLUSH_STATUS ("flush_status")
+#define AXL_KEY_FLUSH_STATUS ("status")
 #define AXL_KEY_FILES ("files")
 #define AXL_KEY_FILE_DEST ("file_dest")
 #define AXL_KEY_FILE_STATUS ("file_status")

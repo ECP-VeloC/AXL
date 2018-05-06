@@ -13,8 +13,8 @@ int axl_async_start_datawarp(int id){
   /* For each file figure out where it goes */
   kvtree_elem* elem;
 
-  /* Record that we started flushing this file list */
-  kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+  /* Record that we started transfer of this file list */
+  kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
   kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
   /* iterate over files */
@@ -61,7 +61,7 @@ int axl_async_stop_datawarp(int id){
   kvtree_elem* elem;
 
   /* iterate over files */
-  kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+  kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
@@ -74,7 +74,7 @@ int axl_async_stop_datawarp(int id){
     kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_SOURCE);
   }
 
-  /* mark full file list as not flushed */
+  /* mark full file list as not transfered */
   kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
   return AXL_SUCCESS;
 #endif
@@ -98,7 +98,7 @@ int axl_async_test_datawarp(int id){
   int test_failed;
 
   /* iterate over files */
-  kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+  kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
@@ -143,16 +143,16 @@ int axl_async_test_datawarp(int id){
     }
   }
 
-  int flush_status = AXL_FLUSH_STATUS_DEST;
+  int status = AXL_FLUSH_STATUS_DEST;
   if(failed != 0){
-    flush_status = AXL_FLUSH_STATUS_ERROR;
+    status = AXL_FLUSH_STATUS_ERROR;
   }else if(pending != 0 || deferred != 0){
     transfer_complete = 0;
-    flush_status = AXL_FLUSH_STATUS_INPROG
+    status = AXL_FLUSH_STATUS_INPROG
   }
 
-  /* record the flush status */
-  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, flush_status);
+  /* record the transfer status */
+  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
 
   if(transfer_complete){
     return AXL_SUCCESS
@@ -169,7 +169,7 @@ int axl_async_wait_datawarp(int id){
   int dw_wait = 0;
 
   /* iterate over files */
-  kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+  kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
   for (elem = kvtree_elem_first(files);
        elem != NULL;
@@ -202,7 +202,7 @@ int axl_async_wait_datawarp(int id){
     }
   }
 
-  /* record flush complete */
+  /* record transfer complete */
   kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
   return AXL_SUCCESS;
 #else

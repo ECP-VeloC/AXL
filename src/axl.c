@@ -41,8 +41,8 @@ char* axl_flush_file = NULL;
 /* Transfer handle unique IDs */
 static int axl_next_handle_UID = -1;
 
-/* tracks list of files written with flush */
-kvtree* axl_flush_async_file_lists = NULL;
+/* tracks list of files written with transfer */
+kvtree* axl_file_lists = NULL;
 
 /*
 =========================================
@@ -73,7 +73,7 @@ API Functions
 int AXL_Init (const char* conf_file)
 {
     axl_next_handle_UID = 0;
-    axl_flush_async_file_lists = kvtree_new();
+    axl_file_lists = kvtree_new();
 
     char* axl_cntl_dir = NULL;
     axl_read_config(&axl_cntl_dir);
@@ -87,8 +87,8 @@ int AXL_Init (const char* conf_file)
     axl_free(&axl_cntl_dir);
 
 #ifdef HAVE_DAEMON
-    char axl_flush_async_daemon_file[] = "/dev/shm/axld";
-    return axl_async_init_daemon(axl_flush_async_daemon_file);
+    char axl_async_daemon_file[] = "/dev/shm/axld";
+    return axl_async_init_daemon(axl_async_daemon_file);
 #endif
 #ifdef HAVE_BBAPI
     return axl_async_init_bbapi();
@@ -142,7 +142,7 @@ int AXL_Create (const char* type, const char* name)
      *       type_enum
      *     STATUS
      *       SOURCE */
-    kvtree* file_list = kvtree_set_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_set_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
@@ -175,7 +175,7 @@ int AXL_Create (const char* type, const char* name)
 int AXL_Add (int id, const char* source, const char* destination)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Add failed: could not find fileset for UID %d", id);
         return AXL_FAILURE;
@@ -225,7 +225,7 @@ int AXL_Add (int id, const char* source, const char* destination)
 int AXL_Dispatch (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Dispatch failed: could not find fileset for UID %d", id);
         return AXL_FAILURE;
@@ -275,7 +275,7 @@ int AXL_Dispatch (int id)
         return axl_sync_start(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_async_start_daemon(axl_flush_async_file_lists, id);
+        return axl_async_start_daemon(axl_file_lists, id);
 #endif
     case AXL_XFER_ASYNC_DW:
         return axl_async_start_datawarp(id);
@@ -297,7 +297,7 @@ int AXL_Dispatch (int id)
 int AXL_Test(int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Test failed: could not find fileset UID=%d", id);
         return AXL_FAILURE;
@@ -325,7 +325,7 @@ int AXL_Test(int id)
         return axl_sync_test(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_async_test_daemon(axl_flush_async_file_lists, id, &bytes_total, &bytes_written);
+        return axl_async_test_daemon(axl_file_lists, id, &bytes_total, &bytes_written);
 #endif
     case AXL_XFER_ASYNC_DW:
         return axl_async_test_datawarp(id);
@@ -347,7 +347,7 @@ int AXL_Test(int id)
 int AXL_Wait (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
         axl_err("AXL_Wait failed: could not find fileset UID=%d", id);
         return AXL_FAILURE;
@@ -376,7 +376,7 @@ int AXL_Wait (int id)
         return axl_sync_wait(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_async_wait_daemon(axl_flush_async_file_lists, id);
+        return axl_async_wait_daemon(axl_file_lists, id);
 #endif
     case AXL_XFER_ASYNC_DW:
         return axl_async_wait_datawarp(id);

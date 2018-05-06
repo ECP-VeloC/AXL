@@ -46,7 +46,7 @@ int axl_async_finalize_bbapi(void) {
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_util_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_util_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
 
     BBTransferDef_t *tdef;
     BBTransferHandle_t thandle;
@@ -65,7 +65,7 @@ int axl_async_create_bbapi(int id) {
  * Adds file source/destination to BBTransferDef */
 int axl_async_add_bbapi (int id, const char* source, const char* destination) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_util_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_util_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
 
     BBTransferDef_t *tdef;
     kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
@@ -81,7 +81,7 @@ int axl_async_add_bbapi (int id, const char* source, const char* destination) {
  * Assumes that mkdirs have already happened */
 int axl_async_start_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
     /* Pull BB-Def and BB-Handle out of global var */
@@ -119,7 +119,7 @@ int axl_async_start_bbapi (int id) {
 
 int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
 
     /* Get the BB-Handle to query the status */
     BB_TransferHandle thandle;
@@ -161,13 +161,13 @@ int axl_async_test_bbapi (int id) {
 
 int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
     int status = AXL_FLUSH_STATUS_INPROG;
 
     /* Sleep until test changes set status */
     int rc;
     while (status == AXL_FLUSH_STATUS_INPROG) {
-        rc = axl_flush_async_test_bbapi(id);
+        rc = axl_async_test_bbapi(id);
         kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
         usleep(10*1000*1000);
     }
