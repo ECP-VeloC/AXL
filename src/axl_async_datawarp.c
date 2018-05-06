@@ -15,7 +15,7 @@ int axl_async_start_datawarp(int id){
 
   /* Record that we started transfer of this file list */
   kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
-  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
+  kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
   /* iterate over files */
   kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
@@ -42,7 +42,7 @@ int axl_async_start_datawarp(int id){
     }
 
     /* record that the file is in progress */
-    kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_INPROG);
+    kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
   }
   return AXL_SUCCESS;
 #endif
@@ -71,11 +71,11 @@ int axl_async_stop_datawarp(int id){
     dw_terminate_file_stage(file);
 
     kvtree* elem_hash = kvtree_elem_hash(elem);
-    kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_SOURCE);
+    kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_SOURCE);
   }
 
   /* mark full file list as not transfered */
-  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
+  kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
   return AXL_SUCCESS;
 #endif
   return AXL_FAILURE;
@@ -109,9 +109,9 @@ int axl_async_test_datawarp(int id){
     kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
 
     switch(status){
-    case AXL_FLUSH_STATUS_DEST:
+    case AXL_STATUS_DEST:
       break;
-    case AXL_FLUSH_STATUS_INPROG:
+    case AXL_STATUS_INPROG:
       char* file = kvtree_elem_key(elem);
       int test = dw_query_file_stage(file, &test_complete, &test_pending, &test_deferred,
                                      &test_failed);
@@ -121,11 +121,11 @@ int axl_async_test_datawarp(int id){
         deferred += test_deferred;
         failed += test_failed;
 
-        int file_status = AXL_FLUSH_STATUS_INPROG;
+        int file_status = AXL_STATUS_INPROG;
         if(test_failed){
-          file_status = AXL_FLUSH_STATUS_ERROR;
+          file_status = AXL_STATUS_ERROR;
         }else if(test_complete){
-          file_status = AXL_FLUSH_STATUS_DEST;
+          file_status = AXL_STATUS_DEST;
         }
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, file_status);
       }else{
@@ -134,8 +134,8 @@ int axl_async_test_datawarp(int id){
           );
       }
       break;
-    case AXL_FLUSH_STATUS_ERROR:
-    case AXL_FLUSH_STATUS_SOURCE:
+    case AXL_STATUS_ERROR:
+    case AXL_STATUS_SOURCE:
     default:
       axl_abort(-1, "Wait called on file with invalid status @ %s:%d",
                 __FILE__, __LINE__
@@ -143,16 +143,16 @@ int axl_async_test_datawarp(int id){
     }
   }
 
-  int status = AXL_FLUSH_STATUS_DEST;
+  int status = AXL_STATUS_DEST;
   if(failed != 0){
-    status = AXL_FLUSH_STATUS_ERROR;
+    status = AXL_STATUS_ERROR;
   }else if(pending != 0 || deferred != 0){
     transfer_complete = 0;
-    status = AXL_FLUSH_STATUS_INPROG
+    status = AXL_STATUS_INPROG
   }
 
   /* record the transfer status */
-  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
+  kvtree_util_set_int(file_list, AXL_KEY_STATUS, status);
 
   if(transfer_complete){
     return AXL_SUCCESS
@@ -180,9 +180,9 @@ int axl_async_wait_datawarp(int id){
     kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
 
     switch(status){
-    case AXL_FLUSH_STATUS_DEST:
+    case AXL_STATUS_DEST:
       break;
-    case AXL_FLUSH_STATUS_INPROG:
+    case AXL_STATUS_INPROG:
       /* Do the wait on each file */
       char* file = kvtree_elem_key(elem);
       dw_wait = dw_wait_file_stage(file);
@@ -191,10 +191,10 @@ int axl_async_wait_datawarp(int id){
                   -dw_wait, __FILE__, __LINE__
           );
       }
-      kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_DEST);
+      kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_DEST);
       break;
-    case AXL_FLUSH_STATUS_SOURCE:
-    case AXL_FLUSH_STATUS_ERROR:
+    case AXL_STATUS_SOURCE:
+    case AXL_STATUS_ERROR:
     default:
       axl_abort(-1, "Wait operation called on file with invalid status @ %s:%d",
                 __FILE__, __LINE__
@@ -203,7 +203,7 @@ int axl_async_wait_datawarp(int id){
   }
 
   /* record transfer complete */
-  kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
+  kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
   return AXL_SUCCESS;
 #else
   return AXL_FAILURE;

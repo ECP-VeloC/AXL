@@ -11,7 +11,7 @@ int axl_sync_start (int id)
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* mark dataset as in progress */
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
+    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
     /* transfer each of my files and fill in summary data structure */
     kvtree_elem* elem = NULL;
@@ -26,7 +26,7 @@ int axl_sync_start (int id)
         /* WEIRD case: we've restarted a sync transfer that was going */
         int status;
         kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
-        if (status == AXL_FLUSH_STATUS_DEST) {
+        if (status == AXL_STATUS_DEST) {
             /* this file was already transfered */
             continue;
         }
@@ -36,9 +36,9 @@ int axl_sync_start (int id)
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
         int tmp_rc = axl_file_copy(source, destination, axl_file_buf_size, NULL);
         if (tmp_rc == AXL_SUCCESS) {
-            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_DEST);
+            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_DEST);
         } else {
-            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_ERROR);
+            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_ERROR);
             rc = AXL_FAILURE;
         }
         axl_dbg(2, "axl_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
@@ -48,9 +48,9 @@ int axl_sync_start (int id)
 
     /* mark this id as either done or error */
     if (rc == AXL_SUCCESS) {
-        kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
     } else {
-        kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
     }
 
     return rc;
@@ -70,8 +70,8 @@ int axl_sync_wait (int id)
 
     /* determine whether transfer was successful */
     int status;
-    if (kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status) == KVTREE_SUCCESS) {
-        if (status == AXL_FLUSH_STATUS_DEST) {
+    if (kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status) == KVTREE_SUCCESS) {
+        if (status == AXL_STATUS_DEST) {
             /* explicitly marked as done */
             return AXL_SUCCESS;
         }

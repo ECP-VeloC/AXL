@@ -82,7 +82,7 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
 
       /* mark this file as having an error in map */
       kvtree* src_hash = kvtree_get(map_files, file);
-      kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+      kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_ERROR);
       continue;
     }
 
@@ -93,7 +93,7 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
     } else {
       /* mark this file as being complete in map */
       kvtree* src_hash = kvtree_get(map_files, file);
-      kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
+      kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_DEST);
     }
   }
 
@@ -101,12 +101,12 @@ static int axl_async_daemon_file_test(kvtree* map, int id, const kvtree* transfe
   if (transfer_error) {
     /* mark entire transfer as being failed in map,
      * return SUCCESS to indicate that we're done waiting */
-    kvtree_set_kv_int(map_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+    kvtree_set_kv_int(map_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
     return AXL_SUCCESS;
   }
   if (transfer_complete) {
     /* mark entire transfer as being complete in map */
-    kvtree_util_set_int(map_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
+    kvtree_util_set_int(map_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
     return AXL_SUCCESS;
   }
   return AXL_FAILURE;
@@ -291,9 +291,9 @@ int axl_async_start_daemon(kvtree* map, int id)
 
   /* update transfer status as started */
   if (rc == AXL_SUCCESS) {
-    kvtree_set_kv_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
+    kvtree_set_kv_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
   } else {
-    kvtree_set_kv_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+    kvtree_set_kv_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
   }
 
   return rc;
