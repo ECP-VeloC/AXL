@@ -13,9 +13,9 @@
  * The axl_transfer program is a deamon process that AXL launches as
  * one process per compute node.  It sleeps in the background, waking
  * periodically to read the transfer.scrinfo file from cache, which
- * the library will fill with info regarding asynchronous flushes.
+ * the library will fill with info regarding asynchronous transfers.
  * When it detects a START flag in this file, it slowly copies files
- * from cache to the parallel file system.
+ * from source to destination.
 */
 
 #include <stdio.h>

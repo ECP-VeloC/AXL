@@ -1,19 +1,19 @@
 #include "axl_internal.h"
 #include "kvtree_util.h"
 
-/* synchonous flush of files */
+/* synchonous transfer of files */
 int axl_sync_start (int id)
 {
     /* assume we'll succeed */
-    int flushed = AXL_SUCCESS;
+    int rc = AXL_SUCCESS;
 
     /* get pointer to file list for this dataset */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* mark dataset as in progress */
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
-    /* flush each of my files and fill in summary data structure */
+    /* transfer each of my files and fill in summary data structure */
     kvtree_elem* elem = NULL;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
@@ -23,11 +23,11 @@ int axl_sync_start (int id)
         /* get the hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
 
-        /* WEIRD case: we've restarted a sync flush that was going */
+        /* WEIRD case: we've restarted a sync transfer that was going */
         int status;
         kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
         if (status == AXL_FLUSH_STATUS_DEST) {
-            /* this file was already flushed */
+            /* this file was already transfered */
             continue;
         }
 
@@ -39,20 +39,21 @@ int axl_sync_start (int id)
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_DEST);
         } else {
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_ERROR);
-            flushed = AXL_FAILURE;
+            rc = AXL_FAILURE;
         }
         axl_dbg(2, "axl_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
                 source, destination, tmp_rc, __FILE__, __LINE__
                 );
     }
 
-    if (flushed == AXL_SUCCESS) {
+    /* mark this id as either done or error */
+    if (rc == AXL_SUCCESS) {
         kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
     } else {
         kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
     }
 
-    return flushed;
+    return rc;
 }
 
 int axl_sync_test (int id)
@@ -65,14 +66,17 @@ int axl_sync_test (int id)
 int axl_sync_wait (int id)
 {
     /* get pointer to file list for this dataset */
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
-    /* determine whether flush was successful */
+    /* determine whether transfer was successful */
     int status;
     if (kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status) == KVTREE_SUCCESS) {
         if (status == AXL_FLUSH_STATUS_DEST) {
+            /* explicitly marked as done */
             return AXL_SUCCESS;
         }
     }
+
+    /* otherwise, assume we failed */
     return AXL_FAILURE;
 }
