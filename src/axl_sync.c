@@ -2,7 +2,7 @@
 #include "kvtree_util.h"
 
 /* synchonous flush of files */
-int axl_flush_sync_start (int id)
+int axl_sync_start (int id)
 {
     /* assume we'll succeed */
     int flushed = AXL_SUCCESS;
@@ -41,7 +41,7 @@ int axl_flush_sync_start (int id)
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_ERROR);
             flushed = AXL_FAILURE;
         }
-        axl_dbg(2, "axl_flush_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
+        axl_dbg(2, "axl_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
                 source, destination, tmp_rc, __FILE__, __LINE__
                 );
     }
@@ -55,14 +55,14 @@ int axl_flush_sync_start (int id)
     return flushed;
 }
 
-int axl_flush_sync_test (int id)
+int axl_sync_test (int id)
 {
     /* since everything completed during start,
      * we're done */
     return AXL_SUCCESS;
 }
 
-int axl_flush_sync_wait (int id)
+int axl_sync_wait (int id)
 {
     /* get pointer to file list for this dataset */
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);

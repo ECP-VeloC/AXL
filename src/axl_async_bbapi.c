@@ -22,7 +22,7 @@ static int bb_check(int rc) {
 #endif
 
 /* Called from AXL_Init */
-int axl_flush_async_init_bbapi(void) {
+int axl_async_init_bbapi(void) {
 #ifdef HAVE_BBAPI
     // TODO: BBAPI wants MPI rank information here?
     int rank = 0;
@@ -33,7 +33,7 @@ int axl_flush_async_init_bbapi(void) {
 }
 
 /* Called from AXL_Finalize */
-int axl_flush_async_finalize_bbapi(void) {
+int axl_async_finalize_bbapi(void) {
 #ifdef HAVE_BBAPI
     int rc = BB_TerminateLibrary();
     return bb_check(rc);
@@ -44,7 +44,7 @@ int axl_flush_async_finalize_bbapi(void) {
 
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
-int axl_flush_async_create_bbapi(int id) {
+int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_util_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
 
@@ -63,7 +63,7 @@ int axl_flush_async_create_bbapi(int id) {
 
 /* Called from AXL_Add
  * Adds file source/destination to BBTransferDef */
-int axl_flush_async_add_bbapi (int id, const char* source, const char* destination) {
+int axl_async_add_bbapi (int id, const char* source, const char* destination) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_util_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
 
@@ -79,7 +79,7 @@ int axl_flush_async_add_bbapi (int id, const char* source, const char* destinati
 /* Called from AXL_Dispatch
  * Start the transfer, mark all files & set as INPROG
  * Assumes that mkdirs have already happened */
-int axl_flush_async_start_bbapi (int id) {
+int axl_async_start_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
@@ -117,7 +117,7 @@ int axl_flush_async_start_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_flush_async_test_bbapi (int id) {
+int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
 
@@ -159,7 +159,7 @@ int axl_flush_async_test_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_flush_async_wait_bbapi (int id) {
+int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_HANDLE_UID, id);
     int status = AXL_FLUSH_STATUS_INPROG;
@@ -181,7 +181,7 @@ int axl_flush_async_wait_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_flush_async_stop_bbapi (int id) {
+int axl_async_stop_bbapi (int id) {
 #ifdef HAVE_BBAPI
     // TODO: implement
     return AXL_SUCCESS;
@@ -189,7 +189,7 @@ int axl_flush_async_stop_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_flush_async_complete_bbapi (int id) {
+int axl_async_complete_bbapi (int id) {
 #ifdef HAVE_BBAPI
     // TODO: implement
     return AXL_SUCCESS;
