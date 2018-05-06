@@ -72,6 +72,8 @@ API Functions
   Also, start up vendor specific services */
 int AXL_Init (const char* conf_file)
 {
+    int rc = AXL_SUCCESS;
+
     axl_next_handle_UID = 0;
     axl_file_lists = kvtree_new();
 
@@ -88,34 +90,48 @@ int AXL_Init (const char* conf_file)
 
 #ifdef HAVE_DAEMON
     char axl_async_daemon_file[] = "/dev/shm/axld";
-    return axl_async_init_daemon(axl_async_daemon_file);
+    if (axl_async_init_daemon(axl_async_daemon_file) != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 #ifdef HAVE_BBAPI
-    return axl_async_init_bbapi();
+    if (axl_async_init_bbapi() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 #ifdef HAVE_LIBCPPR
-    return axl_async_init_cppr();
+    if (axl_async_init_cppr() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 
-    return AXL_SUCCESS;
+    return rc;
 }
 
 /* Shutdown any vendor services */
 int AXL_Finalize (void)
 {
+    int rc = AXL_SUCCESS;
+
 /*    axl_file_unlink(axl_flush_file); */
 
 #ifdef HAVE_DAEMON
-    return axl_async_finalize_daemon();
+    if (axl_async_finalize_daemon() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 #ifdef HAVE_BBAPI
-    return axl_async_finalize_bbapi();
+    if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 #ifdef HAVE_LIBCPPR
-    return axl_async_finalize_cppr();
+    if (axl_async_finalize_cppr() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
 #endif
 
-    return AXL_SUCCESS;
+    return rc;
 }
 
 /* Create a transfer handle (used for 0+ files)
