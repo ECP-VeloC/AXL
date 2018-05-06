@@ -2,17 +2,21 @@
 #include "kvtree_util.h"
 
 /* synchonous flush of files */
-int axl_flush_sync_start (int id) {
-
-    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
-
+int axl_flush_sync_start (int id)
+{
+    /* assume we'll succeed */
     int flushed = AXL_SUCCESS;
+
+    /* get pointer to file list for this dataset */
+    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+
+    /* mark dataset as in progress */
+    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
 
     /* flush each of my files and fill in summary data structure */
     kvtree_elem* elem = NULL;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)){
+    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
         /* get the filename */
         char* source = kvtree_elem_key(elem);
 
@@ -51,12 +55,24 @@ int axl_flush_sync_start (int id) {
     return flushed;
 }
 
-int axl_flush_sync_test (int id) {
-    // something when really wrong, but let's just keep flushing
-    return axl_flush_sync_start(id);
+int axl_flush_sync_test (int id)
+{
+    /* since everything completed during start,
+     * we're done */
+    return AXL_SUCCESS;
 }
 
-int axl_flush_sync_wait (int id) {
-    // something when really wrong, but let's just keep flushing
-    return axl_flush_sync_start(id);
+int axl_flush_sync_wait (int id)
+{
+    /* get pointer to file list for this dataset */
+    kvtree* file_list = kvtree_get_kv_int(axl_flush_async_file_lists, AXL_KEY_HANDLE_UID, id);
+
+    /* determine whether flush was successful */
+    int status;
+    if (kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status) == KVTREE_SUCCESS) {
+        if (status == AXL_FLUSH_STATUS_DEST) {
+            return AXL_SUCCESS;
+        }
+    }
+    return AXL_FAILURE;
 }

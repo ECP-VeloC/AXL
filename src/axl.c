@@ -322,7 +322,6 @@ int AXL_Test(int id)
     double bytes_total, bytes_written;
     switch (xtype) {
     case AXL_XFER_SYNC:
-        /* Weird case: sync was on going */
         return axl_flush_sync_test(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
@@ -374,7 +373,6 @@ int AXL_Wait (int id)
     /* if not done, call vendor API to wait */
     switch (xtype) {
     case AXL_XFER_SYNC:
-        /* Weird case: sync was on going */
         return axl_flush_sync_wait(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
