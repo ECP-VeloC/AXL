@@ -189,7 +189,7 @@ static int axl_async_daemon_file_clear_all()
 }
 
 /* cancel all ongoing asynchronous transfer operations */
-int axl_flush_async_stop_daemon()
+int axl_async_stop_daemon()
 {
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_STOP);
@@ -204,7 +204,7 @@ int axl_flush_async_stop_daemon()
 }
 
 /* start an asynchronous transfer */
-int axl_flush_async_start_daemon(kvtree* map, int id)
+int axl_async_start_daemon(kvtree* map, int id)
 {
   /* assume success */
   int rc = AXL_SUCCESS;
@@ -332,7 +332,7 @@ static int axl_async_daemon_complete(kvtree* map, int id)
 }
 
 /* check whether the specified transfer id has completed */
-int axl_flush_async_test_daemon(kvtree* map, int id, double* bytes_total, double* bytes_written)
+int axl_async_test_daemon(kvtree* map, int id, double* bytes_total, double* bytes_written)
 {
   /* initialize bytes to 0 */
   *bytes_total = 0.0;
@@ -365,14 +365,14 @@ int axl_flush_async_test_daemon(kvtree* map, int id, double* bytes_total, double
 }
 
 /* wait until the specified id completes */
-int axl_flush_async_wait_daemon(kvtree* map, int id)
+int axl_async_wait_daemon(kvtree* map, int id)
 {
   /* keep testing until it's done */
   int done = 0;
   while (! done) {
     /* test whether the transfer has completed, and if so complete the transfer */
     double bytes_total, bytes_written;
-    if (axl_flush_async_test_daemon(map, id, &bytes_total, &bytes_written) == AXL_SUCCESS) {
+    if (axl_async_test_daemon(map, id, &bytes_total, &bytes_written) == AXL_SUCCESS) {
       /* complete the transfer */
       axl_async_daemon_complete(map, id);
       done = 1;
@@ -385,7 +385,7 @@ int axl_flush_async_wait_daemon(kvtree* map, int id)
 }
 
 /* start process for transfer operations */
-int axl_flush_async_init_daemon(const char* transfer_file)
+int axl_async_init_daemon(const char* transfer_file)
 {
   /* copy name for transfer file */
   axl_async_daemon_file = strdup(transfer_file);
@@ -398,7 +398,7 @@ int axl_flush_async_init_daemon(const char* transfer_file)
 }
 
 /* stop all ongoing transfer operations, wait for daemon process to exit */
-int axl_flush_async_finalize_daemon()
+int axl_async_finalize_daemon()
 {
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_EXIT);

@@ -88,13 +88,13 @@ int AXL_Init (const char* conf_file)
 
 #ifdef HAVE_DAEMON
     char axl_flush_async_daemon_file[] = "/dev/shm/axld";
-    return axl_flush_async_init_daemon(axl_flush_async_daemon_file);
+    return axl_async_init_daemon(axl_flush_async_daemon_file);
 #endif
 #ifdef HAVE_BBAPI
-    return axl_flush_async_init_bbapi();
+    return axl_async_init_bbapi();
 #endif
 #ifdef HAVE_LIBCPPR
-    return axl_flush_async_init_cppr();
+    return axl_async_init_cppr();
 #endif
 
     return AXL_SUCCESS;
@@ -106,13 +106,13 @@ int AXL_Finalize (void)
 /*    axl_file_unlink(axl_flush_file); */
 
 #ifdef HAVE_DAEMON
-    return axl_flush_async_finalize_daemon();
+    return axl_async_finalize_daemon();
 #endif
 #ifdef HAVE_BBAPI
-    return axl_flush_async_finalize_bbapi();
+    return axl_async_finalize_bbapi();
 #endif
 #ifdef HAVE_LIBCPPR
-    return axl_flush_async_finalize_cppr();
+    return axl_async_finalize_cppr();
 #endif
 
     return AXL_SUCCESS;
@@ -159,7 +159,7 @@ int AXL_Create (const char* type, const char* name)
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        axl_flush_async_create_bbapi(id);
+        axl_async_create_bbapi(id);
         break;
     case AXL_XFER_ASYNC_CPPR:
         break;
@@ -210,7 +210,7 @@ int AXL_Add (int id, const char* source, const char* destination)
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_add_bbapi(id, source, destination);
+        return axl_async_add_bbapi(id, source, destination);
     case AXL_XFER_ASYNC_CPPR:
         break;
     default:
@@ -272,17 +272,17 @@ int AXL_Dispatch (int id)
      * all well as AXL_KEY_FILE_STATUS for each file */
     switch (xtype) {
     case AXL_XFER_SYNC:
-        return axl_flush_sync_start(id);
+        return axl_sync_start(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_start_daemon(axl_flush_async_file_lists, id);
+        return axl_async_start_daemon(axl_flush_async_file_lists, id);
 #endif
     case AXL_XFER_ASYNC_DW:
-        return axl_flush_async_start_datawarp(id);
+        return axl_async_start_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_start_bbapi(id);
+        return axl_async_start_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_start_cppr(id); */
+        return axl_async_start_cppr(id); */
     default:
         axl_err("AXL_Dispatch failed: unknown transfer type (%d)", (int) xtype);
         break;
@@ -322,17 +322,17 @@ int AXL_Test(int id)
     double bytes_total, bytes_written;
     switch (xtype) {
     case AXL_XFER_SYNC:
-        return axl_flush_sync_test(id);
+        return axl_sync_test(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_test_daemon(axl_flush_async_file_lists, id, &bytes_total, &bytes_written);
+        return axl_async_test_daemon(axl_flush_async_file_lists, id, &bytes_total, &bytes_written);
 #endif
     case AXL_XFER_ASYNC_DW:
-        return axl_flush_async_test_datawarp(id);
+        return axl_async_test_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_test_bbapi(id);
+        return axl_async_test_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_test_cppr(id); */
+        return axl_async_test_cppr(id); */
     default:
         axl_err("AXL_Test failed: unknown transfer type (%d)", (int) xtype);
         break;
@@ -373,17 +373,17 @@ int AXL_Wait (int id)
     /* if not done, call vendor API to wait */
     switch (xtype) {
     case AXL_XFER_SYNC:
-        return axl_flush_sync_wait(id);
+        return axl_sync_wait(id);
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
-        return axl_flush_async_wait_daemon(axl_flush_async_file_lists, id);
+        return axl_async_wait_daemon(axl_flush_async_file_lists, id);
 #endif
     case AXL_XFER_ASYNC_DW:
-        return axl_flush_async_wait_datawarp(id);
+        return axl_async_wait_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
-        return axl_flush_async_wait_bbapi(id);
+        return axl_async_wait_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
-        return axl_flush_async_wait_cppr(id); */
+        return axl_async_wait_cppr(id); */
     default:
         axl_err("AXL_Wait failed: unknown transfer type (%d)", (int) xtype);
         break;
