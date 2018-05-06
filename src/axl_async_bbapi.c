@@ -82,7 +82,7 @@ int axl_async_add_bbapi (int id, const char* source, const char* destination) {
 int axl_async_start_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_INPROG);
+    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
     /* Pull BB-Def and BB-Handle out of global var */
     BBTransferDef_t *tdef;
@@ -94,14 +94,14 @@ int axl_async_start_bbapi (int id) {
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     int file_count = kvtree_util_hash_size(files);
     if (file_count == 0) {
-        kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_DEST);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
         return AXL_SUCCESS;
     }
 
     /* Launch the transfer */
     int rc = BB_StartTransfer(tdef, thandle);
     if (bb_check(rc) != AXL_SUCCESS) {
-        kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_ERROR);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
         return AXL_FAILURE;
     }
 
@@ -109,7 +109,7 @@ int axl_async_start_bbapi (int id) {
     kvtree_elem* elem;
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
         kvtree* elem_hash = kvtree_elem_hash(elem);
-        kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_FLUSH_STATUS_INPROG);
+        kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
     }
 
     return AXL_SUCCESS;
@@ -127,9 +127,9 @@ int axl_async_test_bbapi (int id) {
 
     BBTransferInfo_t tinfo;
     int rc = BB_GetTransferInfo(thandle, &tinfo);
-    int status = AXL_FLUSH_STATUS_INPROG;
+    int status = AXL_STATUS_INPROG;
     if (tinfo.status == BBFULLSUCCESS) {
-        status = AXL_FLUSH_STATUS_DEST;
+        status = AXL_STATUS_DEST;
     }
     // TODO: add some finer-grain errror checking
     // BBSTATUS
@@ -139,7 +139,7 @@ int axl_async_test_bbapi (int id) {
 
 
     /* Mark files & set with appropriate status */
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, status);
+    kvtree_util_set_int(file_list, AXL_KEY_STATUS, status);
 
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     kvtree_elem* elem;
@@ -148,11 +148,11 @@ int axl_async_test_bbapi (int id) {
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, status);
     }
 
-    if (status == AXL_FLUSH_STATUS_DEST) {
+    if (status == AXL_STATUS_DEST) {
         return 1;
-    } else if (status == AXL_FLUSH_STATUS_INPROG) {
+    } else if (status == AXL_STATUS_INPROG) {
         return AXL_SUCCESS;
-    } else if (status == AXL_FLUSH_STATUS_ERROR) {
+    } else if (status == AXL_STATUS_ERROR) {
         return ALX_FAILURE;
     }
 #endif
@@ -162,13 +162,13 @@ int axl_async_test_bbapi (int id) {
 int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
-    int status = AXL_FLUSH_STATUS_INPROG;
+    int status = AXL_STATUS_INPROG;
 
     /* Sleep until test changes set status */
     int rc;
-    while (status == AXL_FLUSH_STATUS_INPROG) {
+    while (status == AXL_STATUS_INPROG) {
         rc = axl_async_test_bbapi(id);
-        kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, &status);
         usleep(10*1000*1000);
     }
 

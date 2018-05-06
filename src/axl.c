@@ -146,7 +146,7 @@ int AXL_Create (const char* type, const char* name)
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
-    kvtree_util_set_int(file_list, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
+    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* create a structure based on transfer type */
     switch (xtype) {
@@ -197,7 +197,7 @@ int AXL_Add (int id, const char* source, const char* destination)
      *           SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, source);
     kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, destination);
-    kvtree_util_set_int(src_hash, AXL_KEY_FLUSH_STATUS, AXL_FLUSH_STATUS_SOURCE);
+    kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* add file to transfer data structure, depending on its type */
     switch (xtype) {
@@ -268,7 +268,7 @@ int AXL_Dispatch (int id)
     }
 
     /* NOTE FOR XFER INTERFACES
-     * each interface should update AXL_KEY_FLUSH_STATUS
+     * each interface should update AXL_KEY_STATUS
      * all well as AXL_KEY_FILE_STATUS for each file */
     switch (xtype) {
     case AXL_XFER_SYNC:
@@ -309,12 +309,12 @@ int AXL_Test(int id)
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
-    kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
-    if (status == AXL_FLUSH_STATUS_DEST) {
+    kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
+    if (status == AXL_STATUS_DEST) {
         return 1;
-    } else if (status == AXL_FLUSH_STATUS_ERROR) {
+    } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
-    } else if (status == AXL_FLUSH_STATUS_SOURCE) {
+    } else if (status == AXL_STATUS_SOURCE) {
         axl_err("AXL_Test failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
@@ -360,12 +360,12 @@ int AXL_Wait (int id)
 
     /* lookup status for the transfer, return if done */
     int status;
-    kvtree_util_get_int(file_list, AXL_KEY_FLUSH_STATUS, &status);
-    if (status == AXL_FLUSH_STATUS_DEST) {
+    kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
+    if (status == AXL_STATUS_DEST) {
         return AXL_SUCCESS;
-    } else if (status == AXL_FLUSH_STATUS_ERROR) {
+    } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
-    } else if (status == AXL_FLUSH_STATUS_SOURCE) {
+    } else if (status == AXL_STATUS_SOURCE) {
         axl_err("AXL_Wait failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */

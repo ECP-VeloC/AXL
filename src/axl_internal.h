@@ -19,17 +19,17 @@ extern kvtree* axl_file_lists;
 #define AXL_KEY_UNAME ("uname")
 #define AXL_KEY_XFER_TYPE_STR ("xfer_type_string")
 #define AXL_KEY_XFER_TYPE_INT ("xfer_type_enum")
-#define AXL_KEY_FLUSH_STATUS ("status")
+#define AXL_KEY_STATUS ("status")
 #define AXL_KEY_FILES ("files")
 #define AXL_KEY_FILE_DEST ("file_dest")
 #define AXL_KEY_FILE_STATUS ("file_status")
 #define AXL_KEY_FILE_CRC ("file_crc")
 
-/* FLUSH STATUSES */
-#define AXL_FLUSH_STATUS_SOURCE (1)
-#define AXL_FLUSH_STATUS_INPROG (2)
-#define AXL_FLUSH_STATUS_DEST   (3)
-#define AXL_FLUSH_STATUS_ERROR  (4)
+/* TRANSFER STATUS */
+#define AXL_STATUS_SOURCE (1)
+#define AXL_STATUS_INPROG (2)
+#define AXL_STATUS_DEST   (3)
+#define AXL_STATUS_ERROR  (4)
 
 /*
 =========================================
