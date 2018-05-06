@@ -1,4 +1,14 @@
+/* fork */
+#include <unistd.h>
+
+#include <stdlib.h>
+
 #include <string.h>
+#include <errno.h>
+
+/* wait */
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include "kvtree.h"
 #include "kvtree_util.h"
@@ -10,6 +20,7 @@
 static double axl_async_daemon_bw = 0.0;
 static double axl_async_daemon_percent = 0.0;
 static char* axl_async_daemon_file = NULL;
+static pid_t axld_pid = (pid_t)-1;
 
 /*
 =========================================
@@ -259,6 +270,9 @@ int axl_async_start_daemon(kvtree* map, int id)
   int fd = -1;
   kvtree_lock_open_read(axl_async_daemon_file, &fd, hash);
 
+  /* unset any existing data for this id */
+  kvtree_unset_kv_int(hash, AXL_KEY_HANDLE_UID, id);
+
   /* merge our data to the file data */
   kvtree_merge(hash, transfer_list);
 
@@ -385,14 +399,37 @@ int axl_async_wait_daemon(kvtree* map, int id)
 }
 
 /* start process for transfer operations */
-int axl_async_init_daemon(const char* transfer_file)
+int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 {
   /* copy name for transfer file */
   axl_async_daemon_file = strdup(transfer_file);
 
   /* TODO: read configuration to set bw and percent limits */
 
+  /* TODO: look for axld pid in file, and avoid relaunch if already running */
+
   /* TODO: launch daemon process here? */
+  axld_pid = fork();
+  if (axld_pid == -1) {
+    return AXL_FAILURE;
+  }
+
+  /* child proc execs axld */
+  if (axld_pid == 0) {
+    /* axld <transfer file> */
+    int rc = execlp("axld", axld_path, transfer_file, (char*)NULL);
+
+    /* if we get here, the child failed to exec, so print error and exit */
+    if (rc == -1) {
+      axl_err("ERROR: axl_async_init_daemon: child process failed to launch: %s %s: %s",
+        axld_path, transfer_file, strerror(errno)
+      );
+    }
+    exit(1);
+  }
+
+  /* TODO: wait on daemon to reach known state to know it started,
+   * timeout with error */
 
   return AXL_SUCCESS;
 }
@@ -409,6 +446,19 @@ int axl_async_finalize_daemon()
   /* delete our transfer file */
   axl_file_unlink(axl_async_daemon_file);
   axl_free(&axl_async_daemon_file);
+
+  /* wait for process to exit */
+  if (axld_pid > 0) {
+    int status;
+    pid_t wait_pid = waitpid(axld_pid, &status, 0);
+    if (wait_pid == -1) {
+      axl_err("ERROR: axl_async_finalize_daemon: Waiting for child %d: %s",
+        (int)axld_pid, strerror(errno)
+      );
+    }
+  }
+
+  /* TODO: delete axld_pid file? */
 
   return AXL_SUCCESS;
 }
