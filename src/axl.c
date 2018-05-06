@@ -89,8 +89,9 @@ int AXL_Init (const char* conf_file)
     axl_free(&axl_cntl_dir);
 
 #ifdef HAVE_DAEMON
+    char axl_async_daemon_path[] = "axld";
     char axl_async_daemon_file[] = "/dev/shm/axld";
-    if (axl_async_init_daemon(axl_async_daemon_file) != AXL_SUCCESS) {
+    if (axl_async_init_daemon(axl_async_daemon_path, axl_async_daemon_file) != AXL_SUCCESS) {
         rc = AXL_FAILURE;
     }
 #endif
