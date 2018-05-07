@@ -49,7 +49,7 @@ int test_axl_async_daemon(){
     goto cleanup;
   }
 
-  int id = AXL_Create("AXL_XFER_ASYNC_DAEMON", TEST_NAME);
+  int id = AXL_Create(AXL_XFER_ASYNC_DAEMON, TEST_NAME);
   if (id < 0) {
     rc = TEST_FAIL;
     goto cleanup;

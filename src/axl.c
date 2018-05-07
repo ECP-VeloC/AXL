@@ -46,24 +46,6 @@ kvtree* axl_file_lists = NULL;
 
 /*
 =========================================
-Helper Functions
-========================================
-*/
-
-/* TODO: implement this */
-axl_xfer_t axl_parse_type_string (const char* type)
-{
-    if (strcmp(type, "AXL_XFER_SYNC") == 0) {
-      return AXL_XFER_SYNC;
-    } else if (strcmp(type, "AXL_XFER_ASYNC_DAEMON") == 0) {
-      return AXL_XFER_ASYNC_DAEMON;
-    } else {
-      return -1;
-    }
-}
-
-/*
-=========================================
 API Functions
 ========================================
 */
@@ -139,11 +121,8 @@ int AXL_Finalize (void)
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int AXL_Create (const char* type, const char* name)
+int AXL_Create (axl_xfer_t xtype, const char* name)
 {
-    /* Parse type of transfer */
-    axl_xfer_t xtype = axl_parse_type_string(type);
-
     /* Generate next unique ID */
     int id = ++axl_next_handle_UID;
 
@@ -154,14 +133,11 @@ int AXL_Create (const char* type, const char* name)
      *     NAME
      *       name
      *     TYPE
-     *       typestr
-     *     TYPE
      *       type_enum
      *     STATUS
      *       SOURCE */
     kvtree* file_list = kvtree_set_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
-    kvtree_util_set_str(file_list, AXL_KEY_XFER_TYPE_STR, type);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
@@ -181,7 +157,7 @@ int AXL_Create (const char* type, const char* name)
     case AXL_XFER_ASYNC_CPPR:
         break;
     default:
-        axl_err("AXL_Create failed: unknown transfer type '%s' (%d)", type, (int) xtype);
+        axl_err("AXL_Create failed: unknown transfer type (%d)", (int) xtype);
         break;
     }
 

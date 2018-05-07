@@ -30,7 +30,7 @@ int AXL_Finalize (void);
  * Name is a user/application provided string
  * Returns an ID to the transfer handle,
  * Returns -1 on error */
-int AXL_Create (const char* type, const char* name);
+int AXL_Create (axl_xfer_t type, const char* name);
 
 /* Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
