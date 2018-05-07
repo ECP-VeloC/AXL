@@ -44,14 +44,37 @@ int test_axl_async_daemon(){
   strcat(dest_path, TEST_DEST);
 
   /* Launch axl, reate a transfer, add test file, dispatch */
-  if (AXL_Init(NULL) != AXL_SUCCESS) rc = TEST_FAIL;
+  if (AXL_Init(NULL) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+
   int id = AXL_Create("AXL_XFER_ASYNC_DAEMON", TEST_NAME);
-  if (AXL_Add(id, TEST_FILE, dest_path) != AXL_SUCCESS) rc = TEST_FAIL;
-  if (AXL_Dispatch(id) != AXL_SUCCESS) rc = TEST_FAIL;
+  if (id < 0) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+
+  if (AXL_Add(id, TEST_FILE, dest_path) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+
+  if (AXL_Dispatch(id) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
 
   /* Wait for transfer to complete and finalize axl */
-  if (AXL_Wait(id) != AXL_SUCCESS) rc = TEST_FAIL;
-  if (AXL_Finalize() != AXL_SUCCESS) rc = TEST_FAIL;
+  if (AXL_Wait(id) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+
+  if (AXL_Finalize() != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
 
   /* Check that file arrived properly */
   FILE* dfp = fopen(dest_path, "r");
@@ -65,6 +88,7 @@ int test_axl_async_daemon(){
     fclose(dfp);
   }
 
+cleanup:
   /* Unlink test files and return rc */
   unlink(TEST_FILE);
   unlink(dest_path);
