@@ -44,6 +44,7 @@
 #define STOPPED (1)
 #define RUNNING (2)
 
+static char*  axl_pid_file      = NULL;
 static char*  axl_transfer_file = NULL;
 static int    keep_running      = 1;
 static int    state             = STOPPED;
@@ -54,15 +55,6 @@ static double percent_runtime   = 0.0;
 #define AXL_TRANSFER_SECS (60)
 static size_t file_buf_size = AXL_FILE_BUF_SIZE;
 static double axl_transfer_secs = AXL_TRANSFER_SECS;
-
-/* returns the current linux timestamp (secs + usecs since epoch) as a double */
-double axl_seconds()
-{
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  double secs = (double) tv.tv_sec + (double) tv.tv_usec / (double) 1000000.0;
-  return secs;
-}
 
 /* given a string, convert it to a double and write that value to val */
 static int axl_atod(const char* str, double* val)
@@ -466,7 +458,7 @@ int update_transfer_file_err(int id, char* src, const char* format, ...)
 
   /* check that we have a format string */
   if (format == NULL) {
-    return NULL;
+    return AXL_FAILURE;
   }
 
   /* compute the size of the string we need to allocate */
@@ -574,6 +566,56 @@ int read_params()
 }
 #endif
 
+static int write_pid_file(const char* path, mode_t mode)
+{
+  /* define name to our pid file */
+  char pid_file[1024];
+  if (snprintf(pid_file, sizeof(pid_file), "%s.pid", path) >= sizeof(pid_file)) {
+    axl_err("axl_transfer: Insufficient space to define pid file name @ %s:%d",
+            __FILE__, __LINE__
+    );
+    return 1;
+  }
+
+  /* copy pid file name */
+  axl_pid_file = strdup(pid_file);
+
+  /* get our pid */
+  pid_t pid = getpid();
+
+  /* open pid file for writing, fail if it already exists */
+  int fd = open(axl_pid_file, O_WRONLY | O_CREAT | O_EXCL, mode);
+  if (fd == -1) {
+    /* we bail with a fatal error here, since we take this to indicate
+     * that a transfer process may already be running, if the file exists
+     * but there is no daemon running, it is up to the client to remove the
+     * file before starting the daemon */
+    axl_err("axl_transfer: Failed to open pid file @ %s:%d",
+            __FILE__, __LINE__
+    );
+    return 1;
+  }
+
+  /* otherwise, write our pid to the file */
+  if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t)) {
+    axl_err("axl_transfer: Failed to write pid file @ %s:%d",
+            __FILE__, __LINE__
+    );
+    close(fd);
+    return 1;
+  }
+
+  /* close the file */
+  if (close(fd) == -1) {
+    axl_err("axl_transfer: Failed to close pid file @ %s:%d",
+            __FILE__, __LINE__
+    );
+    return 1;
+  }
+
+  return 0;
+}
+
 int main (int argc, char *argv[])
 {
   /* check that we were given at least one argument
@@ -597,6 +639,13 @@ int main (int argc, char *argv[])
 
   /* get file io mode */
   mode_t mode_file = axl_getmode(1, 1, 0);
+
+  /* write our pid to a file */
+  int tmp_rc = write_pid_file(axl_transfer_file, mode_file);
+  if (tmp_rc != 0) {
+    /* if we could not create and write the pid file, that's fatal */
+    return 1;
+  }
 
   /* we cache the opened file descriptors to avoid extra opens,
    * seeks, and closes */
@@ -921,6 +970,7 @@ int main (int argc, char *argv[])
   axl_free(&buf);
 
   /* free the strdup'd tranfer file name */
+  axl_free(&axl_pid_file);
   axl_free(&axl_transfer_file);
 
   return 0;

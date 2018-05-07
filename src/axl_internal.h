@@ -94,6 +94,9 @@ axl_util.c functions
 ========================================
 */
 
+/* returns the current linux timestamp (secs + usecs since epoch) as a double */
+double axl_seconds();
+
 extern size_t axl_file_buf_size;
 int axl_read_config(char **cntl_dir);
 
