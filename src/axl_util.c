@@ -2,6 +2,15 @@
 #include <stdlib.h>
 #include "axl_internal.h"
 
+/* returns the current linux timestamp (secs + usecs since epoch) as a double */
+double axl_seconds()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  double secs = (double) tv.tv_sec + (double) tv.tv_usec / (double) 1000000.0;
+  return secs;
+}
+
 size_t axl_file_buf_size;
 
 int axl_read_config (char **cntl_dir) {

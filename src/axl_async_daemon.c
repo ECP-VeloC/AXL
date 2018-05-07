@@ -1,13 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 /* fork */
 #include <unistd.h>
 
-#include <stdlib.h>
 
 #include <string.h>
 #include <errno.h>
 
 /* wait */
-#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "kvtree.h"
@@ -20,6 +24,7 @@
 static double axl_async_daemon_bw = 0.0;
 static double axl_async_daemon_percent = 0.0;
 static char* axl_async_daemon_file = NULL;
+static char* axl_async_daemon_pid_file = NULL;
 static pid_t axld_pid = (pid_t)-1;
 
 /*
@@ -401,37 +406,94 @@ int axl_async_wait_daemon(kvtree* map, int id)
 /* start process for transfer operations */
 int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 {
-  /* copy name for transfer file */
-  axl_async_daemon_file = strdup(transfer_file);
-
   /* TODO: read configuration to set bw and percent limits */
 
   /* TODO: look for axld pid in file, and avoid relaunch if already running */
+  /* copy name for transfer file */
+  axl_async_daemon_file = strdup(transfer_file);
 
-  /* TODO: launch daemon process here? */
-  axld_pid = fork();
-  if (axld_pid == -1) {
+  /* compute path to pid file */
+  char pid_file[1024];
+  if (snprintf(pid_file, sizeof(pid_file), "%s.pid", transfer_file) >= sizeof(pid_file)) {
+    axl_err("axl_async_init_daemon: failed to define path to pid file");
     return AXL_FAILURE;
   }
+  axl_async_daemon_pid_file = strdup(pid_file);
 
-  /* child proc execs axld */
-  if (axld_pid == 0) {
-    /* axld <transfer file> */
-    int rc = execlp("axld", axld_path, transfer_file, (char*)NULL);
+  /* determine whether to attempt starting a daemon, assume we need to */
+  int launch_daemon = 1;
+  int fd = open(axl_async_daemon_pid_file, O_RDONLY);
+  if (fd != -1) {
+    if (read(fd, &axld_pid, sizeof(pid_t)) == sizeof(pid_t)) {
+      /* found the file and the read the pid, so assume we do not need to launch */
+      launch_daemon = 0;
 
-    /* if we get here, the child failed to exec, so print error and exit */
-    if (rc == -1) {
-      axl_err("ERROR: axl_async_init_daemon: child process failed to launch: %s %s: %s",
-        axld_path, transfer_file, strerror(errno)
-      );
+      /* check whether pid is still running */
+      if (kill(axld_pid, 0) == -1) {
+        if (errno == ESRCH) {
+          /* pid is no longer running, so launch a new one */
+          launch_daemon = 1;
+        }
+      }
     }
-    exit(1);
+    close(fd);
+
+    /* if we need to launch but have a file, we need to delete it,
+     * or otherwise our new daemon will immediately fail */
+    if (launch_daemon) {
+      axl_file_unlink(axl_async_daemon_pid_file);
+    }
   }
 
-  /* TODO: wait on daemon to reach known state to know it started,
-   * timeout with error */
+  if (launch_daemon) {
+    /* launch daemon process here? */
+    axld_pid = fork();
+    if (axld_pid == -1) {
+      return AXL_FAILURE;
+    }
 
-  return AXL_SUCCESS;
+    /* child proc execs axld */
+    if (axld_pid == 0) {
+      /* axld <transfer file> */
+      int rc = execlp("axld", axld_path, transfer_file, (char*)NULL);
+
+      /* if we get here, the child failed to exec, so print error and exit */
+      if (rc == -1) {
+        axl_err("axl_async_init_daemon: child process failed to launch: %s %s: %s",
+          axld_path, transfer_file, strerror(errno)
+        );
+      }
+      return AXL_FAILURE;
+    }
+  }
+
+  /* wait on daemon to reach known state to know it started,
+   * timeout with error */
+  int rc = AXL_SUCCESS;
+  double start = axl_seconds();
+  while (1) {
+    /* check whether we can read the pid file */
+    if (access(axl_async_daemon_pid_file, R_OK) == 0) {
+      /* file is here, so assume process is running */
+      break;
+    }
+
+    /* see how much time has passed */
+    double now = axl_seconds();
+    if (now - start > 5.0) {
+      /* give up waiting for transfer process to start */
+      axl_err("axl_async_init_daemon: child process failed to start: %s %s",
+        axld_path, transfer_file
+      );
+      rc = AXL_FAILURE;
+      break;
+    }
+
+    /* otherwise, sleep for a bit then try again */
+    usleep(250*1000);
+  }
+
+  return rc;
 }
 
 /* stop all ongoing transfer operations, wait for daemon process to exit */
@@ -440,23 +502,35 @@ int axl_async_finalize_daemon()
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_EXIT);
 
-  /* wait until all tasks know the transfer is shutdown */
+  /* wait until transfer process indicates it's shutting down */
   axl_async_daemon_state_wait(AXL_TRANSFER_KEY_STATE_EXIT);
+
+  /* delete the pid file */
+  axl_file_unlink(axl_async_daemon_pid_file);
+  axl_free(&axl_async_daemon_pid_file);
 
   /* delete our transfer file */
   axl_file_unlink(axl_async_daemon_file);
   axl_free(&axl_async_daemon_file);
 
+  /* force termination of the daemon process (this necessary?) */
+  if (kill(axld_pid, SIGTERM) == -1) {
+    axl_err("axl_async_finalize_daemon: failed to kill daemon process: pid %d: %s", (int)axld_pid, strerror(errno));
+  }
+
+#if 0
+  /* don't know that we can wait on process, since it may have been started externally */
   /* wait for process to exit */
   if (axld_pid > 0) {
     int status;
     pid_t wait_pid = waitpid(axld_pid, &status, 0);
     if (wait_pid == -1) {
-      axl_err("ERROR: axl_async_finalize_daemon: Waiting for child %d: %s",
+      axl_err("axl_async_finalize_daemon: Waiting for child %d: %s",
         (int)axld_pid, strerror(errno)
       );
     }
   }
+#endif
 
   /* TODO: delete axld_pid file? */
 
