@@ -20,7 +20,7 @@ int main(int argc, char** argv){
   test_names = malloc(MAX_TESTS * sizeof(char*));
 
   /* Initialize each test type */
-  test_axl_async_daemon_init();
+  //test_axl_async_daemon_init();
   test_axl_sync_init();
 
   /* Initialize state to count failures */

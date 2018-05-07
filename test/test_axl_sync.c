@@ -34,7 +34,7 @@ int test_axl_sync(){
 
   /* Launch axl, reate a transfer, add test file, dispatch */
   if (AXL_Init(NULL) != AXL_SUCCESS) rc = TEST_FAIL;
-  int id = AXL_Create("AXL_XFER_SYNC", TEST_NAME);
+  int id = AXL_Create(AXL_XFER_SYNC, TEST_NAME);
   if (AXL_Add(id, TEST_FILE, dest_path) != AXL_SUCCESS) rc = TEST_FAIL;
   if (AXL_Dispatch(id) != AXL_SUCCESS) rc = TEST_FAIL;
 
