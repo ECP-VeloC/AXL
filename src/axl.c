@@ -309,8 +309,7 @@ int AXL_Dispatch (int id)
 }
 
 /* Test if a transfer has completed
- * Returns 1 if the transfer has completed
- * Returns <0 if there is an error */
+ * Returns AXL_SUCCESS if the transfer has completed */
 int AXL_Test(int id)
 {
     /* lookup transfer info for the given id */
@@ -328,9 +327,11 @@ int AXL_Test(int id)
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
     if (status == AXL_STATUS_DEST) {
-        return 1;
+        return AXL_SUCCESS;
     } else if (status == AXL_STATUS_ERROR) {
-        return AXL_FAILURE;
+        /* we return success since it's done, even on error,
+         * caller must call wait to determine whether it was successful */
+        return AXL_SUCCESS;
     } else if (status == AXL_STATUS_SOURCE) {
         axl_err("AXL_Test failed: testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;

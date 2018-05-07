@@ -39,7 +39,7 @@ int AXL_Add (int id, const char* source, const char* destination);
 int AXL_Dispatch (int id);
 
 /* Non-blocking call to test if a transfer has completed,
- * returns 1 if the transfer has completed,
+ * returns AXL_SUCCESS if the transfer has completed,
  * does not indicate whether transfer was successful,
  * only whether it's done */
 int AXL_Test(int id);
