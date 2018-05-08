@@ -31,6 +31,7 @@ int test_axl_async_daemon(){
   int rc = TEST_PASS;
 
   /* Create a file */
+  unlink(TEST_FILE);
   FILE * fp = fopen(TEST_FILE, "w");
   fputs(TEST_STRING, fp);
   fclose(fp);
@@ -42,6 +43,7 @@ int test_axl_async_daemon(){
   strcpy(dest_path, pwd);
   strcat(dest_path, "/");
   strcat(dest_path, TEST_DEST);
+  unlink(dest_path);
 
   /* Launch axl, reate a transfer, add test file, dispatch */
   if (AXL_Init(NULL) != AXL_SUCCESS) {
