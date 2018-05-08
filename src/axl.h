@@ -56,4 +56,8 @@ int AXL_Cancel (int id);
 /* Perform cleanup of internal data associated with ID */
 int AXL_Free (int id);
 
+/* Stop (cancel and free) all transfers,
+ * useful to clean the plate when restarting */
+int AXL_Stop (void);
+
 #endif

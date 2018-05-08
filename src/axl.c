@@ -286,7 +286,7 @@ int AXL_Dispatch (int id)
 
 /* Test if a transfer has completed
  * Returns AXL_SUCCESS if the transfer has completed */
-int AXL_Test(int id)
+int AXL_Test (int id)
 {
     /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
@@ -391,11 +391,100 @@ int AXL_Wait (int id)
 /* TODO: Does cancel call free? */
 int AXL_Cancel (int id)
 {
+    /* lookup transfer info for the given id */
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (file_list == NULL) {
+        axl_err("AXL_Cancel failed: could not find fileset UID=%d", id);
+        return AXL_FAILURE;
+    }
+
+    /* extract the transfer type */
+    int itype;
+    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
+    axl_xfer_t xtype = (axl_xfer_t) itype;
+
+    /* lookup status for the transfer, return if done */
+    int status;
+    kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
+    if (status == AXL_STATUS_DEST) {
+        return AXL_SUCCESS;
+    } else if (status == AXL_STATUS_ERROR) {
+        /* we return success since it's done, even on error */
+        return AXL_SUCCESS;
+    }
+
+    /* TODO: if it hasn't started, we don't want to call backend cancel */
+
+#if 0
+    /* if not done, call vendor API to wait */
+    switch (xtype) {
+    case AXL_XFER_SYNC:
+        return axl_sync_cancel(id);
+#ifdef HAVE_DAEMON
+    case AXL_XFER_ASYNC_DAEMON:
+        return axl_async_cancel_daemon(axl_file_lists, id);
+#endif
+    case AXL_XFER_ASYNC_DW:
+        return axl_async_cancel_datawarp(id);
+    case AXL_XFER_ASYNC_BBAPI:
+        return axl_async_cancel_bbapi(id);
+    /* case AXL_XFER_ASYNC_CPPR:
+        return axl_async_cancel_cppr(id); */
+    default:
+        axl_err("AXL_Wait failed: unknown transfer type (%d)", (int) xtype);
+        break;
+    }
+#endif
+
     return AXL_SUCCESS;
 }
 
 /* Perform cleanup of internal data associated with ID */
 int AXL_Free (int id)
 {
+    /* forget anything we know about this id */
+    kvtree_unset_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     return AXL_SUCCESS;
+}
+
+int AXL_Stop ()
+{
+    int rc = AXL_SUCCESS;
+
+#ifdef HAVE_DAEMON
+    /* halt the daemon */
+    if (axl_async_stop_daemon() != AXL_SUCCESS) {
+        rc = AXL_FAILURE;
+    }
+#endif
+
+    /* get list of ids */
+    kvtree* ids_hash = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
+
+    /* get list of ids */
+    int numids;
+    int* ids;
+    kvtree_list_int(ids_hash, &numids, &ids);
+
+    /* cancel and free each active id */
+    int i;
+    for (i = 0; i < numids; i++) {
+        /* get id for this transfer */
+        int id = ids[i];
+
+        /* cancel it */
+        if (AXL_Cancel(id) != AXL_SUCCESS) {
+            rc = AXL_FAILURE;
+        }
+
+        /* and free it */
+        if (AXL_Free(id) != AXL_SUCCESS) {
+            rc = AXL_FAILURE;
+        }
+    }
+
+    /* free the list of ids */
+    axl_free(&ids);
+
+    return rc;
 }
