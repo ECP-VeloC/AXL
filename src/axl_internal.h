@@ -7,8 +7,6 @@
 #define AXL_SUCCESS (0)
 #define AXL_FAILURE (-1)
 
-extern char* axl_flush_file;
-
 /* AXL internal data structure
  * this structure is accessed by the each transfer interface
  * any changes of the existing structure must be documented */
@@ -98,7 +96,6 @@ axl_util.c functions
 double axl_seconds();
 
 extern size_t axl_file_buf_size;
-int axl_read_config(char **cntl_dir);
 
 void axl_free(void* p);
 
