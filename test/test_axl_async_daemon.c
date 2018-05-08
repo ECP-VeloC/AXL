@@ -65,8 +65,24 @@ int test_axl_async_daemon(){
     goto cleanup;
   }
 
+#if 0
+  if (AXL_Cancel(id) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+
+  /* will return AXL_SUCCESS if not cancelled,
+   * and !AXL_SUCCESS if cancelled (or error) */
+  AXL_Wait(id);
+#else
   /* Wait for transfer to complete and finalize axl */
   if (AXL_Wait(id) != AXL_SUCCESS) {
+    rc = TEST_FAIL;
+    goto cleanup;
+  }
+#endif
+
+  if (AXL_Free(id) != AXL_SUCCESS) {
     rc = TEST_FAIL;
     goto cleanup;
   }
