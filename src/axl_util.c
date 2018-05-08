@@ -13,26 +13,6 @@ double axl_seconds()
 
 size_t axl_file_buf_size;
 
-int axl_read_config (char **cntl_dir) {
-
-    axl_file_buf_size = (size_t) 1048576;
-    *cntl_dir = strdup("/tmp");
-
-    /* set file copy buffer size (file chunk size) */
-    /*
-    if ((value = axl_param_get("AXL_FILE_BUF_SIZE")) != NULL) {
-        if (axl_abtoull(value, &ull) == AXL_SUCCESS) {
-            axl_file_buf_size = (size_t) ull;
-        } else {
-            scr_err("Failed to read SCR_FILE_BUF_SIZE successfully @ %s:%d",
-                    __FILE__, __LINE__
-                    );
-        }
-    }
-    */
-    return AXL_SUCCESS;
-}
-
 /* caller really passes in a void**, but we define it as just void* to avoid printing
  * a bunch of warnings */
 void axl_free(void* p) {
