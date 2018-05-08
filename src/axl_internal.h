@@ -13,15 +13,15 @@
 extern kvtree* axl_file_lists;
 
 /* "KEYS" */
-#define AXL_KEY_HANDLE_UID ("handle_uid")
-#define AXL_KEY_UNAME ("uname")
-#define AXL_KEY_XFER_TYPE_STR ("xfer_type_string")
-#define AXL_KEY_XFER_TYPE_INT ("xfer_type_enum")
-#define AXL_KEY_STATUS ("status")
-#define AXL_KEY_FILES ("files")
-#define AXL_KEY_FILE_DEST ("file_dest")
-#define AXL_KEY_FILE_STATUS ("file_status")
-#define AXL_KEY_FILE_CRC ("file_crc")
+#define AXL_KEY_HANDLE_UID    ("ID")
+#define AXL_KEY_UNAME         ("NAME")
+#define AXL_KEY_XFER_TYPE_STR ("TYPE")
+#define AXL_KEY_XFER_TYPE_INT ("XTYPE")
+#define AXL_KEY_STATUS        ("STATUS")
+#define AXL_KEY_FILES         ("FILE")
+#define AXL_KEY_FILE_DEST     ("DEST")
+#define AXL_KEY_FILE_STATUS   ("STATUS")
+#define AXL_KEY_FILE_CRC      ("CRC")
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
