@@ -11,11 +11,11 @@
 /* Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
-    AXL_XFER_SYNC,
-    AXL_XFER_ASYNC_DAEMON,
-    AXL_XFER_ASYNC_DW,
-    AXL_XFER_ASYNC_BBAPI,
-    AXL_XFER_ASYNC_CPPR,
+    AXL_XFER_SYNC,         /* synchronous copy */
+    AXL_XFER_ASYNC_DAEMON, /* async daemon process */
+    AXL_XFER_ASYNC_DW,     /* Cray Datawarp */
+    AXL_XFER_ASYNC_BBAPI,  /* IBM Burst Buffer API */
+    AXL_XFER_ASYNC_CPPR,   /* Intel CPPR */
 } axl_xfer_t;
 
 /* Read configuration from non-AXL-specific file
@@ -49,8 +49,8 @@ int AXL_Test(int id);
  * and finalize the transfer */
 int AXL_Wait (int id);
 
-/* Cancel an existing transfer */
-/* TODO: Does cancel call free? */
+/* Cancel an existing transfer, must call Wait
+ * on cancelled transfers, if cancelled wait returns an error */
 int AXL_Cancel (int id);
 
 /* Perform cleanup of internal data associated with ID */
