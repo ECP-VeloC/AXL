@@ -403,6 +403,91 @@ int axl_async_wait_daemon(kvtree* map, int id)
   return AXL_SUCCESS;
 }
 
+/* attempt to cancel specified transfer id */
+int axl_async_cancel_daemon(kvtree* map, int id)
+{
+  int rc = AXL_SUCCESS;
+
+  /* get pointer to source file list in map */
+  kvtree* file_list = kvtree_get_kv_int(map, AXL_KEY_HANDLE_UID, id);
+
+  /* assume we won't cancel */
+  int cancelled = 0;
+
+  /* set status to error if it's not already done */
+  int status = AXL_STATUS_SOURCE;
+  kvtree_get_kv_int(file_list, AXL_KEY_STATUS, &status);
+  if (status != AXL_STATUS_DEST) {
+    /* transfer is not complete, so actively cancel what's left */
+    kvtree_set_kv_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
+    cancelled = 1;
+  }
+
+  /* if cancelled, set each file in transfer list to ERROR if not done */
+  if (cancelled) {
+    /* read transfer file with lock */
+    int fd = -1;
+    kvtree* transfer_hash = kvtree_new();
+    kvtree_lock_open_read(axl_async_daemon_file, &fd, transfer_hash);
+
+    /* iterate over list of files for this id */
+    kvtree_elem* elem;
+    kvtree* hash = kvtree_get_kv_int(transfer_hash, AXL_TRANSFER_KEY_ID, id);
+    kvtree* files_hash = kvtree_get(hash, AXL_TRANSFER_KEY_FILES);
+    for (elem = kvtree_elem_first(files_hash);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
+      /* get info for this file */
+      kvtree* file_hash = kvtree_elem_hash(elem);
+    
+      /* check for existing error message in transfer file */
+      char* errmsg = NULL;
+      if (kvtree_util_get_str(file_hash, AXL_TRANSFER_KEY_ERROR, &errmsg) == KVTREE_SUCCESS) {
+        /* this file is already marked with an error */
+        continue;
+      }
+    
+      /* lookup the values for the size and bytes written */
+      unsigned long size, written;
+      if (kvtree_util_get_bytecount(file_hash, AXL_TRANSFER_KEY_SIZE,    &size)    != KVTREE_SUCCESS ||
+          kvtree_util_get_bytecount(file_hash, AXL_TRANSFER_KEY_WRITTEN, &written) != KVTREE_SUCCESS)
+      {
+        continue;
+      }
+    
+      /* check whether the number of bytes written is less than the filesize */
+      if (written < size) {
+        /* not done with this file yet, so mark it in error so we don't finish/start */
+        kvtree_util_set_str(file_hash, AXL_TRANSFER_KEY_ERROR, "Cancelled");
+      }
+    }
+
+    /* write the hash back to the transfer file */
+    kvtree_write_close_unlock(axl_async_daemon_file, &fd, transfer_hash);
+    kvtree_delete(&transfer_hash);
+
+    /* loop over every file in the map and mark them as ERROR if not already complete */
+    kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
+    for (elem = kvtree_elem_first(files);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
+      /* get pointer to info for this file in map */
+      kvtree* src_hash = kvtree_elem_hash(elem);
+
+      /* mark any file that's done as being an error */
+      int status;
+      kvtree_util_get_int(src_hash, AXL_KEY_STATUS, &status);
+      if (status != AXL_STATUS_DEST) {
+        kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_ERROR);
+      }
+    }
+  }
+
+  return rc;
+}
+
 /* start process for transfer operations */
 int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 {

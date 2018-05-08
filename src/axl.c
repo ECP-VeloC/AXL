@@ -415,26 +415,28 @@ int AXL_Cancel (int id)
 
     /* TODO: if it hasn't started, we don't want to call backend cancel */
 
-#if 0
     /* if not done, call vendor API to wait */
     switch (xtype) {
+#if 0
     case AXL_XFER_SYNC:
         return axl_sync_cancel(id);
+#endif
 #ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         return axl_async_cancel_daemon(axl_file_lists, id);
 #endif
+#if 0
     case AXL_XFER_ASYNC_DW:
         return axl_async_cancel_datawarp(id);
     case AXL_XFER_ASYNC_BBAPI:
         return axl_async_cancel_bbapi(id);
     /* case AXL_XFER_ASYNC_CPPR:
         return axl_async_cancel_cppr(id); */
+#endif
     default:
-        axl_err("AXL_Wait failed: unknown transfer type (%d)", (int) xtype);
+        axl_err("AXL_Cancel failed: unknown transfer type (%d)", (int) xtype);
         break;
     }
-#endif
 
     return AXL_SUCCESS;
 }
@@ -452,7 +454,8 @@ int AXL_Stop ()
     int rc = AXL_SUCCESS;
 
 #ifdef HAVE_DAEMON
-    /* halt the daemon */
+    /* halt the daemon, this will stop it and clear
+     * all files from its transfer list */
     if (axl_async_stop_daemon() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
     }
