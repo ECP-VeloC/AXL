@@ -20,7 +20,7 @@ typedef enum {
 
 /* Read configuration from non-AXL-specific file
  * Also, start up vendor specific services */
-int AXL_Init (const char* conf_file);
+int AXL_Init (const char* state_file);
 
 /* Shutdown any vendor services */
 int AXL_Finalize (void);

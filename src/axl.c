@@ -53,30 +53,34 @@ API Functions
 
 /* Read configuration from non-AXL-specific file
   Also, start up vendor specific services */
-int AXL_Init (const char* conf_file)
+int AXL_Init (const char* state_file)
 {
     int rc = AXL_SUCCESS;
 
     /* TODO: set these by config file */
     axl_file_buf_size = (size_t) 1048576;
 
-    /* TODO: pass this in via Init? */
-    char flush_file[] = "/dev/shm/flush.axl";
-    axl_flush_file = strdup(flush_file);
+    /* make a copy of the path to file to record our state */
+    if (state_file != NULL) {
+        axl_flush_file = strdup(state_file);
+    }
 
     axl_next_handle_UID = 0;
     axl_file_lists = kvtree_new();
 
-    /* initialize axl_file_lists from file if we have one */
-    kvtree_read_file(axl_flush_file, axl_file_lists);
+    /* initialize values from state file if we have one */
+    if (axl_flush_file != NULL) {
+        /* initialize axl_file_lists from file if we have one */
+        kvtree_read_file(axl_flush_file, axl_file_lists);
 
-    /* initialize handle id using highest id in file */
-    kvtree* ids = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
-    kvtree_sort_int(ids, KVTREE_SORT_DESCENDING);
-    kvtree_elem* elem = kvtree_elem_first(ids);
-    if (elem != NULL) {
-        int id = kvtree_elem_key_int(elem);
-        axl_next_handle_UID = id;
+        /* initialize handle id using highest id in file */
+        kvtree* ids = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
+        kvtree_sort_int(ids, KVTREE_SORT_DESCENDING);
+        kvtree_elem* elem = kvtree_elem_first(ids);
+        if (elem != NULL) {
+            int id = kvtree_elem_key_int(elem);
+            axl_next_handle_UID = id;
+        }
     }
 
 #ifdef HAVE_DAEMON
