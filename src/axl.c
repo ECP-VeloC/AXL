@@ -4,9 +4,6 @@
 /* dirname */
 #include <libgen.h>
 
-/* uLong type for CRCs */
-#include <zlib.h>
-
 /* mkdir */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -267,7 +264,7 @@ int AXL_Dispatch (int id)
     kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
-    /* create destination directories and compute CRC32 for each file */
+    /* create destination directories for each file */
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
@@ -288,14 +285,6 @@ int AXL_Dispatch (int id)
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
         axl_free(&dest_path);
-
-        /* calculate CRCs for each file */
-        uLong crc;
-        int rc = kvtree_util_get_crc32(elem_hash, AXL_KEY_FILE_CRC, &crc);
-        if (rc != KVTREE_SUCCESS) {
-            axl_crc32(source, &crc);
-            kvtree_util_set_crc32(elem_hash, AXL_KEY_FILE_CRC, crc);
-        }
     }
 
     /* NOTE FOR XFER INTERFACES
