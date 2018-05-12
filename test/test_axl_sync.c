@@ -42,6 +42,7 @@ int test_axl_sync(){
 
   /* Wait for transfer to complete and finalize axl */
   if (AXL_Wait(id) != AXL_SUCCESS) rc = TEST_FAIL;
+  if (AXL_Free(id) != AXL_SUCCESS) rc = TEST_FAIL;
   if (AXL_Finalize() != AXL_SUCCESS) rc = TEST_FAIL;
 
   /* Check that file arrived properly */

@@ -27,6 +27,15 @@
 #endif
 #include "axl_async_datawarp.h"
 
+/* define states for transfer handlesto help ensure
+ * users call AXL functions in the correct order */
+typedef enum {
+    AXL_XFER_STATE_NULL,       /* placeholder for invalid state */
+    AXL_XFER_STATE_CREATED,    /* handle has been created */
+    AXL_XFER_STATE_DISPATCHED, /* transfer has been dispatched */
+    AXL_XFER_STATE_COMPLETED,  /* wait has been called */
+} axl_xfer_state_t;
+
 /*
 =========================================
 Global Variables
@@ -44,11 +53,12 @@ kvtree* axl_file_lists = NULL;
 
 /* given an id, lookup and return the file list and transfer type,
  * returns AXL_FAILURE if info could not be found */
-static int axl_get_list_and_type(int id, kvtree** list, axl_xfer_t* type)
+static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_t* state)
 {
     /* initialize output parameters to invalid values */
-    *list = NULL;
-    *type = AXL_XFER_NULL;
+    *list  = NULL;
+    *type  = AXL_XFER_NULL;
+    *state = AXL_XFER_STATE_NULL;
 
     /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
@@ -65,9 +75,18 @@ static int axl_get_list_and_type(int id, kvtree** list, axl_xfer_t* type)
     }
     axl_xfer_t xtype = (axl_xfer_t) itype;
 
+    /* extract the transfer state */
+    int istate;
+    if (kvtree_util_get_int(file_list, AXL_KEY_STATE, &istate) != KVTREE_SUCCESS) {
+        axl_err("Could not find transfer state for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        return AXL_FAILURE;
+    }
+    axl_xfer_state_t xstate = (axl_xfer_state_t) istate;
+
     /* set output parameters */
-    *list = file_list;
-    *type = xtype;
+    *list  = file_list;
+    *type  = xtype;
+    *state = xstate;
 
     return AXL_SUCCESS;
 }
@@ -136,6 +155,8 @@ int AXL_Finalize (void)
 {
     int rc = AXL_SUCCESS;
 
+    /* TODO: ok to finalize if we have active transfer handles? */
+
 #ifdef HAVE_DAEMON
     if (axl_async_finalize_daemon() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -179,11 +200,14 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
      *     TYPE
      *       type_enum
      *     STATUS
-     *       SOURCE */
+     *       SOURCE
+     *     STATE
+     *       CREATED */
     kvtree* file_list = kvtree_set_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
 
     /* create a structure based on transfer type */
     int rc = AXL_SUCCESS;
@@ -227,8 +251,15 @@ int AXL_Add (int id, const char* source, const char* destination)
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
-    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+
+    /* check that handle is in correct state to add files */
+    if (xstate != AXL_XFER_STATE_CREATED) {
+        axl_err("%s failed: invalid state to add files for UID %d", __func__, id);
         return AXL_FAILURE;
     }
 
@@ -281,10 +312,18 @@ int AXL_Dispatch (int id)
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
-    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
+
+    /* check that handle is in correct state to dispatch */
+    if (xstate != AXL_XFER_STATE_CREATED) {
+        axl_err("%s failed: invalid state to dispatch UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
     /* create destination directories for each file */
     kvtree_elem* elem;
@@ -352,8 +391,15 @@ int AXL_Test (int id)
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
-    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+
+    /* check that handle is in correct state to test */
+    if (xstate != AXL_XFER_STATE_DISPATCHED) {
+        axl_err("%s failed: invalid state to test UID %d", __func__, id);
         return AXL_FAILURE;
     }
 
@@ -406,10 +452,18 @@ int AXL_Wait (int id)
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
-    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
+
+    /* check that handle is in correct state to wait */
+    if (xstate != AXL_XFER_STATE_DISPATCHED) {
+        axl_err("%s failed: invalid state to wait UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
     /* lookup status for the transfer, return if done */
     int status;
@@ -449,6 +503,11 @@ int AXL_Wait (int id)
         break;
     }
 
+    /* write data to file if we have one */
+    if (axl_flush_file) {
+        kvtree_write_file(axl_flush_file, axl_file_lists);
+    }
+
     return rc;
 }
 
@@ -459,8 +518,15 @@ int AXL_Cancel (int id)
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
-    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+
+    /* check that handle is in correct state to cancel */
+    if (xstate != AXL_XFER_STATE_DISPATCHED) {
+        axl_err("%s failed: invalid state to cancel UID %d", __func__, id);
         return AXL_FAILURE;
     }
 
@@ -517,6 +583,23 @@ int AXL_Cancel (int id)
 /* Perform cleanup of internal data associated with ID */
 int AXL_Free (int id)
 {
+    /* lookup transfer info for the given id */
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+
+    /* check that handle is in correct state to free */
+    if (xstate != AXL_XFER_STATE_CREATED &&
+        xstate != AXL_XFER_STATE_COMPLETED)
+    {
+        axl_err("%s failed: invalid state to free UID %d", __func__, id);
+        return AXL_FAILURE;
+    }
+
     /* forget anything we know about this id */
     kvtree_unset_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
@@ -558,6 +641,9 @@ int AXL_Stop ()
         if (AXL_Cancel(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
+
+        /* wait */
+        AXL_Wait(id);
 
         /* and free it */
         if (AXL_Free(id) != AXL_SUCCESS) {
