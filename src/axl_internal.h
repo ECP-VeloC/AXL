@@ -16,6 +16,7 @@ extern kvtree* axl_file_lists;
 #define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")
 #define AXL_KEY_XFER_TYPE     ("TYPE")
+#define AXL_KEY_STATE         ("STATE")
 #define AXL_KEY_STATUS        ("STATUS")
 #define AXL_KEY_FILES         ("FILE")
 #define AXL_KEY_FILE_DEST     ("DEST")
