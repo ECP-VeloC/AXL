@@ -41,8 +41,8 @@ int axl_sync_start (int id)
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_ERROR);
             rc = AXL_FAILURE;
         }
-        axl_dbg(2, "axl_sync_start: Read and copied %s to %s with success code %d @ %s:%d",
-                source, destination, tmp_rc, __FILE__, __LINE__
+        AXL_DBG(2, "axl_sync_start: Read and copied %s to %s with success code %d",
+                source, destination, tmp_rc
                 );
     }
 

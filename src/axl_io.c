@@ -97,8 +97,8 @@ int axl_mkdir(const char* dir, mode_t mode) {
 /* delete a file */
 int axl_file_unlink(const char* file) {
     if (unlink(file) != 0) {
-        axl_dbg(2, "Failed to delete file: %s errno=%d %s @ %s:%d",
-                file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_DBG(2, "Failed to delete file: %s errno=%d %s",
+                file, errno, strerror(errno)
                 );
         return AXL_FAILURE;
     }
@@ -125,8 +125,8 @@ int axl_open(const char* file, int flags, ...) {
         fd = open(file, flags);
     }
     if (fd < 0) {
-        axl_dbg(1, "Opening file: open(%s) errno=%d %s @ %s:%d",
-                file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_DBG(1, "Opening file: open(%s) errno=%d %s",
+                file, errno, strerror(errno)
                 );
 
         /* try again */
@@ -266,8 +266,8 @@ int axl_close(const char* file, int fd) {
     /* fsync first */
     if (fsync(fd) < 0) {
         /* print warning that fsync failed */
-        axl_dbg(2, "Failed to fsync file descriptor: %s errno=%d %s @ %s:%d",
-                file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_DBG(2, "Failed to fsync file descriptor: %s errno=%d %s",
+                file, errno, strerror(errno)
                 );
     }
 
@@ -416,8 +416,8 @@ int axl_crc32(const char* filename, uLong* crc) {
     /* open the file for reading */
     int fd = axl_open(filename, O_RDONLY);
     if (fd < 0) {
-        axl_dbg(1, "Failed to open file to compute crc: %s errno=%d @ %s:%d",
-                filename, errno, __FILE__, __LINE__
+        AXL_DBG(1, "Failed to open file to compute crc: %s errno=%d",
+                filename, errno
                 );
         return AXL_FAILURE;
     }
@@ -435,9 +435,7 @@ int axl_crc32(const char* filename, uLong* crc) {
 
     /* if we got an error, don't print anything and bailout */
     if (nread < 0) {
-        axl_dbg(1, "Error while reading file to compute crc: %s @ %s:%d",
-                filename, __FILE__, __LINE__
-                );
+        AXL_DBG(1, "Error while reading file to compute crc: %s", filename);
         close(fd);
         return AXL_FAILURE;
     }
