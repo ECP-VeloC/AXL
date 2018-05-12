@@ -42,6 +42,36 @@ static int axl_next_handle_UID = -1;
 /* tracks list of files written with transfer */
 kvtree* axl_file_lists = NULL;
 
+/* given an id, lookup and return the file list and transfer type,
+ * returns AXL_FAILURE if info could not be found */
+static int axl_get_list_and_type(int id, kvtree** list, axl_xfer_t* type)
+{
+    /* initialize output parameters to invalid values */
+    *list = NULL;
+    *type = AXL_XFER_NULL;
+
+    /* lookup transfer info for the given id */
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (file_list == NULL) {
+        axl_err("Could not find fileset for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        return AXL_FAILURE;
+    }
+
+    /* extract the transfer type */
+    int itype;
+    if (kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype) != KVTREE_SUCCESS) {
+        axl_err("Could not find transfer type for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        return AXL_FAILURE;
+    }
+    axl_xfer_t xtype = (axl_xfer_t) itype;
+
+    /* set output parameters */
+    *list = file_list;
+    *type = xtype;
+
+    return AXL_SUCCESS;
+}
+
 /*
 =========================================
 API Functions
@@ -195,16 +225,12 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
 int AXL_Add (int id, const char* source, const char* destination)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    if (file_list == NULL) {
-        axl_err("AXL_Add failed: could not find fileset for UID %d", id);
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
-
-    /* extract the transfer type */
-    int itype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
-    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     /* add record for this file
      * UID
@@ -253,16 +279,12 @@ int AXL_Add (int id, const char* source, const char* destination)
 int AXL_Dispatch (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    if (file_list == NULL) {
-        axl_err("AXL_Dispatch failed: could not find fileset for UID %d", id);
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
-
-    /* extract the transfer type */
-    int itype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
-    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     /* create destination directories for each file */
     kvtree_elem* elem;
@@ -328,16 +350,12 @@ int AXL_Dispatch (int id)
 int AXL_Test (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    if (file_list == NULL) {
-        axl_err("AXL_Test failed: could not find fileset UID=%d", id);
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
-
-    /* extract the transfer type */
-    int itype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
-    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
@@ -386,16 +404,12 @@ int AXL_Test (int id)
 int AXL_Wait (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    if (file_list == NULL) {
-        axl_err("AXL_Wait failed: could not find fileset UID=%d", id);
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
-
-    /* extract the transfer type */
-    int itype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
-    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     /* lookup status for the transfer, return if done */
     int status;
@@ -443,16 +457,12 @@ int AXL_Wait (int id)
 int AXL_Cancel (int id)
 {
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    if (file_list == NULL) {
-        axl_err("AXL_Cancel failed: could not find fileset UID=%d", id);
+    kvtree* file_list = NULL;
+    axl_xfer_t xtype = AXL_XFER_NULL;
+    if (axl_get_list_and_type(id, &file_list, &xtype) != AXL_SUCCESS) {
+        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
         return AXL_FAILURE;
     }
-
-    /* extract the transfer type */
-    int itype;
-    kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype);
-    axl_xfer_t xtype = (axl_xfer_t) itype;
 
     /* lookup status for the transfer, return if done */
     int status;

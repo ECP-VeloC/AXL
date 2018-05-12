@@ -11,6 +11,7 @@
 /* Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
+    AXL_XFER_NULL = 0,     /* placeholder to represent invalid value */
     AXL_XFER_SYNC,         /* synchronous copy */
     AXL_XFER_ASYNC_DAEMON, /* async daemon process */
     AXL_XFER_ASYNC_DW,     /* Cray Datawarp */
