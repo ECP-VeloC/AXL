@@ -59,7 +59,7 @@ static int axl_get_list_and_type(int id, kvtree** list, axl_xfer_t* type)
 
     /* extract the transfer type */
     int itype;
-    if (kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE_INT, &itype) != KVTREE_SUCCESS) {
+    if (kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE, &itype) != KVTREE_SUCCESS) {
         axl_err("Could not find transfer type for UID %d @ %s:%d", id, __FILE__, __LINE__);
         return AXL_FAILURE;
     }
@@ -182,7 +182,7 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
      *       SOURCE */
     kvtree* file_list = kvtree_set_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
-    kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE_INT, xtype);
+    kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* create a structure based on transfer type */
