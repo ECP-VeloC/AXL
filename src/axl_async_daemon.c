@@ -416,7 +416,7 @@ int axl_async_cancel_daemon(kvtree* map, int id)
 
   /* set status to error if it's not already done */
   int status = AXL_STATUS_SOURCE;
-  kvtree_get_kv_int(file_list, AXL_KEY_STATUS, &status);
+  kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
   if (status != AXL_STATUS_DEST) {
     /* transfer is not complete, so actively cancel what's left */
     kvtree_set_kv_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
