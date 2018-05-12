@@ -77,16 +77,14 @@ int axl_mkdir(const char* dir, mode_t mode) {
                 axl_free(&path);
                 return AXL_SUCCESS;
             } else {
-                axl_err("Creating directory: mkdir(%s, %x) path=%s errno=%d %s @ %s:%d",
-                        dir, mode, path, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Creating directory: mkdir(%s, %x) path=%s errno=%d %s",
+                        dir, mode, path, errno, strerror(errno)
                         );
                 rc = AXL_FAILURE;
             }
         }
     } else {
-        axl_err("Cannot write to directory: %s @ %s:%d",
-                path, __FILE__, __LINE__
-                );
+        AXL_ERR("Cannot write to directory: %s", path);
         rc = AXL_FAILURE;
     }
 
@@ -145,8 +143,8 @@ int axl_open(const char* file, int flags, ...) {
 
         /* if we still don't have a valid file, consider it an error */
         if (fd < 0) {
-            axl_err("Opening file: open(%s) errno=%d %s @ %s:%d",
-                    file, errno, strerror(errno), __FILE__, __LINE__
+            AXL_ERR("Opening file: open(%s) errno=%d %s",
+                    file, errno, strerror(errno)
                     );
         }
     }
@@ -174,13 +172,13 @@ ssize_t axl_read(const char* file, int fd, void* buf, size_t size) {
             retries--;
             if (retries) {
                 /* print an error and try again */
-                axl_err("Error reading %s: read(%d, %x, %ld) errno=%d %s @ %s:%d",
-                        file, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Error reading %s: read(%d, %x, %ld) errno=%d %s",
+                        file, fd, (char*) buf + n, size - n, errno, strerror(errno)
                         );
             } else {
                 /* too many failed retries, give up */
-                axl_err("Giving up read of %s: read(%d, %x, %ld) errno=%d %s @ %s:%d",
-                        file, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Giving up read of %s: read(%d, %x, %ld) errno=%d %s",
+                        file, fd, (char*) buf + n, size - n, errno, strerror(errno)
                         );
                 exit(1);
             }
@@ -210,13 +208,13 @@ ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size) {
             retries--;
             if (retries) {
                 /* print an error and try again */
-                axl_err("Error reading file %s errno=%d %s @ %s:%d",
-                        file, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Error reading file %s errno=%d %s",
+                        file, errno, strerror(errno)
                         );
             } else {
                 /* too many failed retries, give up */
-                axl_err("Giving up read on file %s errno=%d %s @ %s:%d",
-                        file, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Giving up read on file %s errno=%d %s",
+                        file, errno, strerror(errno)
                         );
                 return -1;
             }
@@ -236,9 +234,7 @@ ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size
             n += rc;
         } else if (rc == 0) {
             /* something bad happened, print an error and abort */
-            axl_err("Error writing file %s write returned 0 @ %s:%d",
-                    file, __FILE__, __LINE__
-                    );
+            AXL_ERR("Error writing file %s write returned 0", file);
             return -1;
         } else { /* (rc < 0) */
             /* got an error, check whether it was serious */
@@ -250,13 +246,13 @@ ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size
             retries--;
             if (retries) {
                 /* print an error and try again */
-                axl_err("Error writing file %s errno=%d %s @ %s:%d",
-                        file, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Error writing file %s errno=%d %s",
+                        file, errno, strerror(errno)
                         );
             } else {
                 /* too many failed retries, give up */
-                axl_err("Giving up write of file %s errno=%d %s @ %s:%d",
-                        file, errno, strerror(errno), __FILE__, __LINE__
+                AXL_ERR("Giving up write of file %s errno=%d %s",
+                        file, errno, strerror(errno)
                         );
                 return -1;
             }
@@ -278,8 +274,8 @@ int axl_close(const char* file, int fd) {
     /* now close the file */
     if (close(fd) != 0) {
         /* hit an error, print message */
-        axl_err("Closing file descriptor %d for file %s: errno=%d %s @ %s:%d",
-                fd, file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_ERR("Closing file descriptor %d for file %s: errno=%d %s",
+                fd, file, errno, strerror(errno)
                 );
         return AXL_FAILURE;
     }
@@ -293,17 +289,13 @@ int axl_close(const char* file, int fd) {
 int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_size, uLong* crc) {
     /* check that we got something for a source file */
     if (src_file == NULL || strcmp(src_file, "") == 0) {
-        axl_err("Invalid source file @ %s:%d",
-                __FILE__, __LINE__
-                );
+        AXL_ERR("Invalid source file");
         return AXL_FAILURE;
     }
 
     /* check that we got something for a destination file */
     if (dst_file == NULL || strcmp(dst_file, "") == 0) {
-        axl_err("Invalid destination file @ %s:%d",
-                __FILE__, __LINE__
-                );
+        AXL_ERR("Invalid destination file");
         return AXL_FAILURE;
     }
 
@@ -312,8 +304,8 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
     /* open src_file for reading */
     int src_fd = axl_open(src_file, O_RDONLY);
     if (src_fd < 0) {
-        axl_err("Opening file to copy: axl_open(%s) errno=%d %s @ %s:%d",
-                src_file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_ERR("Opening file to copy: axl_open(%s) errno=%d %s",
+                src_file, errno, strerror(errno)
                 );
         return AXL_FAILURE;
     }
@@ -322,8 +314,8 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
     mode_t mode_file = axl_getmode(1, 1, 0);
     int dst_fd = axl_open(dst_file, O_WRONLY | O_CREAT | O_TRUNC, mode_file);
     if (dst_fd < 0) {
-        axl_err("Opening file for writing: axl_open(%s) errno=%d %s @ %s:%d",
-                dst_file, errno, strerror(errno), __FILE__, __LINE__
+        AXL_ERR("Opening file for writing: axl_open(%s) errno=%d %s",
+                dst_file, errno, strerror(errno)
                 );
         axl_close(src_file, src_fd);
         return AXL_FAILURE;
@@ -342,8 +334,8 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
     /* allocate buffer to read in file chunks */
     char* buf = (char*) malloc(buf_size);
     if (buf == NULL) {
-        axl_err("Allocating memory: malloc(%llu) errno=%d %s @ %s:%d",
-                buf_size, errno, strerror(errno), __FILE__, __LINE__
+        AXL_ERR("Allocating memory: malloc(%llu) errno=%d %s",
+                buf_size, errno, strerror(errno)
                 );
         axl_close(dst_file, dst_fd);
         axl_close(src_file, src_fd);

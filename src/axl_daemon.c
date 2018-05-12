@@ -61,17 +61,13 @@ static int axl_atod(const char* str, double* val)
 {
   /* check that we have a string */
   if (str == NULL) {
-    axl_err("axl_atod: Can't convert NULL string to double @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Can't convert NULL string to double");
     return AXL_FAILURE;
   }
 
   /* check that we have a value to write to */
   if (val == NULL) {
-    axl_err("axl_atod: NULL address to store value @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("NULL address to store value");
     return AXL_FAILURE;
   }
 
@@ -83,9 +79,7 @@ static int axl_atod(const char* str, double* val)
     *val = value;
   } else {
     /* could not interpret value */
-    axl_err("axl_atod: Invalid double: %s errno=%d %s @ %s:%d",
-            str, errno, strerror(errno), __FILE__, __LINE__
-    );
+    AXL_ERR("Invalid double: %s errno=%d %s", str, errno, strerror(errno));
     return AXL_FAILURE;
   }
 
@@ -333,9 +327,7 @@ kvtree* read_transfer_file()
       bytes_per_second = bw;
     } else {
       /* could not interpret bandwidth value */
-      axl_err("axl_transfer: Ignoring invalid BW value in %s @ %s:%d",
-              axl_transfer_file, __FILE__, __LINE__
-      );
+      AXL_ERR("Ignoring invalid BW value in %s", axl_transfer_file);
     }
   } else {
     /* couldn't find a BW field, so disable this limit */
@@ -351,9 +343,7 @@ kvtree* read_transfer_file()
       percent_runtime = percent / 100.0;
     } else {
       /* could not interpret bandwidth value */
-      axl_err("axl_transfer: Ignoring invalid PERCENT value in %s @ %s:%d",
-              axl_transfer_file, __FILE__, __LINE__
-      );
+      AXL_ERR("Ignoring invalid PERCENT value in %s", axl_transfer_file);
     }
   } else {
     /* couldn't find a PERCENT field, so disable this limit */
@@ -394,9 +384,7 @@ kvtree* read_transfer_file()
         set_transfer_file_state(AXL_TRANSFER_KEY_STATE_RUN, 0);
       }
     } else {
-      axl_err("axl_transfer: Unknown command %s in %s @ %s:%d",
-              value, axl_transfer_file, __FILE__, __LINE__
-      );
+      AXL_ERR("Unknown command %s in %s", value, axl_transfer_file);
     }
   }
 
@@ -410,9 +398,7 @@ kvtree* read_transfer_file()
     } else if (state == RUNNING) {
       set_transfer_file_state(AXL_TRANSFER_KEY_STATE_RUN, 0);
     } else {
-      axl_err("axl_transfer: Unknown state %d @ %s:%d",
-              state, __FILE__, __LINE__
-      );
+      AXL_ERR("Unknown state %d", state);
     }
   }
 
@@ -571,9 +557,7 @@ static int write_pid_file(const char* path, mode_t mode)
   /* define name to our pid file */
   char pid_file[1024];
   if (snprintf(pid_file, sizeof(pid_file), "%s.pid", path) >= sizeof(pid_file)) {
-    axl_err("axl_transfer: Insufficient space to define pid file name @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Insufficient space to define pid file name");
     return 1;
   }
 
@@ -590,26 +574,20 @@ static int write_pid_file(const char* path, mode_t mode)
      * that a transfer process may already be running, if the file exists
      * but there is no daemon running, it is up to the client to remove the
      * file before starting the daemon */
-    axl_err("axl_transfer: Failed to open pid file @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Failed to open pid file");
     return 1;
   }
 
   /* otherwise, write our pid to the file */
   if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t)) {
-    axl_err("axl_transfer: Failed to write pid file @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Failed to write pid file");
     close(fd);
     return 1;
   }
 
   /* close the file */
   if (close(fd) == -1) {
-    axl_err("axl_transfer: Failed to close pid file @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Failed to close pid file");
     return 1;
   }
 
@@ -628,9 +606,7 @@ int main (int argc, char *argv[])
   /* record the name of the transfer file */
   axl_transfer_file = strdup(argv[1]);
   if (axl_transfer_file == NULL) {
-    axl_err("axl_transfer: Copying transfer file name @ %s:%d",
-            __FILE__, __LINE__
-    );
+    AXL_ERR("Copying transfer file name");
     return 1;
   }
 
@@ -673,8 +649,8 @@ int main (int argc, char *argv[])
   size_t bufsize = file_buf_size;
   char* buf = malloc(bufsize);
   if (buf == NULL) {
-    axl_err("axl_transfer: Failed to allocate %llu bytes for file copy buffer @ %s:%d",
-            (unsigned long long) bufsize, __FILE__, __LINE__
+    AXL_ERR("Failed to allocate %llu bytes for file copy buffer",
+            (unsigned long long) bufsize
     );
     return 1;
   }

@@ -500,7 +500,7 @@ int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
   /* compute path to pid file */
   char pid_file[1024];
   if (snprintf(pid_file, sizeof(pid_file), "%s.pid", transfer_file) >= sizeof(pid_file)) {
-    axl_err("axl_async_init_daemon: failed to define path to pid file");
+    AXL_ERR("axl_async_init_daemon: failed to define path to pid file");
     return AXL_FAILURE;
   }
   axl_async_daemon_pid_file = strdup(pid_file);
@@ -544,7 +544,7 @@ int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 
       /* if we get here, the child failed to exec, so print error and exit */
       if (rc == -1) {
-        axl_err("axl_async_init_daemon: child process failed to launch: %s %s: %s",
+        AXL_ERR("axl_async_init_daemon: child process failed to launch: %s %s: %s",
           axld_path, transfer_file, strerror(errno)
         );
       }
@@ -567,7 +567,7 @@ int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
     double now = axl_seconds();
     if (now - start > 5.0) {
       /* give up waiting for transfer process to start */
-      axl_err("axl_async_init_daemon: child process failed to start: %s %s",
+      AXL_ERR("axl_async_init_daemon: child process failed to start: %s %s",
         axld_path, transfer_file
       );
       rc = AXL_FAILURE;
@@ -600,7 +600,7 @@ int axl_async_finalize_daemon()
 
   /* force termination of the daemon process (this necessary?) */
   if (kill(axld_pid, SIGTERM) == -1) {
-    axl_err("axl_async_finalize_daemon: failed to kill daemon process: pid %d: %s", (int)axld_pid, strerror(errno));
+    AXL_ERR("axl_async_finalize_daemon: failed to kill daemon process: pid %d: %s", (int)axld_pid, strerror(errno));
   }
 
 #if 0
@@ -610,7 +610,7 @@ int axl_async_finalize_daemon()
     int status;
     pid_t wait_pid = waitpid(axld_pid, &status, 0);
     if (wait_pid == -1) {
-      axl_err("axl_async_finalize_daemon: Waiting for child %d: %s",
+      AXL_ERR("axl_async_finalize_daemon: Waiting for child %d: %s",
         (int)axld_pid, strerror(errno)
       );
     }

@@ -63,14 +63,14 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
     /* lookup transfer info for the given id */
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     if (file_list == NULL) {
-        axl_err("Could not find fileset for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        AXL_ERR("Could not find fileset for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* extract the transfer type */
     int itype;
     if (kvtree_util_get_int(file_list, AXL_KEY_XFER_TYPE, &itype) != KVTREE_SUCCESS) {
-        axl_err("Could not find transfer type for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        AXL_ERR("Could not find transfer type for UID %d", id);
         return AXL_FAILURE;
     }
     axl_xfer_t xtype = (axl_xfer_t) itype;
@@ -78,7 +78,7 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
     /* extract the transfer state */
     int istate;
     if (kvtree_util_get_int(file_list, AXL_KEY_STATE, &istate) != KVTREE_SUCCESS) {
-        axl_err("Could not find transfer state for UID %d @ %s:%d", id, __FILE__, __LINE__);
+        AXL_ERR("Could not find transfer state for UID %d", id);
         return AXL_FAILURE;
     }
     axl_xfer_state_t xstate = (axl_xfer_state_t) istate;
@@ -226,7 +226,7 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     case AXL_XFER_ASYNC_CPPR:
         break;
     default:
-        axl_err("AXL_Create failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -253,13 +253,13 @@ int AXL_Add (int id, const char* source, const char* destination)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* check that handle is in correct state to add files */
     if (xstate != AXL_XFER_STATE_CREATED) {
-        axl_err("%s failed: invalid state to add files for UID %d", __func__, id);
+        AXL_ERR("Invalid state to add files for UID %d", id);
         return AXL_FAILURE;
     }
 
@@ -293,7 +293,7 @@ int AXL_Add (int id, const char* source, const char* destination)
     case AXL_XFER_ASYNC_CPPR:
         break;
     default:
-        axl_err("AXL_Add failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -314,13 +314,13 @@ int AXL_Dispatch (int id)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* check that handle is in correct state to dispatch */
     if (xstate != AXL_XFER_STATE_CREATED) {
-        axl_err("%s failed: invalid state to dispatch UID %d", __func__, id);
+        AXL_ERR("Invalid state to dispatch UID %d", id);
         return AXL_FAILURE;
     }
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
@@ -371,7 +371,7 @@ int AXL_Dispatch (int id)
         rc = axl_async_start_cppr(id); */
         break;
     default:
-        axl_err("AXL_Dispatch failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -393,13 +393,13 @@ int AXL_Test (int id)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* check that handle is in correct state to test */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
-        axl_err("%s failed: invalid state to test UID %d", __func__, id);
+        AXL_ERR("Invalid state to test UID %d", id);
         return AXL_FAILURE;
     }
 
@@ -412,7 +412,7 @@ int AXL_Test (int id)
          * caller must call wait to determine whether it was successful */
         return AXL_SUCCESS;
     } else if (status == AXL_STATUS_SOURCE) {
-        axl_err("AXL_Test failed: testing a transfer which was never started UID=%d", id);
+        AXL_ERR("Testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
@@ -437,7 +437,7 @@ int AXL_Test (int id)
         rc = axl_async_test_cppr(id); */
         break;
     default:
-        axl_err("AXL_Test failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -454,13 +454,13 @@ int AXL_Wait (int id)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* check that handle is in correct state to wait */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
-        axl_err("%s failed: invalid state to wait UID %d", __func__, id);
+        AXL_ERR("Invalid state to wait UID %d", id);
         return AXL_FAILURE;
     }
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
@@ -473,7 +473,7 @@ int AXL_Wait (int id)
     } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
     } else if (status == AXL_STATUS_SOURCE) {
-        axl_err("AXL_Wait failed: testing a transfer which was never started UID=%d", id);
+        AXL_ERR("Testing a transfer which was never started UID=%d", id);
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
@@ -498,7 +498,7 @@ int AXL_Wait (int id)
         rc = axl_async_wait_cppr(id); */
         break;
     default:
-        axl_err("AXL_Wait failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -520,13 +520,13 @@ int AXL_Cancel (int id)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
     /* check that handle is in correct state to cancel */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
-        axl_err("%s failed: invalid state to cancel UID %d", __func__, id);
+        AXL_ERR("Invalid state to cancel UID %d", id);
         return AXL_FAILURE;
     }
 
@@ -567,7 +567,7 @@ int AXL_Cancel (int id)
         break;
 #endif
     default:
-        axl_err("AXL_Cancel failed: unknown transfer type (%d)", (int) xtype);
+        AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
@@ -588,7 +588,7 @@ int AXL_Free (int id)
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
-        axl_err("%s failed: could not find transfer info for UID %d", __func__, id);
+        AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
 
@@ -596,7 +596,7 @@ int AXL_Free (int id)
     if (xstate != AXL_XFER_STATE_CREATED &&
         xstate != AXL_XFER_STATE_COMPLETED)
     {
-        axl_err("%s failed: invalid state to free UID %d", __func__, id);
+        AXL_ERR("Invalid state to free UID %d", id);
         return AXL_FAILURE;
     }
 

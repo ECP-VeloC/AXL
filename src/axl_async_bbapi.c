@@ -9,8 +9,8 @@ static int bb_check(int rc) {
   if (rc) {
     char* errstring;
     getLastErrorDetails(BBERRORJSON, &errstring);
-    axl_err("AXL Error with BBAPI rc:       %d\n", rc);
-    axl_err("AXL Error with BBAPI details:  %s\n", errstring, errstring);
+    AXL_ERR("AXL Error with BBAPI rc:       %d", rc);
+    AXL_ERR("AXL Error with BBAPI details:  %s", errstring, errstring);
     free(errstring);
 
     //printf("Aborting due to failures\n");
