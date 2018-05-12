@@ -29,6 +29,9 @@ extern kvtree* axl_file_lists;
 #define AXL_STATUS_DEST   (3)
 #define AXL_STATUS_ERROR  (4)
 
+/* attaches function name, file name, and line number to error messages */
+#define AXL_ERR(format, ...) axl_err(format " @ %s %s:%d", __VA_ARGS__, __func__, __FILE__, __LINE__)
+
 /*
 =========================================
 axl_err.c functions
