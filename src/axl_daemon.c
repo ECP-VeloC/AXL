@@ -363,22 +363,16 @@ kvtree* read_transfer_file()
   if (value != NULL) {
     if (strcmp(value, AXL_TRANSFER_KEY_COMMAND_EXIT) == 0) {
       /* close files and exit */
-      axl_dbg(0,"axl_transfer instructed to exit @%s:%d\n",
-              __FILE__, __LINE__
-      );
+      AXL_DBG(0, "axl_transfer instructed to exit");
       set_transfer_file_state(AXL_TRANSFER_KEY_STATE_EXIT, 0);
       keep_running = 0;
     } else if (strcmp(value, AXL_TRANSFER_KEY_COMMAND_STOP) == 0) {
       /* just stop, nothing else to do here */
-      axl_dbg(0,"axl_transfer instructed to STOP @%s:%d\n",
-              __FILE__, __LINE__
-       );
+      AXL_DBG(0, "axl_transfer instructed to STOP");
     } else if (strcmp(value, AXL_TRANSFER_KEY_COMMAND_RUN) == 0) {
       /* found the RUN command, if the DONE flag is not set,
        * set our state to running and update the transfer file */
-      axl_dbg(0,"axl_transfer instructed to RUN @%s:%d\n",
-              __FILE__, __LINE__
-      );
+      AXL_DBG(0, "axl_transfer instructed to RUN");
       if (! done) {
         state = RUNNING;
         set_transfer_file_state(AXL_TRANSFER_KEY_STATE_RUN, 0);
@@ -921,8 +915,7 @@ int main (int argc, char *argv[])
           close_files(new_file_src, &fd_src, new_file_dst, &fd_dst);
           clear_parameters(&new_id, &new_file_src, &new_file_dst, &new_position);
           clear_parameters(&old_id, &old_file_src, &old_file_dst, &old_position);
-          axl_dbg(0,"transfered file successfully using async process @%s:%d\n",
-                  __FILE__, __LINE__);
+          AXL_DBG(0, "transfered file successfully using async process");
         }
       } else {
         /* TODO: we may have an error
