@@ -1,14 +1,3 @@
-/*
- * Copyright (c) 2009, Lawrence Livermore National Security, LLC.
- * Produced at the Lawrence Livermore National Laboratory.
- * Written by Adam Moody <moody20@llnl.gov>.
- * LLNL-CODE-411039.
- * All rights reserved.
- * This file was originally part of The Scalable Checkpoint / Restart (SCR) library.
- * For details, see https://github.com/llnl/scr.git
- * Please also read this file: LICENSE.TXT.
-*/
-
 #ifndef AXL_YAL_H
 #define AXL_YAL_H
 
