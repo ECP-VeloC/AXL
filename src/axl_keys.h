@@ -1,3 +1,6 @@
+#ifndef AXL_KEYS_H
+#define AXL_KEYS_H
+
 // THESE ARE OLD KEYS FROM KVTREE
 
 /*
@@ -40,12 +43,14 @@ AXL Owned Keys
 ========================================
 */
 
+#define AXL_TRANSFER_KEY_ID ("ID")
 #define AXL_TRANSFER_KEY_FILES ("FILES")
 #define AXL_TRANSFER_KEY_DESTINATION ("DESTINATION")
 #define AXL_TRANSFER_KEY_SIZE ("SIZE")
 #define AXL_TRANSFER_KEY_WRITTEN ("WRITTEN")
 #define AXL_TRANSFER_KEY_BW ("BW")
 #define AXL_TRANSFER_KEY_PERCENT ("PERCENT")
+#define AXL_TRANSFER_KEY_ERROR ("ERROR")
 
 #define AXL_TRANSFER_KEY_COMMAND ("COMMAND")
 #define AXL_TRANSFER_KEY_COMMAND_RUN ("RUN")
@@ -70,3 +75,5 @@ AXL Owned Keys
 #define AXL_FLUSH_KEY_NAME ("NAME")
 #define AXL_FLUSH_KEY_CKPT ("CKPT")
 #define AXL_FLUSH_KEY_OUTPUT ("OUTPUT")
+
+#endif
