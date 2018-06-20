@@ -47,7 +47,7 @@ INSTALL(TARGETS axl-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
 IF(AXL_ASYNC_DAEMON)
 
   LIST(APPEND axld_srcs
-    axl_daemon.c
+    axld.c
     axl_err.c
     axl_io.c
     axl_util.c
