@@ -13,6 +13,8 @@
 /* wait */
 #include <sys/wait.h>
 
+#include "config.h"
+
 #include "kvtree.h"
 #include "kvtree_util.h"
 
@@ -20,7 +22,7 @@
 #include "axl_async_daemon.h"
 #include "axl_keys.h"
 
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
 
 static double axl_async_daemon_bw = 0.0;
 static double axl_async_daemon_percent = 0.0;
@@ -210,7 +212,7 @@ static int axl_async_daemon_file_clear_all()
 /* cancel all ongoing asynchronous transfer operations */
 int axl_async_stop_daemon()
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_STOP);
 
@@ -228,7 +230,7 @@ int axl_async_stop_daemon()
 /* start an asynchronous transfer */
 int axl_async_start_daemon(int id)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   kvtree* map = axl_file_lists;
   /* assume success */
   int rc = AXL_SUCCESS;
@@ -332,7 +334,7 @@ int axl_async_start_daemon(int id)
  * stop daemon if that was the last active transfer */
 static int axl_async_daemon_complete(int id)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   kvtree* map = axl_file_lists;
   /* get a hash to read from the file */
   kvtree* transfer_hash = kvtree_new();
@@ -367,7 +369,7 @@ static int axl_async_daemon_complete(int id)
 /* check whether the specified transfer id has completed */
 int axl_async_test_daemon(int id, double* bytes_total, double* bytes_written)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   kvtree* map = axl_file_lists;
   /* initialize bytes to 0 */
   *bytes_total = 0.0;
@@ -384,7 +386,7 @@ int axl_async_test_daemon(int id, double* bytes_total, double* bytes_written)
       transfer_complete = 0;
     } else {
       /* finished, so complete the transfer */
-      axl_async_daemon_complete(map, id);
+      axl_async_daemon_complete(id);
     }
   } else {
     /* failed to read the transfer file, can't determine whether the transfer is complete */
@@ -404,16 +406,16 @@ int axl_async_test_daemon(int id, double* bytes_total, double* bytes_written)
 /* wait until the specified id completes */
 int axl_async_wait_daemon(int id)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   kvtree* map = axl_file_lists;
   /* keep testing until it's done */
   int done = 0;
   while (! done) {
     /* test whether the transfer has completed, and if so complete the transfer */
     double bytes_total, bytes_written;
-    if (axl_async_test_daemon(map, id, &bytes_total, &bytes_written) == AXL_SUCCESS) {
+    if (axl_async_test_daemon(id, &bytes_total, &bytes_written) == AXL_SUCCESS) {
       /* complete the transfer */
-      axl_async_daemon_complete(map, id);
+      axl_async_daemon_complete(id);
       done = 1;
     } else {
       /* otherwise, sleep to get out of the way */
@@ -428,7 +430,7 @@ int axl_async_wait_daemon(int id)
 /* attempt to cancel specified transfer id */
 int axl_async_cancel_daemon(int id)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   kvtree* map = axl_file_lists;
   int rc = AXL_SUCCESS;
 
@@ -517,7 +519,7 @@ int axl_async_cancel_daemon(int id)
 /* start process for transfer operations */
 int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   /* TODO: read configuration to set bw and percent limits */
 
   /* TODO: look for axld pid in file, and avoid relaunch if already running */
@@ -613,7 +615,7 @@ int axl_async_init_daemon(const char* axld_path, const char* transfer_file)
 /* stop all ongoing transfer operations, wait for daemon process to exit */
 int axl_async_finalize_daemon()
 {
-#if HAVE_DAEMON
+#ifdef HAVE_DAEMON
   /* write stop command to transfer file */
   axl_async_daemon_command_set(AXL_TRANSFER_KEY_COMMAND_EXIT);
 
