@@ -22,9 +22,7 @@
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
 /*#include "axl_async_cppr.h" */
-#ifdef HAVE_DAEMON
 #include "axl_async_daemon.h"
-#endif
 #include "axl_async_datawarp.h"
 
 /* define states for transfer handlesto help ensure
@@ -214,10 +212,8 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         break;
-#endif
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
@@ -281,10 +277,8 @@ int AXL_Add (int id, const char* source, const char* destination)
     switch (xtype) {
     case AXL_XFER_SYNC:
         break;
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         break;
-#endif
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
@@ -356,11 +350,9 @@ int AXL_Dispatch (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_start(id);
         break;
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_start_daemon(axl_file_lists, id);
         break;
-#endif
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_start_datawarp(id);
         break;
@@ -422,11 +414,9 @@ int AXL_Test (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_test(id);
         break;
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_test_daemon(axl_file_lists, id, &bytes_total, &bytes_written);
         break;
-#endif
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
         break;
@@ -483,11 +473,9 @@ int AXL_Wait (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_wait(id);
         break;
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_wait_daemon(axl_file_lists, id);
         break;
-#endif
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
         break;
@@ -550,11 +538,9 @@ int AXL_Cancel (int id)
         rc = axl_sync_cancel(id);
         break;
 #endif
-#ifdef HAVE_DAEMON
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_cancel_daemon(axl_file_lists, id);
         break;
-#endif
 #if 0
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_cancel_datawarp(id);
