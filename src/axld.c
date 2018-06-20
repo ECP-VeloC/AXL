@@ -510,31 +510,6 @@ int bool_diff_files(int id1, int id2, char* file1, char* file2)
   return 0;
 }
 
-#if 0
-int read_params()
-{
-  /* read our parameters */
-  char* value = NULL;
-  axl_param_init();
-
-  /* set file copy buffer size (file chunk size) */
-  if ((value = axl_param_get("AXL_FILE_BUF_SIZE")) != NULL) {
-    file_buf_size = atoi(value);
-  }
-
-  /* set number of secs to sleep between reading file */
-  if ((value = axl_param_get("AXL_TRANSFER_SECS")) != NULL) {
-    float secs = 0.0;
-    sscanf(value, "%f", &secs);
-    axl_transfer_secs = (double) secs;
-  }
-
-  axl_param_finalize();
-
-  return AXL_SUCCESS;
-}
-#endif
-
 static int write_pid_file(const char* path, mode_t mode)
 {
   /* define name to our pid file */
@@ -592,9 +567,6 @@ int main (int argc, char *argv[])
     AXL_ERR("Copying transfer file name");
     return 1;
   }
-
-  /* initialize our tracking variables */
-  //read_params();
 
   /* get file io mode */
   mode_t mode_file = axl_getmode(1, 1, 0);

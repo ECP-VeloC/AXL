@@ -628,6 +628,7 @@ int axl_async_finalize_daemon()
     AXL_ERR("axl_async_finalize_daemon: failed to kill daemon process: pid %d: %s", (int)axld_pid, strerror(errno));
   }
 
+/* TODO: is it possible to wait for process to exit? */
 #if 0
   /* don't know that we can wait on process, since it may have been started externally */
   /* wait for process to exit */

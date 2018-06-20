@@ -533,6 +533,7 @@ int AXL_Cancel (int id)
     /* if not done, call vendor API to wait */
     int rc = AXL_SUCCESS;
     switch (xtype) {
+/* TODO: add cancel to backends */
 #if 0
     case AXL_XFER_SYNC:
         rc = axl_sync_cancel(id);
@@ -541,6 +542,7 @@ int AXL_Cancel (int id)
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_cancel_daemon(axl_file_lists, id);
         break;
+/* TODO: add cancel to backends */
 #if 0
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_cancel_datawarp(id);
