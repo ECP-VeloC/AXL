@@ -15,30 +15,6 @@ TODO: Cleanup who owns these keys
 
 /*
 =========================================
-TODO: Cleanup who owns these keys
-========================================
-*/
-
-#define SCR_SUMMARY_FILE_VERSION_6 (6)
-#define SCR_SUMMARY_6_KEY_DATASET   ("DSET")
-#define SCR_SUMMARY_6_KEY_RANK2FILE ("RANK2FILE")
-#define SCR_SUMMARY_6_KEY_LEVEL     ("LEVEL")
-#define SCR_SUMMARY_6_KEY_RANK      ("RANK")
-#define SCR_SUMMARY_6_KEY_RANKS     ("RANKS")
-#define SCR_SUMMARY_6_KEY_COMPLETE  ("COMPLETE")
-#define SCR_SUMMARY_6_KEY_FILE      ("FILE")
-#define SCR_SUMMARY_6_KEY_FILES     ("FILES")
-#define SCR_SUMMARY_6_KEY_SIZE      ("SIZE")
-#define SCR_SUMMARY_6_KEY_CRC       ("CRC")
-#define SCR_SUMMARY_6_KEY_NOFETCH   ("NOFETCH")
-#define SCR_SUMMARY_6_KEY_CONTAINER ("CTR")
-#define SCR_SUMMARY_6_KEY_SEGMENT   ("SEG")
-#define SCR_SUMMARY_6_KEY_ID        ("ID")
-#define SCR_SUMMARY_6_KEY_LENGTH    ("LENGTH")
-#define SCR_SUMMARY_6_KEY_OFFSET    ("OFFSET")
-
-/*
-=========================================
 AXL Owned Keys
 ========================================
 */
