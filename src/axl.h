@@ -1,6 +1,11 @@
 #ifndef AXL_H
 #define AXL_H
 
+/* enable C++ codes to include this header directly */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AXL_SUCCESS (0)
 
 #define AXL_MAJOR "0"
@@ -60,5 +65,10 @@ int AXL_Free (int id);
 /* Stop (cancel and free) all transfers,
  * useful to clean the plate when restarting */
 int AXL_Stop (void);
+
+/* enable C++ codes to include this header directly */
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
