@@ -351,7 +351,7 @@ int AXL_Dispatch (int id)
         rc = axl_sync_start(id);
         break;
     case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_start_daemon(axl_file_lists, id);
+        rc = axl_async_start_daemon(id);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_start_datawarp(id);
@@ -415,7 +415,7 @@ int AXL_Test (int id)
         rc = axl_sync_test(id);
         break;
     case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_test_daemon(axl_file_lists, id, &bytes_total, &bytes_written);
+        rc = axl_async_test_daemon(id, &bytes_total, &bytes_written);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
@@ -474,7 +474,7 @@ int AXL_Wait (int id)
         rc = axl_sync_wait(id);
         break;
     case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_wait_daemon(axl_file_lists, id);
+        rc = axl_async_wait_daemon(id);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
@@ -540,7 +540,7 @@ int AXL_Cancel (int id)
         break;
 #endif
     case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_cancel_daemon(axl_file_lists, id);
+        rc = axl_async_cancel_daemon(id);
         break;
 /* TODO: add cancel to backends */
 #if 0
