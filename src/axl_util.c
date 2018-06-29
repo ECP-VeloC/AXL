@@ -1,5 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
+#include <sys/time.h>
+
 #include "axl_internal.h"
 
 /* returns the current linux timestamp (secs + usecs since epoch) as a double */
