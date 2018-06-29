@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 
 #define TEST_PASS (0)
 #define TEST_FAIL (1)
@@ -27,7 +28,9 @@ int test_axl_sync(){
 
   /* Create dest path */
   char pwd[PATH_MAX];
-  getcwd(pwd, sizeof(pwd));
+  if (getcwd(pwd, sizeof(pwd)) == NULL) {
+    printf("getcwd() failed: errno=%d (%s)\n", errno, strerror(errno));
+  }
   char* dest_path = malloc(strlen(pwd) + strlen(TEST_DEST) + 2);
   strcpy(dest_path, pwd);
   strcat(dest_path, "/");
@@ -51,7 +54,9 @@ int test_axl_sync(){
     rc = TEST_FAIL;
   } else {
     char* read_str = malloc(strlen(TEST_STRING) + 1);
-    fgets(read_str, strlen(TEST_STRING) + 1, dfp);
+    if (fgets(read_str, strlen(TEST_STRING) + 1, dfp) == NULL) {
+      printf("fgets() returned NULL\n");
+    }
     if(strcmp(read_str, TEST_STRING)) rc = TEST_FAIL;
     free(read_str);
     fclose(dfp);
