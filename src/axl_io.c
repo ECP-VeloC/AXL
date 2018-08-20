@@ -6,6 +6,7 @@
 
 /* file open modes */
 #include <sys/file.h>
+#include <fcntl.h>
 
 /* exit & malloc */
 #include <stdlib.h>
