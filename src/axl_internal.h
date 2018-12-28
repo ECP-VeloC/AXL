@@ -1,6 +1,9 @@
 #ifndef AXL_INTERNAL_H
 #define AXL_INTERNAL_H
 
+/* pick up cmake compile macros */
+#include "config.h"
+
 #include <zlib.h>
 #include "kvtree.h"
 
