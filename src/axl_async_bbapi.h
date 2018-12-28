@@ -5,7 +5,6 @@
 #define AXL_BBAPI_KEY_TRANSFERDEF ("BB_TransferDef")
 
 int axl_async_start_bbapi(int id);
-int axl_async_complete_bbapi(int id);
 int axl_async_stop_bbapi(int id);
 int axl_async_test_bbapi(int id);
 int axl_async_wait_bbapi(int id);
