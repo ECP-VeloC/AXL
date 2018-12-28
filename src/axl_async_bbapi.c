@@ -1,8 +1,28 @@
 #include "axl_internal.h"
+#include "axl_async_bbapi.h"
 
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
 #define AXL_IBM_TAG_OFFSET (100)
+
+static void getLastErrorDetails(BBERRORFORMAT pFormat, char** pBuffer)
+{
+    int rc;
+    size_t l_NumBytesAvailable;
+    if(pBuffer)
+    {
+        rc = BB_GetLastErrorDetails(pFormat, &l_NumBytesAvailable, 0, NULL);
+        if(rc == 0)
+        {
+            *pBuffer = (char*)malloc(l_NumBytesAvailable+1);
+            BB_GetLastErrorDetails(pFormat, NULL, l_NumBytesAvailable, *pBuffer);
+        }
+        else
+        {
+            *pBuffer = NULL;
+        }
+    }
+}
 
 /* Check and print BBAPI Error messages */
 static int bb_check(int rc) {
@@ -46,7 +66,7 @@ int axl_async_finalize_bbapi(void) {
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_util_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     BBTransferDef_t *tdef;
     BBTransferHandle_t thandle;
@@ -63,9 +83,9 @@ int axl_async_create_bbapi(int id) {
 
 /* Called from AXL_Add
  * Adds file source/destination to BBTransferDef */
-int axl_async_add_bbapi (int id, const char* source, const char* destination) {
+int axl_async_add_bbapi (int id, const char* source, const char* dest) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_util_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     BBTransferDef_t *tdef;
     kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
@@ -81,7 +101,7 @@ int axl_async_add_bbapi (int id, const char* source, const char* destination) {
  * Assumes that mkdirs have already happened */
 int axl_async_start_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
     /* Pull BB-Def and BB-Handle out of global var */
@@ -92,7 +112,7 @@ int axl_async_start_bbapi (int id) {
 
     /* If there are 0 files, mark this as a success */
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    int file_count = kvtree_util_hash_size(files);
+    int file_count = kvtree_size(files);
     if (file_count == 0) {
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
         return AXL_SUCCESS;
@@ -119,10 +139,10 @@ int axl_async_start_bbapi (int id) {
 
 int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Get the BB-Handle to query the status */
-    BB_TransferHandle thandle;
+    BBTransferHandle_t thandle;
     kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long) thandle);
 
     BBTransferInfo_t tinfo;
@@ -153,7 +173,7 @@ int axl_async_test_bbapi (int id) {
     } else if (status == AXL_STATUS_INPROG) {
         return AXL_SUCCESS;
     } else if (status == AXL_STATUS_ERROR) {
-        return ALX_FAILURE;
+        return AXL_FAILURE;
     }
 #endif
     return AXL_FAILURE;
@@ -161,7 +181,7 @@ int axl_async_test_bbapi (int id) {
 
 int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_HANDLE_UID, id);
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     int status = AXL_STATUS_INPROG;
 
     /* Sleep until test changes set status */
@@ -175,7 +195,7 @@ int axl_async_wait_bbapi (int id) {
     if (rc == 1 || rc == AXL_SUCCESS) {
         return AXL_SUCCESS;
     } else {
-        return AXL_FAILURE
+        return AXL_FAILURE;
     }
 #endif
     return AXL_FAILURE;
