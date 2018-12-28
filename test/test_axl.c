@@ -1,6 +1,7 @@
 #include "test_axl.h"
 #include "test_axl_sync.h"
 #include "test_axl_async_daemon.h"
+#include "test_axl_async_ibmbb.h"
 
 #include "stdlib.h"
 #include "stdio.h"
@@ -21,6 +22,7 @@ int main(int argc, char** argv){
 
   /* Initialize each test type */
   //test_axl_async_daemon_init();
+  //test_axl_async_ibmbb_init();
   test_axl_sync_init();
 
   /* Initialize state to count failures */

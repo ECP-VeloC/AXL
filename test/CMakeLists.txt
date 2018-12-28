@@ -6,6 +6,7 @@ LIST(APPEND axl_test_srcs
     test_axl.c
     test_axl_sync.c
     test_axl_async_daemon.c
+    test_axl_async_ibmbb.c
 )
 
 ADD_EXECUTABLE(test_axl ${axl_test_srcs})
