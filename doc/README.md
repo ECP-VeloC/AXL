@@ -7,9 +7,9 @@ The library optionally records the state of ongoing transfers,
 so that they can be identified or terminated even if the
 process that initiated the transfer has been restarted.
 
-For an example of how to use AXL, see [test_axl_sync.c](test/test_axl_sync.c)
+For an example of how to use AXL, see [test_axl_sync.c](../test/test_axl_sync.c)
 
-For more detailed use of the API, refer to [axl.h](src/axl.h).
+For more detailed use of the API, refer to [axl.h](../src/axl.h).
 
 # Initializing AXL
 Before calling AXL funcitons, one must first initialize the library by calling AXL\_Init.
@@ -24,9 +24,10 @@ Regardless of the transfer type, the basic control flow of a transfer is always:
 1. AXL\_Create - allocate a new transfer object, providing its type and a name
 2. AXL\_Add - add a file to a transfer object, giving both source and destination path
 3. AXL\_Dispatch - start the transfer
-4. AXL\_Test - optional non-blocking test for whether AXL\_Wait will block
-5. AXL\_Wait - wait for transfer to complete
-6. AXL\_Free - free resources associated with transfer object allocated in AXL\_Create
+4. AXL\_Test - optional, non-blocking test for whether AXL\_Wait will block
+5. AXL\_Cancel - optionally cancel a dispatched transfer
+6. AXL\_Wait - wait for transfer to complete
+7. AXL\_Free - free resources associated with transfer object allocated in AXL\_Create
 
 AXL\_Create returns a transfer id that is the identifier
 for the transfer object for most other calls.

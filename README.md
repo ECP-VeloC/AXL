@@ -1,9 +1,9 @@
 # AXL: Asynchronous Transfer Library
 
-The Asynchronous Transfer Library provides a common C interface to many vendor-specific NVMeoF technologies.
-Despite the name, AXL provides a synchronous transfer method as well.
+The Asynchronous Transfer Library provides a common C interface to transfer files
+between layers in an HPC storage hierarchy.
 
-AXL was originally part of the SCR Library.
+For details on its usage, see [doc/README.md](doc/README.md).
 
 ## Quickstart
 
@@ -33,6 +33,8 @@ Some useful CMake command line options:
 - [KVTree](https://github.com/LLNL/KVTree)
 
 ## Authors
+
+AXL was originally part of the [SCR Library](https://github.com/llnl/scr).
 
 AXL is part of the SCR project (LLNL-CODE-411039)
 
