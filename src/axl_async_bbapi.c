@@ -99,7 +99,7 @@ int axl_async_add_bbapi (int id, const char* source, const char* dest) {
 
     /* get transfer definition for this id */
     BBTransferDef_t *tdef;
-    kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
+    kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, (void**) &tdef);
 
     /* add file to transfer definition */
     int rc = BB_AddFiles(tdef, source, dest, 0);
@@ -121,8 +121,8 @@ int axl_async_start_bbapi (int id) {
     /* Pull BB-Def and BB-Handle out of global var */
     BBTransferDef_t *tdef;
     BBTransferHandle_t thandle;
-    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long) &thandle);
-    kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
+    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
+    kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, (void**) &tdef);
 
 #if 0
     /* TODO: is this necessary? */
@@ -161,7 +161,7 @@ int axl_async_test_bbapi (int id) {
 
     /* Get the BB-Handle to query the status */
     BBTransferHandle_t thandle;
-    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long) thandle);
+    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
 
     /* get info about transfer */
     BBTransferInfo_t tinfo;
