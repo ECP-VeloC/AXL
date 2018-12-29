@@ -238,10 +238,22 @@ int axl_async_wait_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_async_stop_bbapi (int id) {
+int axl_async_cancel_bbapi (int id) {
 #ifdef HAVE_BBAPI
-    // TODO: implement
-    return AXL_SUCCESS;
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+
+    /* Get the BB-Handle to query the status */
+    BBTransferHandle_t thandle;
+    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
+
+    /* TODO: want all processes to do this, or just one? */
+    /* attempt to cancel this transfer */
+    int rc = BB_CancelTransfer(thandle, BBSCOPETAG);
+    int ret = bb_check(rc);
+
+    /* TODO: can we update status of transfer at this point? */
+
+    return ret;
 #endif
     return AXL_FAILURE;
 }

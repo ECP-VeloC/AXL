@@ -547,9 +547,11 @@ int AXL_Cancel (int id)
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_cancel_datawarp(id);
         break;
+#endif
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_cancel_bbapi(id);
         break;
+#if 0
     /* case AXL_XFER_ASYNC_CPPR:
         rc = axl_async_cancel_cppr(id); */
         break;
