@@ -150,6 +150,13 @@ int axl_async_start_bbapi (int id) {
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
     }
 
+    /* free the transfer definition */
+    rc = BB_FreeTransferDef(tdef);
+    bb_check(rc);
+
+    /* drop transfer definition from kvtree */
+    kvtree_unset(file_list, AXL_BBAPI_KEY_TRANSFERDEF);
+
     return AXL_SUCCESS;
 #endif
     return AXL_FAILURE;
