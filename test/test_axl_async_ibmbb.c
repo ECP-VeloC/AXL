@@ -31,9 +31,27 @@
 int test_axl_async_ibmbb(){
   int rc = TEST_PASS;
 
+  /* get path to BB directory */
+  char bbpath[PATH_MAX] = "";
+  char* value = getenv("BBPATH");
+  if (value != NULL) {
+    strncpy(bbpath, value, sizeof(bbpath));
+  } else {
+    printf("$BBPATH is not defined\n");  fflush(stdout);
+    return TEST_FAIL;
+  }
+  printf("$BBPATH is %s\n", bbpath);  fflush(stdout);
+
+  /* define path to source file */
+  char source_path[PATH_MAX];
+  strncpy(source_path, bbpath, sizeof(source_path));
+  strcat(source_path, "/");
+  strcat(source_path, TEST_FILE);
+  printf("SOURCE file is %s\n", source_path);  fflush(stdout);
+
   /* Create a file */
-  unlink(TEST_FILE);
-  FILE * fp = fopen(TEST_FILE, "w");
+  unlink(source_path);
+  FILE * fp = fopen(source_path, "w");
   fputs(TEST_STRING, fp);
   fclose(fp);
 
@@ -60,7 +78,7 @@ int test_axl_async_ibmbb(){
     goto cleanup;
   }
 
-  if (AXL_Add(id, TEST_FILE, dest_path) != AXL_SUCCESS) {
+  if (AXL_Add(id, source_path, dest_path) != AXL_SUCCESS) {
     rc = TEST_FAIL;
     goto cleanup;
   }
@@ -113,7 +131,7 @@ int test_axl_async_ibmbb(){
 
 cleanup:
   /* Unlink test files and return rc */
-  unlink(TEST_FILE);
+  unlink(source_path);
   unlink(dest_path);
   free(dest_path);
   return rc;
