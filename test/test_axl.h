@@ -15,5 +15,5 @@ struct test_args {
 typedef int (*test_ptr_t)(struct test_args *);
 
 void register_test(test_ptr_t test, char* test_name);
-
+int axl_compare_files_or_dirs(const char *path1, const char *path2);
 #endif //TEST_AXL_H
