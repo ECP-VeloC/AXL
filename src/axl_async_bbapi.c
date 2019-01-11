@@ -1,6 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include "axl_internal.h"
@@ -121,6 +125,8 @@ int axl_async_finalize_bbapi(void) {
 #endif
     return AXL_FAILURE;
 }
+
+#ifdef HAVE_BBAPI
 /*
  * Returns a unique BBTAG into *tag.  The tag returned must be unique
  * such that no two callers on the node will ever get the same tag
@@ -148,8 +154,9 @@ static BBTAG axl_get_unique_tag(void)
      * that they would have to spawn more than /proc/sys/kernel/pid_max
      * processes (currently 180k+ on my development system) in the same second.
      */
-    return (timestamp << 32 | (uint32_t) tid );
+    return (timestamp << 32 | (uint32_t) tid);
 }
+#endif
 
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
