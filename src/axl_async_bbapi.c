@@ -66,7 +66,17 @@ int axl_async_finalize_bbapi(void) {
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
+    int ret;
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+
+    /* allocate a new transfer definition */
+    BBTransferDef_t *tdef;
+    rc = BB_CreateTransferDef(&tdef);
+
+    /* If failed to create definition then return error. There is no cleanup necessary. */
+    if (rc) {
+        return bb_check(rc);
+    }
 
     /* allocate a new transfer handle,
      * include AXL transfer id in IBM BB tag */
@@ -74,13 +84,10 @@ int axl_async_create_bbapi(int id) {
     int tag = AXL_IBM_TAG_OFFSET + id;
     int rc = BB_GetTransferHandle(tag, 0, 0, &thandle);
 
-    /* TODO: skip this if transfer handle call failed */
-
-    /* allocate a new transfer definition */
-    BBTransferDef_t *tdef;
-    rc = BB_CreateTransferDef(&tdef);
-
-    /* TODO: free transfer handle if failed to create definition */
+    /* If transfer handle call failed then return. Do not record anything. */
+    if (rc) {
+        return bb_check(rc);
+    }
 
     /* record transfer handle and definition */
     kvtree_util_set_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long) thandle);
