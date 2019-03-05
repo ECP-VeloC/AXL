@@ -6,17 +6,13 @@
 #define TEST_PASS (0)
 #define TEST_FAIL (1)
 
-/* MAX_TESTS can be changed arbitrarily as long as
- * it exceeds the number of tests
- */
-#define MAX_TESTS (1024)
-#define MAX_NAME_LENGTH (1024) //overkill
+struct test_args {
+    /* Source and destination file paths */
+    const char *src_path;
+    const char *dst_path;
+};
 
-typedef int (*test_ptr_t)( void );
-
-int num_tests;
-test_ptr_t* test_ptrs;
-char** test_names;
+typedef int (*test_ptr_t)(struct test_args *);
 
 void register_test(test_ptr_t test, char* test_name);
 
