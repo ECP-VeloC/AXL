@@ -28,43 +28,11 @@
 #define TEST_NAME "test transfer"
 #define TEST_DEST "test_file_moved"
 
-int test_axl_async_ibmbb(){
+int test_axl_async_ibmbb(struct test_args *test_args){
     int rc = TEST_PASS;
-
-    /* get path to BB directory */
-    char bbpath[PATH_MAX] = "";
-    char* value = getenv("BBPATH");
-    if (value != NULL) {
-        strncpy(bbpath, value, sizeof(bbpath));
-    } else {
-        printf("$BBPATH is not defined\n");  fflush(stdout);
-        return TEST_FAIL;
-    }
-    printf("$BBPATH is %s\n", bbpath);  fflush(stdout);
-
-    /* define path to source file */
-    char source_path[PATH_MAX];
-    strncpy(source_path, bbpath, sizeof(source_path));
-    strcat(source_path, "/");
-    strcat(source_path, TEST_FILE);
-    printf("SOURCE file is %s\n", source_path);  fflush(stdout);
-
-    /* Create a file */
-    unlink(source_path);
-    FILE * fp = fopen(source_path, "w");
-    fputs(TEST_STRING, fp);
-    fclose(fp);
-
-    /* Create dest path */
-    char pwd[PATH_MAX];
-    if (getcwd(pwd, sizeof(pwd)) == NULL) {
-        printf("getcwd() failed: errno=%d (%s)\n", errno, strerror(errno));
-    }
-    char* dest_path = malloc(strlen(pwd) + strlen(TEST_DEST) + 2);
-    strcpy(dest_path, pwd);
-    strcat(dest_path, "/");
-    strcat(dest_path, TEST_DEST);
-    unlink(dest_path);
+    const char *src_path = test_args->src_path;
+    const char *dst_path = test_args->dst_path;
+    printf("Copying %s to %s\n", src_path, dst_path);
 
     /* Launch axl, reate a transfer, add test file, dispatch */
     if (AXL_Init(NULL) != AXL_SUCCESS) {
@@ -78,7 +46,7 @@ int test_axl_async_ibmbb(){
         goto cleanup;
     }
 
-    if (AXL_Add(id, source_path, dest_path) != AXL_SUCCESS) {
+    if (AXL_Add(id, src_path, dst_path) != AXL_SUCCESS) {
         rc = TEST_FAIL;
         goto cleanup;
     }
@@ -104,7 +72,6 @@ int test_axl_async_ibmbb(){
         goto cleanup;
     }
 #endif
-
     if (AXL_Free(id) != AXL_SUCCESS) {
         rc = TEST_FAIL;
         goto cleanup;
@@ -115,25 +82,16 @@ int test_axl_async_ibmbb(){
         goto cleanup;
     }
 
-    /* Check that file arrived properly */
-    FILE* dfp = fopen(dest_path, "r");
-    if(!dfp) {
+    if (axl_compare_files_or_dirs(src_path, dst_path) != 0) {
         rc = TEST_FAIL;
-    } else {
-        char* read_str = malloc(strlen(TEST_STRING) + 1);
-        if (fgets(read_str, strlen(TEST_STRING) + 1, dfp) == NULL) {
-            printf("fgets() returned NULL\n");
-        }
-        if(strcmp(read_str, TEST_STRING)) rc = TEST_FAIL;
-        free(read_str);
-        fclose(dfp);
+        goto cleanup;
     }
 
 cleanup:
     /* Unlink test files and return rc */
-    unlink(source_path);
-    unlink(dest_path);
-    free(dest_path);
+    printf("Removing %s and %s\n", src_path, dst_path);
+    unlink(src_path);
+    unlink(dst_path);
     return rc;
 }
 

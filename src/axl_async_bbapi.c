@@ -1,9 +1,13 @@
+#include <assert.h>
+#include <errno.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 #include "axl_internal.h"
 #include "axl_async_bbapi.h"
 
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
-#define AXL_IBM_TAG_OFFSET (100)
 
 static void getLastErrorDetails(BBERRORFORMAT pFormat, char** pBuffer)
 {
@@ -41,12 +45,69 @@ static int bb_check(int rc) {
 }
 #endif
 
+/*
+ * HACK
+ *
+ * Return a unique ID number for this node (tied to the hostname).
+ *
+ * The IBM BB API requires the user assign a unique node ID for the
+ * 'contribid' when you start up the library.  IBM assumes you'd specify
+ * the MPI rank here, but the bbapi, nor AXL, explicitly requires MPI.
+ * Therefore, we return the numbers at the end of our hostname:
+ * "sierra123" would return 123.
+ *
+ * This result is stored in id.  Returns 0 on success, nonzero otherwise.
+ */
+static int axl_get_unique_node_id(int *id)
+{
+    char hostname[256] = {0}; /* Max hostname + \0 */
+    int rc;
+    int i;
+    size_t len;
+    int sawnum = 0;
+
+    rc = gethostname(hostname, sizeof(hostname));
+    if (rc) {
+        fprintf(stderr, "Hostname too long\n");
+        return 1;
+    }
+
+    len = strlen(hostname);
+
+    rc = 1;
+    /* Look from the back of the string to find the beginning of our number */
+    for (i = len - 1; i >= 0; i--) {
+        if (isdigit(hostname[i])) {
+            sawnum = 1;
+        } else {
+            if (sawnum) {
+                /*
+                 * We were seeing a number, but now we've hit a non-digit.
+                 * We're done.
+                 */
+                *id = atoi(&hostname[i + 1]);
+                rc = 0;
+                break;
+            }
+        }
+    }
+    return rc;
+}
+
 /* Called from AXL_Init */
 int axl_async_init_bbapi(void) {
 #ifdef HAVE_BBAPI
     // TODO: BBAPI wants MPI rank information here?
-    int rank = 0;
-    int rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
+    int rank;
+    int rc;
+
+    rc = axl_get_unique_node_id(&rank);
+    if (rc) {
+            fprintf(stderr, "Couldn't get unique node id\n");
+            return AXL_FAILURE;
+    }
+
+    rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
     return bb_check(rc);
 #endif
     return AXL_FAILURE;
@@ -60,14 +121,43 @@ int axl_async_finalize_bbapi(void) {
 #endif
     return AXL_FAILURE;
 }
+/*
+ * Returns a unique BBTAG into *tag.  The tag returned must be unique
+ * such that no two callers on the node will ever get the same tag
+ * within a job.
+ *
+ * Returns 0 on success, 1 otherwise.
+ */
+static BBTAG axl_get_unique_tag(void)
+{
+    struct timespec now;
+    pid_t tid;
+    uint64_t timestamp;
 
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    timestamp = now.tv_sec;
+
+    /* Get thread ID.  This is non-portable, Linux only. */
+    tid = syscall(__NR_gettid);
+
+    /*
+     * This is somewhat of a hack.  Create a unique ID using the UNIX timestamp
+     * in the top 32-bits, and the thread ID in the lower 32.  This should be
+     * fine unless the user wraps the TID in the same second.  In order to do
+     * that they would have to spawn more than /proc/sys/kernel/pid_max
+     * processes (currently 180k+ on my development system) in the same second.
+     */
+    return (timestamp << 32 | (uint32_t) tid );
+}
 
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
-    int ret;
+    int rc;
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    BBTAG bbtag;
 
     /* allocate a new transfer definition */
     BBTransferDef_t *tdef;
@@ -81,8 +171,9 @@ int axl_async_create_bbapi(int id) {
     /* allocate a new transfer handle,
      * include AXL transfer id in IBM BB tag */
     BBTransferHandle_t thandle;
-    int tag = AXL_IBM_TAG_OFFSET + id;
-    int rc = BB_GetTransferHandle(tag, 0, 0, &thandle);
+    bbtag = axl_get_unique_tag();
+
+    rc = BB_GetTransferHandle(bbtag, 1, NULL, &thandle);
 
     /* If transfer handle call failed then return. Do not record anything. */
     if (rc) {

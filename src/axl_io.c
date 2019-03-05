@@ -54,6 +54,11 @@ mode_t axl_getmode(int read, int write, int execute) {
 int axl_mkdir(const char* dir, mode_t mode) {
     int rc = AXL_SUCCESS;
 
+    if (access(dir, F_OK) == 0) {
+        /* Directory already exists.  We're done. */
+        return rc;
+    }
+
     /* With dirname, either the original string may be modified or the function may return a
      * pointer to static storage which will be overwritten by the next call to dirname,
      * so we need to strdup both the argument and the return string. */

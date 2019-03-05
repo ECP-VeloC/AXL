@@ -105,6 +105,7 @@ double axl_seconds();
 
 extern size_t axl_file_buf_size;
 
+int axl_compare_files_or_dirs(char *path1, char *path2);
 void axl_free(void* p);
 
 #endif /* AXL_INTERNAL_H */
