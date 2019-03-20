@@ -6,6 +6,7 @@
 
 #include <zlib.h>
 #include "kvtree.h"
+#include "kvtree_util.h"
 
 #define AXL_SUCCESS (0)
 #define AXL_FAILURE (-1)
