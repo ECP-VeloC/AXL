@@ -10,7 +10,8 @@ For details on its usage, see [doc/README.md](doc/README.md).
 AXL uses the CMake build system and we recommend out-of-source builds.
 
 ```shell
-git clone git@github.com:llnl/axl.git
+git clone https://github.com/ECP-VeloC/AXL.git
+cd AXL
 mkdir build
 mkdir install
 
@@ -26,7 +27,7 @@ Some useful CMake command line options:
 - `-DCMAKE_INSTALL_PREFIX=[path]`: Place to install the AXL library
 - `-DCMAKE_BUILD_TYPE=[Debug/Release]`: Build with debugging or optimizations
 
-For building with IBM BB API:
+For building with IBM BB API (optional):
 
 - `-DAXL_ASYNC_API=IBM_BBAPI`: Enable IBM BB API
 - `-DWITH_BBAPI_PREFIX=/opt/ibm/bb`: Install path to IBM BB library
