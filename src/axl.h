@@ -22,6 +22,7 @@ typedef enum {
     AXL_XFER_ASYNC_DW,     /* Cray Datawarp */
     AXL_XFER_ASYNC_BBAPI,  /* IBM Burst Buffer API */
     AXL_XFER_ASYNC_CPPR,   /* Intel CPPR */
+    AXL_XFER_BEST,         /* Autodetect the best API from the node type */
 } axl_xfer_t;
 
 /* Read configuration from non-AXL-specific file
