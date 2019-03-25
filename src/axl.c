@@ -90,6 +90,33 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
 }
 
 /*
+ * Return the best underlying transfer API for this particular node.  If you're
+ * running on an IBM node, use the BB API.  If you're running on a Cray, use
+ * DataWarp.  Otherwise use sync.
+ */
+static
+axl_xfer_t axl_detect_best_xfer(void)
+{
+    axl_xfer_t xtype = AXL_XFER_NULL;
+
+    /*
+     * In an ideal world, we would detect our node type at runtime, since
+     * *technically* we could be compiled with support for both the BB API and
+     * DataWarp libraries.  In the real world, our supercomputer is only going
+     * to have one of those libraries, so just use whatever we find at
+     * build time.
+     */
+#ifdef HAVE_BBAPI
+    xtype = AXL_XFER_ASYNC_BBAPI;
+#elif HAVE_DATAWARP
+    xtype = AXL_XFER_ASYNC_DW;
+#else
+    xtype = AXL_XFER_SYNC;
+#endif
+    return xtype;
+}
+
+/*
 =========================================
 API Functions
 ========================================
@@ -188,6 +215,11 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
 {
     /* Generate next unique ID */
     int id = ++axl_next_handle_UID;
+
+    if (xtype == AXL_XFER_BEST) {
+        /* Autodetect the best transfer API to use */
+        xtype = axl_detect_best_xfer();
+    }
 
     /* Create an entry for this transfer handle
      * record user string and transfer type 
