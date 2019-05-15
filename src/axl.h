@@ -13,13 +13,21 @@ extern "C" {
 /* Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
-    AXL_XFER_NULL = 0,     /* placeholder to represent invalid value */
-    AXL_XFER_SYNC,         /* synchronous copy */
-    AXL_XFER_ASYNC_DAEMON, /* async daemon process */
-    AXL_XFER_ASYNC_DW,     /* Cray Datawarp */
-    AXL_XFER_ASYNC_BBAPI,  /* IBM Burst Buffer API */
-    AXL_XFER_ASYNC_CPPR,   /* Intel CPPR */
-    AXL_XFER_BEST,         /* Autodetect the best API from the node type */
+    AXL_XFER_NULL = 0,      /* placeholder to represent invalid value */
+    AXL_XFER_DEFAULT,       /* Autodetect and use the fastest API for this node
+                             * type that supports all AXL transfers.
+                             */
+    AXL_XFER_SYNC,          /* synchronous copy */
+    AXL_XFER_ASYNC_DAEMON,  /* async daemon process */
+    AXL_XFER_ASYNC_DW,      /* Cray Datawarp */
+    AXL_XFER_ASYNC_BBAPI,   /* IBM Burst Buffer API */
+    AXL_XFER_ASYNC_CPPR,    /* Intel CPPR */
+    AXL_XFER_NATIVE,        /* Autodetect and use the native API (BBAPI, DW,
+                             * etc) for this node type.  It may or may not
+                             * be compatible with all AXL transfers (like
+                             * shmem).  If there is no native API, fall back
+                             * to AXL_XFER_DEFAULT.
+                             */
 } axl_xfer_t;
 
 /* Read configuration from non-AXL-specific file

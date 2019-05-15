@@ -57,7 +57,6 @@ If a transfer fails, partially transferred files are not removed
 from the destination.
 
 ## Transfer types
-Currently, there are four transfer types:
 
 * AXL\_XFER\_SYNC - this is a synchronous transfer, which does not return until the files have been fully copied.  It uses POSIX I/O to directly read/write files.
 
@@ -66,3 +65,7 @@ Currently, there are four transfer types:
 * AXL\_XFER\_ASYNC\_BBAPI - this method uses [IBM's Burst Buffer API](https://github.com/IBM/CAST) to transfer files.  IBM's system software then takes over to move data in the background.  It's actually using NVMeoF, reading data from the local SSD from a remote node, so that the compute node is not really bothered once started.
 
 * AXL\_XFER\_ASYNC\_DW - this method uses [Cray's Datawarp API](https://www.cray.com/products/storage/datawarp).
+
+* AXL\_XFER\_DEFAULT - Let AXL choose the fastest transfer type that is compatible with all VeloC transfers.  This may or may not be the node's native transfer library.
+
+* AXL\_XFER\_NATIVE -  Use the node's native transfer library (like IBM Burst Buffer or Cray DataWarp) for transfers.  These native libraries may or may not support all VeloC transfers.

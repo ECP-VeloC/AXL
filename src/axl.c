@@ -90,12 +90,12 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
 }
 
 /*
- * Return the best underlying transfer API for this particular node.  If you're
+ * Return the native underlying transfer API for this particular node.  If you're
  * running on an IBM node, use the BB API.  If you're running on a Cray, use
  * DataWarp.  Otherwise use sync.
  */
 static
-axl_xfer_t axl_detect_best_xfer(void)
+axl_xfer_t axl_detect_native_xfer(void)
 {
     axl_xfer_t xtype = AXL_XFER_NULL;
 
@@ -113,6 +113,24 @@ axl_xfer_t axl_detect_best_xfer(void)
 #else
     xtype = AXL_XFER_SYNC;
 #endif
+    return xtype;
+}
+
+/*
+ * Return the fastest API that's also compatible with all AXL transfers.  We
+ * need this since there may be some edge case transfers the native APIs don't
+ * support.
+ */
+static
+axl_xfer_t axl_detect_default_xfer(void)
+{
+    axl_xfer_t xtype = axl_detect_native_xfer();
+
+    /* BBAPI doesn't support shmem, so we can't use it by default. */
+    if (xtype == AXL_XFER_ASYNC_BBAPI) {
+        xtype = AXL_XFER_SYNC;
+    }
+
     return xtype;
 }
 
@@ -216,9 +234,10 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     /* Generate next unique ID */
     int id = ++axl_next_handle_UID;
 
-    if (xtype == AXL_XFER_BEST) {
-        /* Autodetect the best transfer API to use */
-        xtype = axl_detect_best_xfer();
+    if (xtype == AXL_XFER_DEFAULT) {
+        xtype = axl_detect_default_xfer();
+    } else if (xtype == AXL_XFER_NATIVE) {
+        xtype = axl_detect_native_xfer();
     }
 
     /* Create an entry for this transfer handle
@@ -243,15 +262,12 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
-        break;
     case AXL_XFER_ASYNC_DAEMON:
-        break;
     case AXL_XFER_ASYNC_DW:
+    case AXL_XFER_ASYNC_CPPR:
         break;
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_create_bbapi(id);
-        break;
-    case AXL_XFER_ASYNC_CPPR:
         break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
