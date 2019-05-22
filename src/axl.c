@@ -1,5 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <stdio.h>
+
+/* PATH_MAX */
+#include <limits.h>
 
 /* dirname */
 #include <libgen.h>
@@ -7,6 +12,9 @@
 /* mkdir */
 #include <sys/types.h>
 #include <sys/stat.h>
+
+/* opendir */
+#include <dirent.h>
 
 /* axl_xfer_t */
 #include "axl.h"
@@ -24,6 +32,7 @@
 /*#include "axl_async_cppr.h" */
 #include "axl_async_daemon.h"
 #include "axl_async_datawarp.h"
+#include "axl_pthread.h"
 
 /* define states for transfer handlesto help ensure
  * users call AXL functions in the correct order */
@@ -241,7 +250,7 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     }
 
     /* Create an entry for this transfer handle
-     * record user string and transfer type 
+     * record user string and transfer type
      * UID
      *   id
      *     NAME
@@ -265,6 +274,7 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     case AXL_XFER_ASYNC_DAEMON:
     case AXL_XFER_ASYNC_DW:
     case AXL_XFER_ASYNC_CPPR:
+    case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_create_bbapi(id);
@@ -289,11 +299,33 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     return id;
 }
 
-/* Add a file to an existing transfer handle */
-int AXL_Add (int id, const char* source, const char* destination)
+/* Is this path a file or a directory?  Return the type. */
+enum {PATH_UNKNOWN = 0, PATH_FILE, PATH_DIR};
+static int path_type(const char *path) {
+    struct stat s;
+    if (stat(path, &s) != 0) {
+        return 0;
+    }
+    if (S_ISREG(s.st_mode)) {
+        return PATH_FILE;
+    }
+    if (S_ISDIR(s.st_mode)) {
+        return PATH_DIR;
+    }
+    return PATH_UNKNOWN;
+}
+
+/*
+ * Add a file to an existing transfer handle.  No directories.
+ *
+ * If the file's destination path doesn't exist, then automatically create the
+ * needed directories.
+ */
+static int
+__AXL_Add (int id, const char* src, const char* dest)
 {
-    /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
+
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
@@ -316,21 +348,22 @@ int AXL_Add (int id, const char* source, const char* destination)
      *           /path/to/dest/file
      *         STATUS
      *           SOURCE */
-    kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, source);
-    kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, destination);
+    kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, src);
+    kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, dest);
     kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* add file to transfer data structure, depending on its type */
     int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
+    case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_DAEMON:
         break;
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        rc = axl_async_add_bbapi(id, source, destination);
+        rc = axl_async_add_bbapi(id, src, dest);
         break;
     case AXL_XFER_ASYNC_CPPR:
         break;
@@ -348,6 +381,114 @@ int AXL_Add (int id, const char* source, const char* destination)
     return rc;
 }
 
+/*
+ * Add a file or directory to the transfer handle.  If the src is a
+ * directory, recursively add all the files and directories in that
+ * directory.
+ */
+int AXL_Add (int id, const char *src, const char *dest)
+{
+    int rc;
+    DIR *dir;
+    struct dirent *de;
+    char *src_copy, *dest_copy;
+    char *src_basename;
+    unsigned int src_path_type, dest_path_type;
+    char *new_dest, *new_src, *final_dest;
+
+    new_dest = calloc(PATH_MAX, 1);
+    if (!new_dest) {
+        return ENOMEM;
+    }
+    new_src = calloc(PATH_MAX, 1);
+    if (!new_src) {
+        free(new_dest);
+        return ENOMEM;
+    }
+    final_dest = calloc(PATH_MAX, 1);
+    if (!final_dest) {
+        free(new_dest);
+        free(new_src);
+        return ENOMEM;
+    }
+
+    src_copy = strdup(src);
+    dest_copy = strdup(dest);
+
+    src_path_type = path_type(src);
+    dest_path_type = path_type(dest);
+    src_basename = basename(src_copy);
+
+    switch (src_path_type) {
+    case PATH_FILE:
+        if (dest_path_type == PATH_DIR) {
+            /*
+             * They passed a source file, with dest directory.  Append the
+             * filename to dest.
+             *
+             * Before:
+             * src          dest
+             * /tmp/file1   /tmp/mydir
+             *
+             * After:
+             * /tmp/file1   /tmp/mydir/file1
+             */
+
+            snprintf(new_dest, PATH_MAX, "%s/%s", dest, src_basename);
+            rc = __AXL_Add(id, src, new_dest);
+        } else {
+            /* The destination is a filename */
+            rc = __AXL_Add(id, src, dest);
+        }
+        break;
+    case PATH_DIR:
+        /* Add the directory itself first... */
+        if (dest_path_type == PATH_FILE) {
+            /* We can't copy a directory onto a file */
+            rc = EINVAL;
+            break;
+       } else if (dest_path_type == PATH_DIR) {
+            snprintf(new_dest, PATH_MAX, "%s/%s", dest, src_basename);
+        } else {
+            /* Our destination doesn't exist */
+            snprintf(new_dest, PATH_MAX, "%s", dest);
+        }
+
+        /* Traverse all files/dirs in the directory. */
+        dir = opendir(src);
+        if (!dir) {
+            rc = ENOENT;
+            break;
+        }
+        while ((de = readdir(dir)) != NULL) {
+            /* Skip '.' and '..' directories */
+            if ((strcmp(de->d_name, ".") == 0) || (strcmp(de->d_name, "..") == 0)) {
+                continue;
+            }
+            snprintf(new_src, PATH_MAX, "%s/%s", src, de->d_name);
+            snprintf(final_dest, PATH_MAX, "%s/%s", new_dest, de->d_name);
+
+            rc = AXL_Add(id, new_src, final_dest);
+            if (rc != AXL_SUCCESS) {
+                rc = EINVAL;
+                break;
+            }
+        }
+        break;
+
+    default:
+        rc = EINVAL;
+        break;
+    }
+
+    free(dest_copy);
+    free(src_copy);
+    free(final_dest);
+    free(new_src);
+    free(new_dest);
+    return rc;
+}
+
 /* Initiate a transfer for all files in handle ID */
 int AXL_Dispatch (int id)
 {
@@ -355,6 +496,7 @@ int AXL_Dispatch (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -371,19 +513,16 @@ int AXL_Dispatch (int id)
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
-        /* get path to source file */
-        char* source = kvtree_elem_key(elem);
-
         /* get hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
 
         /* get destination for this file */
-        char* destination;
-        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
+        char* dest;
+        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dest);
 
         /* figure out and create dirs that should exist */
         /* TODO: vendors may implement smarter functions for mkdir */
-        char* dest_path = strdup(destination);
+        char* dest_path = strdup(dest);
         char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
@@ -397,6 +536,9 @@ int AXL_Dispatch (int id)
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_start(id);
+        break;
+    case AXL_XFER_PTHREAD:
+        rc = axl_pthread_start(id);
         break;
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_start_daemon(id);
@@ -462,6 +604,9 @@ int AXL_Test (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_test(id);
         break;
+    case AXL_XFER_PTHREAD:
+        rc = axl_pthread_test(id);
+        break;
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_test_daemon(id, &bytes_total, &bytes_written);
         break;
@@ -495,7 +640,6 @@ int AXL_Wait (int id)
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
-
     /* check that handle is in correct state to wait */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
         AXL_ERR("Invalid state to wait UID %d", id);
@@ -506,6 +650,7 @@ int AXL_Wait (int id)
     /* lookup status for the transfer, return if done */
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
+
     if (status == AXL_STATUS_DEST) {
         return AXL_SUCCESS;
     } else if (status == AXL_STATUS_ERROR) {
@@ -520,6 +665,9 @@ int AXL_Wait (int id)
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_wait(id);
+        break;
+    case AXL_XFER_PTHREAD:
+        rc = axl_pthread_wait(id);
         break;
     case AXL_XFER_ASYNC_DAEMON:
         rc = axl_async_wait_daemon(id);
@@ -625,9 +773,14 @@ int AXL_Free (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
+    }
+
+    if (xtype == AXL_XFER_PTHREAD) {
+        axl_pthread_free(id);
     }
 
     /* check that handle is in correct state to free */

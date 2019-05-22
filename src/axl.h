@@ -28,6 +28,7 @@ typedef enum {
                              * shmem).  If there is no native API, fall back
                              * to AXL_XFER_DEFAULT.
                              */
+    AXL_XFER_PTHREAD,      /* parallel copy using pthreads */
 } axl_xfer_t;
 
 /* Read configuration from non-AXL-specific file

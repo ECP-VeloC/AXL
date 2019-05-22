@@ -21,6 +21,7 @@ LIST(APPEND libaxl_srcs
   axl_err.c
   axl_io.c
   axl_util.c
+  axl_pthread.c
 )
 
 ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
