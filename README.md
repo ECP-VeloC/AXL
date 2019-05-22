@@ -17,7 +17,7 @@ mkdir build
 mkdir install
 
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=../install ../AXL
+cmake -DCMAKE_INSTALL_PREFIX=../install ../AXL -DWITH_KVTREE_PREFIX=[KVTree install path; e.g. ../KVTree/install]
 make
 make install
 make test
