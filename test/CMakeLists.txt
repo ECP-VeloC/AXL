@@ -3,21 +3,22 @@
 ###############
 
 LIST(APPEND axl_test_srcs
-    test_axl.c
-    test_axl_sync.c
-    test_axl_async_daemon.c
-    test_axl_async_ibmbb.c
+    axl_cp.c
 )
 
-ADD_EXECUTABLE(test_axl ${axl_test_srcs})
-TARGET_LINK_LIBRARIES(test_axl axl)
+ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
+
+TARGET_LINK_LIBRARIES(axl_cp axl)
 
 ################
 # Add tests to ctest
 ################
 
+CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+
 # rountdrip tests
-ADD_TEST(transfer_tests test_axl)
+ADD_TEST(transfer_tests test_axl.sh)
+
 
 ####################
 # make a verbose "test" target named "check"
