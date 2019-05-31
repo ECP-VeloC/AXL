@@ -363,7 +363,14 @@ __AXL_Add (int id, const char* src, const char* dest)
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        rc = axl_async_add_bbapi(id, src, dest);
+        /*
+         * Special case:
+         * The BB API checks to see if the destination path exists at
+         * BB_AddFiles() time (analogous to AXL_Add()).  This is an issue
+         * since the destination paths get mkdir'd in AXL_Dispatch()
+         * and thus aren't available yet.  That's why we hold off on
+         * doing our BB_AddFiles() calls until AXL_Dispatch().
+         */
         break;
     case AXL_XFER_ASYNC_CPPR:
         break;
@@ -526,6 +533,21 @@ int AXL_Dispatch (int id)
         char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
+
+        /*
+         * Special case: The BB API checks if the destination path exists at
+         * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
+         * here, after the full path to the file has been created.
+         */
+        if (xtype == AXL_XFER_ASYNC_BBAPI) {
+            char *src = kvtree_elem_key(elem);
+            int rc;
+            rc = axl_async_add_bbapi(id, src, dest);
+            if (rc != AXL_SUCCESS) {
+                axl_free(&dest_path);
+                return rc;
+            }
+        }
         axl_free(&dest_path);
     }
 
