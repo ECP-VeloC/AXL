@@ -14,7 +14,6 @@ INSTALL(FILES ${libaxl_install_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 LIST(APPEND libaxl_srcs
   axl.c
   axl_sync.c
-  axl_async_daemon.c
   axl_async_datawarp.c
   axl_async_bbapi.c
 #  axl_async_cppr.c
@@ -40,24 +39,3 @@ TARGET_LINK_LIBRARIES(axl-static ${AXL_EXTERNAL_LIBS})
 
 SET_TARGET_PROPERTIES(axl-static PROPERTIES OUTPUT_NAME axl CLEAN_DIRECT_OUTPUT 1)
 INSTALL(TARGETS axl-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-################
-# Async Daemon #
-################
-
-IF(AXL_ASYNC_DAEMON)
-
-  LIST(APPEND axld_srcs
-    axld.c
-    axl_err.c
-    axl_io.c
-    axl_util.c
-  )
-
-  ADD_EXECUTABLE(axld ${axld_srcs})
-  #SET_TARGET_PROPERTIES(axld PROPERTIES COMPILE_FLAGS ${KVTREE_INCLUDE_DIRS})
-  #SET_TARGET_PROPERTIES(axld PROPERTIES LINK_FLAGS ${KVTREE_LIBRARIES})
-  TARGET_LINK_LIBRARIES(axld ${KVTREE_LIBRARIES} ${ZLIB_LIBRARIES})
-  INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/axld DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-ENDIF(AXL_ASYNC_DAEMON)

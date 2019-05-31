@@ -62,8 +62,6 @@ from the destination.
 
 * AXL\_XFER\_PTHREADS - Like AXL\_XFER\_SYNC, but use multiple threads to do the copy.
 
-* AXL\_XFER\_ASYNC\_DAEMON - this methods currently forks a process that sleeps in the background waiting for work to do.  The library communicates with this daemon via a shared metadata file.  When there are files to be copied, the daemon itself uses POSIX I/O to directly read/write files.  This works, but dealing with the forked process is clunky.  It needs to be rewritten to use a pthread instead of forking a process.
-
 * AXL\_XFER\_ASYNC\_BBAPI - this method uses [IBM's Burst Buffer API](https://github.com/IBM/CAST) to transfer files.  IBM's system software then takes over to move data in the background.  It's actually using NVMeoF, reading data from the local SSD from a remote node, so that the compute node is not really bothered once started.
 
 * AXL\_XFER\_ASYNC\_DW - this method uses [Cray's Datawarp API](https://www.cray.com/products/storage/datawarp).

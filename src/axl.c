@@ -30,7 +30,6 @@
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
 /*#include "axl_async_cppr.h" */
-#include "axl_async_daemon.h"
 #include "axl_async_datawarp.h"
 #include "axl_pthread.h"
 
@@ -181,13 +180,6 @@ int AXL_Init (const char* state_file)
         }
     }
 
-#ifdef HAVE_DAEMON
-    char axl_async_daemon_path[] = "axld";
-    char axl_async_daemon_file[] = "/dev/shm/axld";
-    if (axl_async_init_daemon(axl_async_daemon_path, axl_async_daemon_file) != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 #ifdef HAVE_BBAPI
     if (axl_async_init_bbapi() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -207,13 +199,6 @@ int AXL_Finalize (void)
 {
     int rc = AXL_SUCCESS;
 
-    /* TODO: ok to finalize if we have active transfer handles? */
-
-#ifdef HAVE_DAEMON
-    if (axl_async_finalize_daemon() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 #ifdef HAVE_BBAPI
     if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -562,9 +547,6 @@ int AXL_Dispatch (int id)
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_start(id);
         break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_start_daemon(id);
-        break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_start_datawarp(id);
         break;
@@ -629,9 +611,6 @@ int AXL_Test (int id)
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_test(id);
         break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_test_daemon(id, &bytes_total, &bytes_written);
-        break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
         break;
@@ -690,9 +669,6 @@ int AXL_Wait (int id)
         break;
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_wait(id);
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_wait_daemon(id);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
@@ -757,9 +733,6 @@ int AXL_Cancel (int id)
         rc = axl_sync_cancel(id);
         break;
 #endif
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_cancel_daemon(id);
-        break;
 /* TODO: add cancel to backends */
 #if 0
     case AXL_XFER_ASYNC_DW:
@@ -827,14 +800,6 @@ int AXL_Free (int id)
 int AXL_Stop ()
 {
     int rc = AXL_SUCCESS;
-
-#ifdef HAVE_DAEMON
-    /* halt the daemon, this will stop it and clear
-     * all files from its transfer list */
-    if (axl_async_stop_daemon() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 
     /* get list of ids */
     kvtree* ids_hash = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
