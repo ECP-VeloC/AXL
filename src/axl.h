@@ -8,7 +8,7 @@ extern "C" {
 
 #define AXL_SUCCESS (0)
 
-#define AXL_VERSION "0.2.0"
+#define AXL_VERSION "0.3.0"
 
 /* Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
