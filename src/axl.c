@@ -779,16 +779,16 @@ int AXL_Free (int id)
         return AXL_FAILURE;
     }
 
-    if (xtype == AXL_XFER_PTHREAD) {
-        axl_pthread_free(id);
-    }
-
     /* check that handle is in correct state to free */
     if (xstate != AXL_XFER_STATE_CREATED &&
         xstate != AXL_XFER_STATE_COMPLETED)
     {
         AXL_ERR("Invalid state to free UID %d", id);
         return AXL_FAILURE;
+    }
+
+    if (xtype == AXL_XFER_PTHREAD) {
+        axl_pthread_free(id);
     }
 
     /* forget anything we know about this id */

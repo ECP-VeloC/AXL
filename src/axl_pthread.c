@@ -238,7 +238,6 @@ int axl_pthread_start (int id)
         /* get the hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
 
-        /* WEIRD case: we've restarted a sync transfer that was going */
         int status;
         kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
         if (status == AXL_STATUS_DEST) {
