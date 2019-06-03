@@ -4,6 +4,27 @@
 #
 # Make some files in /tmp and copy them using AXL.
 #
+#
+# Usage: test_axl [xfer_type]
+#
+#   xfer_type:    sync|pthread|bbapi|dw (defaults to sync if none specified)
+#
+
+xfer=$1
+if [ -z "$xfer" ] ; then
+    xfer=sync
+fi
+
+case $xfer in
+    sync) ;;
+    pthread) ;;
+    bbapi) ;;
+    dw) ;;
+    *)
+        echo "Invalid transfer type '$xfer'"
+        exit 1;
+        ;;
+esac
 
 src=$(mktemp -d)
 dest=$(mktemp -d)
@@ -68,11 +89,10 @@ function run_test
 create_files
 
 # Run our tests
-xfers="sync pthread"
-for i in $xfers ; do
-	if ! run_test $i ; then
+if ! run_test $xfer ; then
+        # our test failed
 		cleanup
 		exit 1
-	fi
-done
+fi
+
 cleanup
