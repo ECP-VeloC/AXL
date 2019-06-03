@@ -6,6 +6,7 @@
 
 FIND_PATH(WITH_KVTREE_PREFIX
     NAMES include/kvtree.h
+    HINTS ~/KVTree/install
 )
 
 FIND_LIBRARY(KVTREE_LIBRARIES
