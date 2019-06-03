@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <sys/sysinfo.h>    /* get_nprocs() */
 #include "axl_internal.h"
 #include "kvtree_util.h"
 #include "axl_sync.h"
