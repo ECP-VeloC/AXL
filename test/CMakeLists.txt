@@ -16,9 +16,11 @@ TARGET_LINK_LIBRARIES(axl_cp axl)
 
 CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
-# rountdrip tests
-ADD_TEST(transfer_tests test_axl.sh)
-
+ADD_TEST(sync_test test_axl.sh sync)
+ADD_TEST(pthreads_test test_axl.sh pthread)
+IF(BBAPI_FOUND)
+    ADD_TEST(bbapi_test test_axl.sh bbapi)
+ENDIF(BBAPI_FOUND)
 
 ####################
 # make a verbose "test" target named "check"
