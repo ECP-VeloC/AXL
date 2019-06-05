@@ -39,7 +39,9 @@ typedef enum {
     AXL_XFER_STATE_NULL,       /* placeholder for invalid state */
     AXL_XFER_STATE_CREATED,    /* handle has been created */
     AXL_XFER_STATE_DISPATCHED, /* transfer has been dispatched */
-    AXL_XFER_STATE_COMPLETED,  /* wait has been called */
+    AXL_XFER_STATE_WAITING,    /* wait has been called */
+    AXL_XFER_STATE_COMPLETED,  /* files are all copied */
+    AXL_XFER_STATE_CANCELED,   /* transfer was AXL_Cancel'd */
 } axl_xfer_state_t;
 
 /*
@@ -640,18 +642,20 @@ int AXL_Wait (int id)
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
+
     /* check that handle is in correct state to wait */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
         AXL_ERR("Invalid state to wait UID %d", id);
         return AXL_FAILURE;
     }
-    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_WAITING);
 
     /* lookup status for the transfer, return if done */
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
 
     if (status == AXL_STATUS_DEST) {
+        kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
         return AXL_SUCCESS;
     } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
@@ -683,6 +687,7 @@ int AXL_Wait (int id)
         rc = AXL_FAILURE;
         break;
     }
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
     /* write data to file if we have one */
     if (axl_flush_file) {
@@ -706,7 +711,8 @@ int AXL_Cancel (int id)
     }
 
     /* check that handle is in correct state to cancel */
-    if (xstate != AXL_XFER_STATE_DISPATCHED) {
+    if (xstate != AXL_XFER_STATE_DISPATCHED &&
+        xstate != AXL_XFER_STATE_WAITING) {
         AXL_ERR("Invalid state to cancel UID %d", id);
         return AXL_FAILURE;
     }
@@ -730,6 +736,7 @@ int AXL_Cancel (int id)
 #if 0
     case AXL_XFER_SYNC:
         rc = axl_sync_cancel(id);
+        rc = AXL_FAILURE;
         break;
 #endif
 /* TODO: add cancel to backends */
@@ -746,11 +753,16 @@ int AXL_Cancel (int id)
         rc = axl_async_cancel_cppr(id); */
         break;
 #endif
+    case AXL_XFER_PTHREAD:
+        rc = axl_pthread_cancel(id);
+        break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
+
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CANCELED);
 
     /* write data to file if we have one */
     if (axl_flush_file) {
@@ -775,7 +787,8 @@ int AXL_Free (int id)
 
     /* check that handle is in correct state to free */
     if (xstate != AXL_XFER_STATE_CREATED &&
-        xstate != AXL_XFER_STATE_COMPLETED)
+        xstate != AXL_XFER_STATE_COMPLETED &&
+        xstate != AXL_XFER_STATE_CANCELED)
     {
         AXL_ERR("Invalid state to free UID %d", id);
         return AXL_FAILURE;
@@ -818,9 +831,6 @@ int AXL_Stop ()
         if (AXL_Cancel(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
-
-        /* wait */
-        AXL_Wait(id);
 
         /* and free it */
         if (AXL_Free(id) != AXL_SUCCESS) {

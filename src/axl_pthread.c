@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <assert.h>
 #include "axl_internal.h"
 #include "kvtree_util.h"
 #include "axl_sync.h"
@@ -19,7 +20,7 @@
  *
  *  - The number of CPU threads
  *  - MAX_THREADS
- *  - The number of files being transfered
+ *  - The number of files being transferred
  */
 #define MAX_THREADS 16  /* We don't see much scaling past 16 threads */
 
@@ -75,6 +76,8 @@ axl_pthread_func(void *arg)
     kvtree_elem *elem;
     kvtree *elem_hash;
 
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     while (1) {
         pthread_mutex_lock(&pdata->lock);
 
@@ -83,7 +86,7 @@ axl_pthread_func(void *arg)
         if (!work) {
             /* No more work to do */
             pthread_mutex_unlock(&pdata->lock);
-            pthread_exit((void *) AXL_SUCCESS);
+            break;
         } else {
             /* Take our work out of the queue */
             pdata->head = pdata->head->next;
@@ -109,10 +112,12 @@ axl_pthread_func(void *arg)
 
         free(work);
 
-        if (rc != AXL_SUCCESS)
+        if (rc != AXL_SUCCESS) {
             pthread_exit((void *) AXL_FAILURE);
+        }
     }
-    return NULL;
+
+    return AXL_SUCCESS;
 }
 
 static struct axl_pthread_data *
@@ -283,10 +288,11 @@ int axl_pthread_test (int id)
 {
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     int64_t ptr;
-    struct axl_pthread_data *pdata;
+    struct axl_pthread_data *pdata = NULL;
 
     kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
     pdata = (struct axl_pthread_data *) ptr;
+    assert(pdata);
 
     /* Is there still work in the workqueue? */
     if (pdata->head) {
@@ -301,12 +307,12 @@ int axl_pthread_wait (int id)
 {
     /* get pointer to file list for this dataset */
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    int64_t ptr;
-    struct axl_pthread_data *pdata;
+    int64_t ptr = 0;
+    struct axl_pthread_data *pdata = NULL;
     int rc;
     int final_rc = AXL_SUCCESS;
     int i;
-    void *rc_ptr;
+    void *rc_ptr = NULL;
 
     kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
     pdata = (struct axl_pthread_data *) ptr;
@@ -319,23 +325,22 @@ int axl_pthread_wait (int id)
     /* All our threads are now started.  Wait for them to finish */
     for (i = 0; i < pdata->threads; i++) {
         rc = pthread_join(pdata->tid[i], &rc_ptr);
-
-        /*
-         * Thread either finished successfully, or was canceled by
-         * AXL_Cancel().  Both statuses are valid.
-         */
-        if (rc != 0 && rc_ptr != PTHREAD_CANCELED) {
+        if (rc != 0) {
                 AXL_ERR("pthread_join(%d) failed (%d)", i, rc);
                 return AXL_FAILURE;
         }
 
         /*
          * Check the rc that the thread actually reported.  The thread
-         * returns a void * that we encode our rc value in.
+         * returns a void * that we encode our rc value in.  If the
+         * thread was canceled, that totally valid and fine.
          */
-        rc = (int) ((unsigned long) rc_ptr);
-        if (rc) {
-            final_rc |= AXL_FAILURE;
+        if (rc_ptr != PTHREAD_CANCELED) {
+            rc = (int) ((unsigned long) rc_ptr);
+            if (rc) {
+                AXL_ERR("pthread join rc_ptr was set as %d\n", rc);
+                final_rc |= AXL_FAILURE;
+            }
         }
     }
     if (final_rc != AXL_SUCCESS) {
@@ -360,17 +365,31 @@ int axl_pthread_cancel (int id)
     struct axl_pthread_data *pdata;
     int rc = 0;
     int i;
+    void *rc_ptr;
 
     kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
     pdata = (struct axl_pthread_data *) ptr;
+    assert(pdata);
 
     for (i = 0; i < pdata->threads; i++) {
-        rc |= pthread_cancel(pdata->tid[i]);
+        /* send the thread a cancellation request */
+        int rc = pthread_cancel(pdata->tid[i]);
+        if (rc) {
+            AXL_ERR("pthread_cancel failed, rc %d\n");
+            break;
+        }
+
+        /* wait for the thread to actually exit */
+        pthread_join(pdata->tid[i], &rc_ptr);
+        if (rc_ptr != 0 && rc_ptr != PTHREAD_CANCELED) {
+            AXL_ERR("pthread_join failed, rc_ptr %p", rc_ptr);
+            rc |= (int) ((unsigned long) rc_ptr);
+        }
     }
     if (rc != 0) {
-        AXL_ERR("Bad return code from pthread_cancel()\n");
+        AXL_ERR("Bad return code from canceling a thread\n");
     }
-    return AXL_FAILURE;
+    return rc;
 }
 
 void axl_pthread_free (int id)
@@ -387,6 +406,7 @@ void axl_pthread_free (int id)
     kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
     pdata = (struct axl_pthread_data *) ptr;
     if (pdata) {
+        kvtree_util_set_int64(file_list, AXL_KEY_PTHREAD_DATA, 0);
         axl_pthread_free_pdata(pdata);
     }
 }
