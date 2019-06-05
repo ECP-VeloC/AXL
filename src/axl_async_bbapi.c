@@ -278,6 +278,7 @@ int axl_async_test_bbapi (int id) {
     /* get info about transfer */
     BBTransferInfo_t tinfo;
     int rc = BB_GetTransferInfo(thandle, &tinfo);
+    bb_check(rc);
 
     /* check its status */
     int status = AXL_STATUS_INPROG;
@@ -320,7 +321,6 @@ int axl_async_wait_bbapi (int id) {
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Sleep until test changes set status */
-    int rc;
     int status = AXL_STATUS_INPROG;
     while (status == AXL_STATUS_INPROG) {
         /* delegate work to test call to update status */
