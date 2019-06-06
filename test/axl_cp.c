@@ -86,7 +86,9 @@ main(int argc, char **argv) {
     unsigned int src_count;
     int i;
     int recursive = 0;
-    struct sigaction action = {0};
+    struct sigaction action;
+
+    memset(&action, 0, sizeof(action));
     action.sa_handler = sig_func;
     sigaction(SIGTERM, &action, NULL);
 

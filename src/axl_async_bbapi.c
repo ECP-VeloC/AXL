@@ -47,7 +47,6 @@ static int bb_check(int rc) {
   }
   return AXL_SUCCESS;
 }
-#endif
 
 /*
  * HACK
@@ -97,6 +96,7 @@ static int axl_get_unique_node_id(int *id)
     }
     return rc;
 }
+#endif
 
 /* Called from AXL_Init */
 int axl_async_init_bbapi(void) {
