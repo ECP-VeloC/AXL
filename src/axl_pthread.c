@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <sys/sysinfo.h>    /* get_nprocs() */
 #include "axl_internal.h"
 #include "kvtree_util.h"
 #include "axl_sync.h"
@@ -238,7 +237,6 @@ int axl_pthread_start (int id)
         /* get the hash for this file */
         kvtree* elem_hash = kvtree_elem_hash(elem);
 
-        /* WEIRD case: we've restarted a sync transfer that was going */
         int status;
         kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
         if (status == AXL_STATUS_DEST) {

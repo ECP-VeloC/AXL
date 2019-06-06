@@ -30,7 +30,6 @@
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
 /*#include "axl_async_cppr.h" */
-#include "axl_async_daemon.h"
 #include "axl_async_datawarp.h"
 #include "axl_pthread.h"
 
@@ -181,13 +180,6 @@ int AXL_Init (const char* state_file)
         }
     }
 
-#ifdef HAVE_DAEMON
-    char axl_async_daemon_path[] = "axld";
-    char axl_async_daemon_file[] = "/dev/shm/axld";
-    if (axl_async_init_daemon(axl_async_daemon_path, axl_async_daemon_file) != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 #ifdef HAVE_BBAPI
     if (axl_async_init_bbapi() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -207,13 +199,6 @@ int AXL_Finalize (void)
 {
     int rc = AXL_SUCCESS;
 
-    /* TODO: ok to finalize if we have active transfer handles? */
-
-#ifdef HAVE_DAEMON
-    if (axl_async_finalize_daemon() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 #ifdef HAVE_BBAPI
     if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -363,7 +348,14 @@ __AXL_Add (int id, const char* src, const char* dest)
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        rc = axl_async_add_bbapi(id, src, dest);
+        /*
+         * Special case:
+         * The BB API checks to see if the destination path exists at
+         * BB_AddFiles() time (analogous to AXL_Add()).  This is an issue
+         * since the destination paths get mkdir'd in AXL_Dispatch()
+         * and thus aren't available yet.  That's why we hold off on
+         * doing our BB_AddFiles() calls until AXL_Dispatch().
+         */
         break;
     case AXL_XFER_ASYNC_CPPR:
         break;
@@ -526,6 +518,21 @@ int AXL_Dispatch (int id)
         char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
+
+        /*
+         * Special case: The BB API checks if the destination path exists at
+         * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
+         * here, after the full path to the file has been created.
+         */
+        if (xtype == AXL_XFER_ASYNC_BBAPI) {
+            char *src = kvtree_elem_key(elem);
+            int rc;
+            rc = axl_async_add_bbapi(id, src, dest);
+            if (rc != AXL_SUCCESS) {
+                axl_free(&dest_path);
+                return rc;
+            }
+        }
         axl_free(&dest_path);
     }
 
@@ -539,9 +546,6 @@ int AXL_Dispatch (int id)
         break;
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_start(id);
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_start_daemon(id);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_start_datawarp(id);
@@ -607,9 +611,6 @@ int AXL_Test (int id)
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_test(id);
         break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_test_daemon(id, &bytes_total, &bytes_written);
-        break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
         break;
@@ -668,9 +669,6 @@ int AXL_Wait (int id)
         break;
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_wait(id);
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_wait_daemon(id);
         break;
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
@@ -735,9 +733,6 @@ int AXL_Cancel (int id)
         rc = axl_sync_cancel(id);
         break;
 #endif
-    case AXL_XFER_ASYNC_DAEMON:
-        rc = axl_async_cancel_daemon(id);
-        break;
 /* TODO: add cancel to backends */
 #if 0
     case AXL_XFER_ASYNC_DW:
@@ -779,16 +774,16 @@ int AXL_Free (int id)
         return AXL_FAILURE;
     }
 
-    if (xtype == AXL_XFER_PTHREAD) {
-        axl_pthread_free(id);
-    }
-
     /* check that handle is in correct state to free */
     if (xstate != AXL_XFER_STATE_CREATED &&
         xstate != AXL_XFER_STATE_COMPLETED)
     {
         AXL_ERR("Invalid state to free UID %d", id);
         return AXL_FAILURE;
+    }
+
+    if (xtype == AXL_XFER_PTHREAD) {
+        axl_pthread_free(id);
     }
 
     /* forget anything we know about this id */
@@ -805,14 +800,6 @@ int AXL_Free (int id)
 int AXL_Stop ()
 {
     int rc = AXL_SUCCESS;
-
-#ifdef HAVE_DAEMON
-    /* halt the daemon, this will stop it and clear
-     * all files from its transfer list */
-    if (axl_async_stop_daemon() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
 
     /* get list of ids */
     kvtree* ids_hash = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
