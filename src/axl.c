@@ -602,7 +602,6 @@ int AXL_Test (int id)
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
-    double bytes_total, bytes_written;
     int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
