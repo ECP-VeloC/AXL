@@ -26,8 +26,6 @@ extern kvtree* axl_file_lists;
 #define AXL_KEY_FILE_DEST     ("DEST")
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
-#define AXL_KEY_PTHREAD_DATA  ("PTHREAD_DATA")
-
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
