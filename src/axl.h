@@ -10,7 +10,21 @@ extern "C" {
 
 #define AXL_VERSION "0.3.0"
 
-/* Supported AXL transfer methods
+/** \defgroup axl AXL
+ *  \brief Asynchronous Transfer Library
+ *
+ * AXL is used to transfer a file from one path to another using
+ * synchronous and asynchronous methods. This can only be done between
+ * storage tiers, AXL does not (yet) support movement within a storage
+ * tier (such as between 2 compute nodes). Asynchronous methods
+ * include via pthreads, IBM BB API, Cray Datawarp. AXL will create
+ * directories for destination files. */
+
+/** \file axl.h
+ *  \ingroup axl
+ *  \brief asynchronous transfer library */
+
+/** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
     AXL_XFER_NULL = 0,      /* placeholder to represent invalid value */
