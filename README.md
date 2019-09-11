@@ -6,6 +6,7 @@ The Asynchronous Transfer Library provides a common C interface to transfer file
 between layers in an HPC storage hierarchy.
 
 For details on its usage, see [doc/README.md](doc/README.md).
+For API details, see [AXL User API docs](https://ecp-veloc.github.io/component-user-docs/).
 
 ## Quickstart
 
