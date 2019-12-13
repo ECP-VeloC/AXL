@@ -490,6 +490,8 @@ int AXL_Dispatch (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    kvtree_elem *elem = NULL;
+    char *dest;
 
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
@@ -504,38 +506,43 @@ int AXL_Dispatch (int id)
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
     /* create destination directories for each file */
-    kvtree_elem* elem;
-    kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
-        /* get hash for this file */
-        kvtree* elem_hash = kvtree_elem_hash(elem);
-
-        /* get destination for this file */
-        char* dest;
-        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dest);
-
-        /* figure out and create dirs that should exist */
-        /* TODO: vendors may implement smarter functions for mkdir */
+    while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
         char* dest_path = strdup(dest);
         char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
+        axl_free(&dest_path);
+    }
 
-        /*
-         * Special case: The BB API checks if the destination path exists at
-         * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
-         * here, after the full path to the file has been created.
-         */
-        if (xtype == AXL_XFER_ASYNC_BBAPI) {
-            char *src = kvtree_elem_key(elem);
+    /*
+     * Special case: The BB API checks if the destination path exists at
+     * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
+     * here, after the full path to the file has been created.
+     */
+    if (xtype == AXL_XFER_ASYNC_BBAPI) {
+        /* Set if we're in BBAPI fallback mode */
+        if (axl_all_paths_are_bbapi_compatible(id)) {
+             kvtree_util_set_int(file_list, AXL_BBAPI_KEY_FALLBACK, 0);
+        } else {
+             kvtree_util_set_int(file_list, AXL_BBAPI_KEY_FALLBACK, 1);
+        }
+
+        if (!axl_bbapi_in_fallback(id)) {
+            char *src = NULL;
             int rc;
-            rc = axl_async_add_bbapi(id, src, dest);
-            if (rc != AXL_SUCCESS) {
-                axl_free(&dest_path);
-                return rc;
+
+            /*
+             * We're in regular BBAPI mode.  Add the paths before we transfer
+             * them.
+             */
+            elem = NULL;
+            while ((elem = axl_get_next_path(id, elem, &src, &dest))) {
+                rc = axl_async_add_bbapi(id, src, dest);
+                if (rc != AXL_SUCCESS) {
+                    return rc;
+                }
             }
         }
-        axl_free(&dest_path);
     }
 
     /* NOTE FOR XFER INTERFACES

@@ -3,6 +3,7 @@
 
 #define AXL_BBAPI_KEY_TRANSFERHANDLE ("BB_TransferHandle")
 #define AXL_BBAPI_KEY_TRANSFERDEF ("BB_TransferDef")
+#define AXL_BBAPI_KEY_FALLBACK ("BB_Fallback")
 
 /** \file axl_async_bbapi.h
  *  \ingroup axl
@@ -18,5 +19,17 @@ int axl_async_start_bbapi(int id);
 int axl_async_test_bbapi(int id);
 int axl_async_wait_bbapi(int id);
 int axl_async_cancel_bbapi(int id);
+
+int axl_all_paths_are_bbapi_compatible(int id);
+
+/*
+ * If the BBAPI is in fallback mode return 1, else return 0.
+ *
+ * Fallback mode happens when we can't transfer the files using the BBAPI due
+ * to lack of filesystem support.  Instead, fall back to a more compatible
+ * transfer mode.
+ */
+int axl_bbapi_in_fallback(int id);
+
 ///@}
 #endif //AXL_ASYNC_BBAPI_H
