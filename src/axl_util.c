@@ -30,3 +30,53 @@ void axl_free(void* p) {
         *(void**)p = NULL;
     }
 }
+
+/*
+ * This is an helper function to iterate though a file list for a given
+ * AXL ID.  Usage:
+ *
+ *    char *src;
+ *    char *dst;
+ *    char *kvtree_elem *elem = NULL;
+ *
+ *    while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
+ *        printf("src %s, dst %s\n", src, dst);
+ *    }
+ *
+ *    src or dst can be set to NULL if you don't care about the value.
+ */
+kvtree_elem *
+axl_get_next_path(int id, kvtree_elem *elem, char **src, char **dst)
+{
+    /* lookup transfer info for the given id */
+    kvtree* file_list;
+    kvtree* files;
+    kvtree* elem_hash;
+
+    file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (!file_list) {
+        return NULL;
+    }
+
+    files = kvtree_get(file_list, AXL_KEY_FILES);
+
+    if (!elem) {
+        elem = kvtree_elem_first(files);
+    } else {
+        elem = kvtree_elem_next(elem);
+    }
+
+    /* get hash for this file */
+    elem_hash = kvtree_elem_hash(elem);
+
+    if (src) {
+        *src = kvtree_elem_key(elem);
+    }
+
+    if (dst) {
+        /* get destination for this file */
+        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, dst);
+    }
+
+    return (elem);
+}

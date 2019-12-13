@@ -19,6 +19,15 @@
 
 #include "axl_internal.h"
 
+/* fiemap() - currently only used by BBAPI. */
+#ifdef HAVE_BBAPI
+#include <linux/fiemap.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
+#include <libgen.h>
+#endif
+
+
 /* Configurations */
 #ifndef AXL_OPEN_TRIES
 #define AXL_OPEN_TRIES (5)
@@ -26,6 +35,63 @@
 
 #ifndef AXL_OPEN_USLEEP
 #define AXL_OPEN_USLEEP (100)
+#endif
+
+#ifdef HAVE_BBAPI
+/*
+ * Returns 1 if the filesystem for a particular path supports the fiemap ioctl
+ * (the filesystem for the file is able to report extents).  If the path does
+ * not exist, attempt to do the ioctl on basename(path).  This allows us to
+ * easily check a destination path to where a file will go.
+ *
+ * Returns 0 if extents are not supported on the path.
+ */
+int axl_file_supports_fiemap(char *path)
+{
+    int fd;
+    struct fiemap fiemap;
+    int rc;
+    char *dir = NULL;
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        if (errno == ENOENT) {
+            /* The path to the file/dir doesn't exist.  Try one level up */
+            dir = strdup(path);
+            path = dirname(dir);
+            fd = open(path, O_RDONLY);
+            if (fd < 0) {
+                free(dir);
+                return (0);
+            }
+        } else {
+            return (0);
+        }
+    }
+
+    memset(&fiemap, 0, sizeof(fiemap));
+    fiemap.fm_length = FIEMAP_MAX_OFFSET;
+
+    if (ioctl(fd, FS_IOC_FIEMAP, &fiemap) == 0) {
+        /* Successful ioctl */
+        rc = 1;
+    } else {
+        /*
+         * Some kind of error, most likely error 95 (Operation not supported)
+         * if fiemap isn't supported by the underlying file system.
+         */
+        rc = 0;
+    }
+
+    /* Close file descriptors */
+    close(fd);
+
+    if (dir) {
+        free(dir);
+    }
+
+    return rc;
+}
 #endif
 
 /* returns user's current mode as determine by their umask */

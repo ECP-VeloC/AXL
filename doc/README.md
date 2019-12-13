@@ -60,9 +60,9 @@ from the destination.
 
 * AXL\_XFER\_SYNC - this is a synchronous transfer, which does not return until the files have been fully copied.  It uses POSIX I/O to directly read/write files.
 
-* AXL\_XFER\_PTHREADS - Like AXL\_XFER\_SYNC, but use multiple threads to do the copy.
+* AXL\_XFER\_PTHREAD - Like AXL\_XFER\_SYNC, but use multiple threads to do the copy.
 
-* AXL\_XFER\_ASYNC\_BBAPI - this method uses [IBM's Burst Buffer API](https://github.com/IBM/CAST) to transfer files.  IBM's system software then takes over to move data in the background.  It's actually using NVMeoF, reading data from the local SSD from a remote node, so that the compute node is not really bothered once started.
+* AXL\_XFER\_ASYNC\_BBAPI - this method uses [IBM's Burst Buffer API](https://github.com/IBM/CAST) to transfer files.  IBM's system software then takes over to move data in the background.  It's actually using NVMeoF, reading data from the local SSD from a remote node, so that the compute node is not really bothered once started.  If either the source or destination filesystems don't support the BBAPI transfers, AXL will fall back to using a AXL\_XFER\_PTHREAD transfer instead.
 
 * AXL\_XFER\_ASYNC\_DW - this method uses [Cray's Datawarp API](https://www.cray.com/products/storage/datawarp).
 
