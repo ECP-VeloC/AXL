@@ -10,7 +10,21 @@ extern "C" {
 
 #define AXL_VERSION "0.4.0"
 
-/* Supported AXL transfer methods
+/** \defgroup axl AXL
+ *  \brief Asynchronous Transfer Library
+ *
+ * AXL is used to transfer a file from one path to another using
+ * synchronous and asynchronous methods. This can only be done between
+ * storage tiers, AXL does not (yet) support movement within a storage
+ * tier (such as between 2 compute nodes). Asynchronous methods
+ * include via pthreads, IBM BB API, Cray Datawarp. AXL will create
+ * directories for destination files. */
+
+/** \file axl.h
+ *  \ingroup axl
+ *  \brief asynchronous transfer library */
+
+/** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
     AXL_XFER_NULL = 0,      /* placeholder to represent invalid value */
@@ -31,45 +45,45 @@ typedef enum {
     AXL_XFER_PTHREAD,      /* parallel copy using pthreads */
 } axl_xfer_t;
 
-/* Read configuration from non-AXL-specific file
+/** Read configuration from non-AXL-specific file
  * Also, start up vendor specific services */
 int AXL_Init (const char* state_file);
 
-/* Shutdown any vendor services */
+/** Shutdown any vendor services */
 int AXL_Finalize (void);
 
-/* Create a transfer handle (used for 0+ files)
+/** Create a transfer handle (used for 0+ files)
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle,
  * Returns -1 on error */
 int AXL_Create (axl_xfer_t type, const char* name);
 
-/* Add a file to an existing transfer handle */
+/** Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
 
-/* Initiate a transfer for all files in handle ID */
+/** Initiate a transfer for all files in handle ID */
 int AXL_Dispatch (int id);
 
-/* Non-blocking call to test if a transfer has completed,
+/** Non-blocking call to test if a transfer has completed,
  * returns AXL_SUCCESS if the transfer has completed,
  * does not indicate whether transfer was successful,
  * only whether it's done */
 int AXL_Test(int id);
 
-/* BLOCKING
+/** BLOCKING
  * Wait for a transfer to complete,
  * and finalize the transfer */
 int AXL_Wait (int id);
 
-/* Cancel an existing transfer, must call Wait
+/** Cancel an existing transfer, must call Wait
  * on cancelled transfers, if cancelled wait returns an error */
 int AXL_Cancel (int id);
 
-/* Perform cleanup of internal data associated with ID */
+/** Perform cleanup of internal data associated with ID */
 int AXL_Free (int id);
 
-/* Stop (cancel and free) all transfers,
+/** Stop (cancel and free) all transfers,
  * useful to clean the plate when restarting */
 int AXL_Stop (void);
 

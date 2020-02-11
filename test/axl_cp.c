@@ -62,16 +62,31 @@ usage(void)
 
 void sig_func(int signum)
 {
+    int rc;
     if (id == -1) {
         /* AXL not initialized yet */
         return;
     }
 
-    printf("axl_cp: canceling\n");
-    AXL_Cancel(id);
-    AXL_Wait(id);
-    AXL_Free(id);
-    AXL_Finalize();
+    rc = AXL_Cancel(id);
+    if (rc != AXL_SUCCESS) {
+        printf("axl_cp SIGTERM: AXL_Cancel failed (%d)", rc);
+        exit(rc);
+    }
+
+    rc = AXL_Free(id);
+    if (rc != AXL_SUCCESS) {
+        printf("axl_cp SIGTERM: AXL_Free failed (%d)", rc);
+        exit(rc);
+    }
+
+    rc = AXL_Finalize();
+    if (rc != AXL_SUCCESS) {
+        printf("axl_cp SIGTERM: AXL_Finalized failed (%d)", rc);
+        exit(rc);
+    }
+
+    exit(AXL_SUCCESS);
 }
 
 int
@@ -91,11 +106,15 @@ main(int argc, char **argv) {
     memset(&action, 0, sizeof(action));
     action.sa_handler = sig_func;
     sigaction(SIGTERM, &action, NULL);
+    char *state_file = NULL;
 
     while ((opt = getopt(argc, argv, "rRX:")) != -1) {
         switch (opt) {
             case 'X':
                 xfer_str = optarg;
+                break;
+            case 'S':
+                state_file = optarg;
                 break;
             case 'r':
             case 'R':
@@ -144,7 +163,7 @@ main(int argc, char **argv) {
         xfer = AXL_XFER_SYNC;
     }
 
-    rc = AXL_Init(NULL);
+    rc = AXL_Init(state_file);
     if (rc != AXL_SUCCESS) {
         printf("AXL_Init() failed (error %d)\n", rc);
         return rc;

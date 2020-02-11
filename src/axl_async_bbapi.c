@@ -9,7 +9,14 @@
 #include <sys/syscall.h>
 #include "axl_internal.h"
 #include "axl_async_bbapi.h"
+#include "axl_pthread.h"
 
+/*
+ * This is the IBM Burst Buffer transfer implementation.  The BB API only
+ * supports transferring files between filesystems that support extents.  If
+ * the user tries to transfer to an unsupported filesystem, we fallback to
+ * a pthread transfer for the entire transfer.
+ */
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
 
@@ -218,6 +225,15 @@ int axl_async_add_bbapi (int id, const char* source, const char* dest) {
  * Assumes that mkdirs have already happened */
 int axl_async_start_bbapi (int id) {
 #ifdef HAVE_BBAPI
+    if (axl_bbapi_in_fallback(id)) {
+        /*
+         * We're in fallback mode because some of the paths we want to
+         * transfer from/to are not compatible with the BBAPI transfers (like
+         * if the underlying filesystem doesn't support extent).
+         */
+        return axl_pthread_start(id);
+    }
+
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* mark this transfer as in progress */
@@ -269,6 +285,10 @@ int axl_async_start_bbapi (int id) {
 
 int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
+    if (axl_bbapi_in_fallback(id)) {
+        return axl_pthread_test(id);
+    }
+
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Get the BB-Handle to query the status */
@@ -278,6 +298,7 @@ int axl_async_test_bbapi (int id) {
     /* get info about transfer */
     BBTransferInfo_t tinfo;
     int rc = BB_GetTransferInfo(thandle, &tinfo);
+    bb_check(rc);
 
     /* check its status */
     int status = AXL_STATUS_INPROG;
@@ -317,10 +338,13 @@ int axl_async_test_bbapi (int id) {
 
 int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
+    if (axl_bbapi_in_fallback(id)) {
+        return axl_pthread_wait(id);
+    }
+
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Sleep until test changes set status */
-    int rc;
     int status = AXL_STATUS_INPROG;
     while (status == AXL_STATUS_INPROG) {
         /* delegate work to test call to update status */
@@ -329,7 +353,7 @@ int axl_async_wait_bbapi (int id) {
         /* if we're not done yet, sleep for some time and try again */
         kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
         if (status == AXL_STATUS_INPROG) {
-            usleep(10*1000*1000);
+            usleep(100 * 1000);   /* 100ms */
         }
     }
 
@@ -345,6 +369,10 @@ int axl_async_wait_bbapi (int id) {
 
 int axl_async_cancel_bbapi (int id) {
 #ifdef HAVE_BBAPI
+    if (axl_bbapi_in_fallback(id)) {
+        return axl_pthread_cancel(id);
+    }
+
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Get the BB-Handle to query the status */
@@ -361,4 +389,50 @@ int axl_async_cancel_bbapi (int id) {
     return ret;
 #endif
     return AXL_FAILURE;
+}
+
+/*
+ * Return 1 if all paths for a given id's filelist in the kvtree are compatible
+ * with the BBAPI (all source and destination paths are on filesystems that
+ * support extents).  Return 0 if any of the source or destination paths do not
+ * support extents.
+ */
+int
+axl_all_paths_are_bbapi_compatible(int id)
+{
+#ifdef HAVE_BBAPI
+    char *src;
+    char *dst;
+    kvtree_elem *elem = NULL;
+
+    while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
+        if (axl_file_supports_fiemap(src) == 0 ||
+            axl_file_supports_fiemap(dst) == 0) {
+                /* One of our paths doesn't support fiemap */
+            return (0);
+        }
+    }
+#endif
+    return (1);
+}
+
+/*
+ * If the BBAPI is in fallback mode return 1, else return 0.
+ *
+ * Fallback mode happens when we can't transfer the files using the BBAPI due
+ * to the source or destination nor supporting extents (which BBAPI requires).
+ * If we're in fallback mode, we use a more compatible transfer method.
+ */
+int
+axl_bbapi_in_fallback(int id)
+{
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    int bbapi_fallback = 0;
+
+    if (kvtree_util_get_int(file_list, AXL_BBAPI_KEY_FALLBACK, &bbapi_fallback) !=
+        KVTREE_SUCCESS) {
+        /* Value isn't set, so we're not in fallback mode */
+        return 0;
+    }
+    return (bbapi_fallback);
 }

@@ -26,8 +26,6 @@ extern kvtree* axl_file_lists;
 #define AXL_KEY_FILE_DEST     ("DEST")
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
-#define AXL_KEY_PTHREAD_DATA  ("PTHREAD_DATA")
-
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
@@ -62,6 +60,17 @@ axl_io.c functions
 Note: these functions are taken directly from SCR
 ========================================
 */
+
+#ifdef HAVE_BBAPI
+/*
+ * Returns 1 if the filesystem for a particular file supports the fiemap ioctl
+ * (the filesystem for the file is able to report extents).
+ * Returns 0 if extents are not supported.
+ *
+ * For example, tmpfs and ext4 support extents, NFS does not.
+ */
+int axl_file_supports_fiemap(char *path);
+#endif
 
 /* returns user's current mode as determine by their umask */
 mode_t axl_getmode(int read, int write, int execute);
@@ -110,5 +119,23 @@ extern size_t axl_file_buf_size;
 
 int axl_compare_files_or_dirs(char *path1, char *path2);
 void axl_free(void* p);
+
+
+/*
+ * This is an helper function to iterate though a file list for a given
+ * AXL ID.  Usage:
+ *
+ *    char *src;
+ *    char *dst;
+ *    char *kvtree_elem *elem = NULL;
+ *
+ *    while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
+ *        printf("src %s, dst %s\n", src, dst);
+ *    }
+ *
+ *    src or dst can be set to NULL if you don't care about the value.
+ */
+kvtree_elem * axl_get_next_path(int id, kvtree_elem *elem, char **src,
+    char **dst);
 
 #endif /* AXL_INTERNAL_H */

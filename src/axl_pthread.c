@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <assert.h>
 #include "axl_internal.h"
 #include "kvtree_util.h"
 #include "axl_sync.h"
@@ -19,7 +20,7 @@
  *
  *  - The number of CPU threads
  *  - MAX_THREADS
- *  - The number of files being transfered
+ *  - The number of files being transferred
  */
 #define MAX_THREADS 16  /* We don't see much scaling past 16 threads */
 
@@ -32,6 +33,15 @@ struct axl_work
 
 struct axl_pthread_data
 {
+    /* AXL ID associated with this data */
+    int id;
+
+    /* Number of threads */
+    unsigned int threads;
+
+    /* This struct is in a linked list */
+    struct axl_pthread_data *next;
+
     /* Lock to protect workqueue */
     pthread_mutex_t lock;
 
@@ -39,11 +49,31 @@ struct axl_pthread_data
     struct axl_work *head;
     struct axl_work *tail;
 
-    /* Number of threads */
-    unsigned int threads;
-
     /* Array of our thread IDs */
     pthread_t *tid;
+};
+
+/*
+ * This is a linked list that is used to lookup which axl_pthread_data is
+ * associated with each ID.  Why put it in a linked list instead of just
+ * storing the pdata in the kvtree?  Because if we put it in a kvtree,
+ * and the app dies, the pdata pointer becomes stale, and would get
+ * erroneously freed as part of an AXL_Stop().  Instead we use
+ * axl_pthread_data_lookup(), axl_pthread_data_add(), and
+ * axl_pthread_data_remove() to access the data.  This makes it so the pdata
+ * is ephemeral, only existing while the app is running.
+ */
+struct axl_all_pthread_data
+{
+    struct axl_pthread_data *head;
+    struct axl_pthread_data *tail;
+
+    /* Lock to protect this data structure */
+    pthread_mutex_t lock;
+} axl_all_pthread_data = {
+    .head = NULL,
+    .tail = NULL,
+    .lock = PTHREAD_MUTEX_INITIALIZER
 };
 
 /* Linux and OSX compatible 'get number of hardware threads' */
@@ -64,6 +94,82 @@ unsigned int axl_get_nprocs(void)
     return cpu_threads;
 }
 
+/* Get the pthread data for a given AXL ID */
+struct axl_pthread_data *
+axl_pthread_data_lookup(int id)
+{
+    struct axl_pthread_data *pdata;
+    struct axl_pthread_data *ret = NULL;
+
+    pthread_mutex_lock(&axl_all_pthread_data.lock);
+
+    pdata = axl_all_pthread_data.head;
+    while (pdata) {
+        if (pdata->id == id) {
+            /* Match */
+            ret = pdata;
+            break;
+        }
+        pdata = pdata->next;
+    }
+
+    pthread_mutex_unlock(&axl_all_pthread_data.lock);
+
+    /* No match */
+    return ret;
+}
+
+/*
+ * Add our new pdata to the list.
+ */
+void
+axl_pthread_data_add(int id, struct axl_pthread_data *pdata)
+{
+    pdata->id = id;
+    pthread_mutex_lock(&axl_all_pthread_data.lock);
+
+    if (!axl_all_pthread_data.head) {
+        /* First entry */
+        axl_all_pthread_data.head = pdata;
+        axl_all_pthread_data.tail = pdata;
+    } else {
+       axl_all_pthread_data.tail->next = pdata;
+       axl_all_pthread_data.tail = pdata;
+    }
+    pthread_mutex_unlock(&axl_all_pthread_data.lock);
+}
+
+void
+axl_pthread_data_remove(int id)
+{
+    struct axl_pthread_data *pdata, *prev = NULL;
+
+    pthread_mutex_lock(&axl_all_pthread_data.lock);
+
+    pdata = axl_all_pthread_data.head;
+    while (pdata) {
+         if (pdata->id == id) {
+            /*
+             * Match, remove it from the list.  The user is still responsible
+             * for freeing pdata with axl_pthread_free_pdata().
+             */
+            if (prev) {
+                prev->next = pdata->next;
+            }
+            if (axl_all_pthread_data.head == pdata) {
+                axl_all_pthread_data.head = pdata->next;
+            }
+            if (axl_all_pthread_data.tail == pdata) {
+                axl_all_pthread_data.tail = prev;
+            }
+            break;
+        }
+        prev = pdata;
+        pdata = pdata->next;
+    }
+    pthread_mutex_unlock(&axl_all_pthread_data.lock);
+}
+
 /* The actual pthread function */
 static void *
 axl_pthread_func(void *arg)
@@ -75,6 +181,8 @@ axl_pthread_func(void *arg)
     kvtree_elem *elem;
     kvtree *elem_hash;
 
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     while (1) {
         pthread_mutex_lock(&pdata->lock);
 
@@ -83,7 +191,7 @@ axl_pthread_func(void *arg)
         if (!work) {
             /* No more work to do */
             pthread_mutex_unlock(&pdata->lock);
-            pthread_exit((void *) AXL_SUCCESS);
+            break;
         } else {
             /* Take our work out of the queue */
             pdata->head = pdata->head->next;
@@ -109,14 +217,16 @@ axl_pthread_func(void *arg)
 
         free(work);
 
-        if (rc != AXL_SUCCESS)
+        if (rc != AXL_SUCCESS) {
             pthread_exit((void *) AXL_FAILURE);
+        }
     }
-    return NULL;
+
+    return AXL_SUCCESS;
 }
 
 static struct axl_pthread_data *
-axl_pthread_create(unsigned int threads)
+axl_pthread_create_thread_data(unsigned int threads)
 {
     struct axl_pthread_data *pdata;
 
@@ -135,7 +245,6 @@ axl_pthread_create(unsigned int threads)
         return NULL;
     }
     pdata->threads = threads;
-
     pdata->head = pdata->tail = NULL;
 
     return pdata;
@@ -229,9 +338,11 @@ int axl_pthread_start (int id)
     threads = MIN(cpu_threads, MIN(file_count, MAX_THREADS));
 
     /* Create the data structure for our threads */
-    pdata = axl_pthread_create(threads);
+    pdata = axl_pthread_create_thread_data(threads);
     if (!pdata)
         return AXL_FAILURE;
+
+    axl_pthread_data_add(id, pdata);
 
     for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
         /* get the hash for this file */
@@ -256,15 +367,6 @@ int axl_pthread_start (int id)
     }
 
     /*
-     * Store our pointer to our pthread data in our kvtree.  KVTree doesn't
-     * doesn't support pointers, so we store it as a int64_t.  */
-    rc = kvtree_util_set_int64(file_list, AXL_KEY_PTHREAD_DATA, (int64_t) pdata);
-    if (rc != AXL_SUCCESS) {
-        AXL_ERR("Couldn't set AXL_KEY_PTHREAD_DATA");
-        return rc;
-    }
-
-    /*
      * At this point, all our files are queued in the workqueue.  Start the
      * transfers.
      */
@@ -281,12 +383,10 @@ int axl_pthread_start (int id)
 
 int axl_pthread_test (int id)
 {
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    int64_t ptr;
     struct axl_pthread_data *pdata;
 
-    kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
-    pdata = (struct axl_pthread_data *) ptr;
+    pdata = axl_pthread_data_lookup(id);
+    assert(pdata);
 
     /* Is there still work in the workqueue? */
     if (pdata->head) {
@@ -301,15 +401,13 @@ int axl_pthread_wait (int id)
 {
     /* get pointer to file list for this dataset */
     kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    int64_t ptr;
-    struct axl_pthread_data *pdata;
+    struct axl_pthread_data *pdata = NULL;
     int rc;
     int final_rc = AXL_SUCCESS;
     int i;
-    void *rc_ptr;
+    void *rc_ptr = NULL;
 
-    kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
-    pdata = (struct axl_pthread_data *) ptr;
+    pdata = axl_pthread_data_lookup(id);
     if (!pdata) {
         /* Did they call AXL_Cancel() and then AXL_Wait()? */
         AXL_ERR("No pthread data\n");
@@ -319,23 +417,22 @@ int axl_pthread_wait (int id)
     /* All our threads are now started.  Wait for them to finish */
     for (i = 0; i < pdata->threads; i++) {
         rc = pthread_join(pdata->tid[i], &rc_ptr);
-
-        /*
-         * Thread either finished successfully, or was canceled by
-         * AXL_Cancel().  Both statuses are valid.
-         */
-        if (rc != 0 && rc_ptr != PTHREAD_CANCELED) {
+        if (rc != 0) {
                 AXL_ERR("pthread_join(%d) failed (%d)", i, rc);
                 return AXL_FAILURE;
         }
 
         /*
          * Check the rc that the thread actually reported.  The thread
-         * returns a void * that we encode our rc value in.
+         * returns a void * that we encode our rc value in.  If the
+         * thread was canceled, that totally valid and fine.
          */
-        rc = (int) ((unsigned long) rc_ptr);
-        if (rc) {
-            final_rc |= AXL_FAILURE;
+        if (rc_ptr != PTHREAD_CANCELED) {
+            rc = (int) ((unsigned long) rc_ptr);
+            if (rc) {
+                AXL_ERR("pthread join rc_ptr was set as %d\n", rc);
+                final_rc |= AXL_FAILURE;
+            }
         }
     }
     if (final_rc != AXL_SUCCESS) {
@@ -343,7 +440,7 @@ int axl_pthread_wait (int id)
         return AXL_FAILURE;
     }
 
-    kvtree_util_set_int64(file_list, AXL_KEY_PTHREAD_DATA, 0);
+    axl_pthread_data_remove(id);
     axl_pthread_free_pdata(pdata);
 
     /* All threads are now successfully finished */
@@ -355,28 +452,37 @@ int axl_pthread_wait (int id)
 int axl_pthread_cancel (int id)
 {
     /* get pointer to file list for this dataset */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    int64_t ptr;
     struct axl_pthread_data *pdata;
     int rc = 0;
     int i;
+    void *rc_ptr;
 
-    kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
-    pdata = (struct axl_pthread_data *) ptr;
+    pdata = axl_pthread_data_lookup(id);
+    assert(pdata);
 
     for (i = 0; i < pdata->threads; i++) {
-        rc |= pthread_cancel(pdata->tid[i]);
+        /* send the thread a cancellation request */
+        int rc = pthread_cancel(pdata->tid[i]);
+        if (rc) {
+            AXL_ERR("pthread_cancel failed, rc %d\n");
+            break;
+        }
+
+        /* wait for the thread to actually exit */
+        pthread_join(pdata->tid[i], &rc_ptr);
+        if (rc_ptr != 0 && rc_ptr != PTHREAD_CANCELED) {
+            AXL_ERR("pthread_join failed, rc_ptr %p", rc_ptr);
+            rc |= (int) ((unsigned long) rc_ptr);
+        }
     }
     if (rc != 0) {
-        AXL_ERR("Bad return code from pthread_cancel()\n");
+        AXL_ERR("Bad return code from canceling a thread\n");
     }
-    return AXL_FAILURE;
+    return rc;
 }
 
 void axl_pthread_free (int id)
 {
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-    int64_t ptr;
     struct axl_pthread_data *pdata;
 
     /*
@@ -384,9 +490,9 @@ void axl_pthread_free (int id)
      * an AXL_Cancel() and then an AXL_Free().  If so, pdata will be set
      * and we should free it.
      */
-    kvtree_util_get_int64(file_list, AXL_KEY_PTHREAD_DATA, &ptr);
-    pdata = (struct axl_pthread_data *) ptr;
+    pdata = axl_pthread_data_lookup(id);
     if (pdata) {
+        axl_pthread_data_remove(id);
         axl_pthread_free_pdata(pdata);
     }
 }

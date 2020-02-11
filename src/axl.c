@@ -39,7 +39,9 @@ typedef enum {
     AXL_XFER_STATE_NULL,       /* placeholder for invalid state */
     AXL_XFER_STATE_CREATED,    /* handle has been created */
     AXL_XFER_STATE_DISPATCHED, /* transfer has been dispatched */
-    AXL_XFER_STATE_COMPLETED,  /* wait has been called */
+    AXL_XFER_STATE_WAITING,    /* wait has been called */
+    AXL_XFER_STATE_COMPLETED,  /* files are all copied */
+    AXL_XFER_STATE_CANCELED,   /* transfer was AXL_Cancel'd */
 } axl_xfer_state_t;
 
 /*
@@ -488,6 +490,8 @@ int AXL_Dispatch (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    kvtree_elem *elem = NULL;
+    char *dest;
 
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
@@ -502,38 +506,43 @@ int AXL_Dispatch (int id)
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
     /* create destination directories for each file */
-    kvtree_elem* elem;
-    kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
-        /* get hash for this file */
-        kvtree* elem_hash = kvtree_elem_hash(elem);
-
-        /* get destination for this file */
-        char* dest;
-        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dest);
-
-        /* figure out and create dirs that should exist */
-        /* TODO: vendors may implement smarter functions for mkdir */
+    while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
         char* dest_path = strdup(dest);
         char* dest_dir = dirname(dest_path);
         mode_t mode_dir = axl_getmode(1, 1, 1);
         axl_mkdir(dest_dir, mode_dir);
+        axl_free(&dest_path);
+    }
 
-        /*
-         * Special case: The BB API checks if the destination path exists at
-         * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
-         * here, after the full path to the file has been created.
-         */
-        if (xtype == AXL_XFER_ASYNC_BBAPI) {
-            char *src = kvtree_elem_key(elem);
+    /*
+     * Special case: The BB API checks if the destination path exists at
+     * its equivalent of AXL_Add() time.  That's why we do its "AXL_Add"
+     * here, after the full path to the file has been created.
+     */
+    if (xtype == AXL_XFER_ASYNC_BBAPI) {
+        /* Set if we're in BBAPI fallback mode */
+        if (axl_all_paths_are_bbapi_compatible(id)) {
+             kvtree_util_set_int(file_list, AXL_BBAPI_KEY_FALLBACK, 0);
+        } else {
+             kvtree_util_set_int(file_list, AXL_BBAPI_KEY_FALLBACK, 1);
+        }
+
+        if (!axl_bbapi_in_fallback(id)) {
+            char *src = NULL;
             int rc;
-            rc = axl_async_add_bbapi(id, src, dest);
-            if (rc != AXL_SUCCESS) {
-                axl_free(&dest_path);
-                return rc;
+
+            /*
+             * We're in regular BBAPI mode.  Add the paths before we transfer
+             * them.
+             */
+            elem = NULL;
+            while ((elem = axl_get_next_path(id, elem, &src, &dest))) {
+                rc = axl_async_add_bbapi(id, src, dest);
+                if (rc != AXL_SUCCESS) {
+                    return rc;
+                }
             }
         }
-        axl_free(&dest_path);
     }
 
     /* NOTE FOR XFER INTERFACES
@@ -640,18 +649,20 @@ int AXL_Wait (int id)
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
+
     /* check that handle is in correct state to wait */
     if (xstate != AXL_XFER_STATE_DISPATCHED) {
         AXL_ERR("Invalid state to wait UID %d", id);
         return AXL_FAILURE;
     }
-    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_WAITING);
 
     /* lookup status for the transfer, return if done */
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
 
     if (status == AXL_STATUS_DEST) {
+        kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
         return AXL_SUCCESS;
     } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
@@ -683,6 +694,7 @@ int AXL_Wait (int id)
         rc = AXL_FAILURE;
         break;
     }
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
     /* write data to file if we have one */
     if (axl_flush_file) {
@@ -706,7 +718,8 @@ int AXL_Cancel (int id)
     }
 
     /* check that handle is in correct state to cancel */
-    if (xstate != AXL_XFER_STATE_DISPATCHED) {
+    if (xstate != AXL_XFER_STATE_DISPATCHED &&
+        xstate != AXL_XFER_STATE_WAITING) {
         AXL_ERR("Invalid state to cancel UID %d", id);
         return AXL_FAILURE;
     }
@@ -730,6 +743,7 @@ int AXL_Cancel (int id)
 #if 0
     case AXL_XFER_SYNC:
         rc = axl_sync_cancel(id);
+        rc = AXL_FAILURE;
         break;
 #endif
 /* TODO: add cancel to backends */
@@ -746,11 +760,16 @@ int AXL_Cancel (int id)
         rc = axl_async_cancel_cppr(id); */
         break;
 #endif
+    case AXL_XFER_PTHREAD:
+        rc = axl_pthread_cancel(id);
+        break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
         break;
     }
+
+    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CANCELED);
 
     /* write data to file if we have one */
     if (axl_flush_file) {
@@ -775,7 +794,8 @@ int AXL_Free (int id)
 
     /* check that handle is in correct state to free */
     if (xstate != AXL_XFER_STATE_CREATED &&
-        xstate != AXL_XFER_STATE_COMPLETED)
+        xstate != AXL_XFER_STATE_COMPLETED &&
+        xstate != AXL_XFER_STATE_CANCELED)
     {
         AXL_ERR("Invalid state to free UID %d", id);
         return AXL_FAILURE;
@@ -818,9 +838,6 @@ int AXL_Stop ()
         if (AXL_Cancel(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
-
-        /* wait */
-        AXL_Wait(id);
 
         /* and free it */
         if (AXL_Free(id) != AXL_SUCCESS) {
