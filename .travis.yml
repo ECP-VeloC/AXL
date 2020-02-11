@@ -1,10 +1,6 @@
 langauge: c
 dist: trusty
 
-compiler:
-  - gcc
-  - clang
-
 matrix:
   include:
   - name: "GCC 4.9"
