@@ -13,7 +13,7 @@
 #include <sys/sysinfo.h>
 #endif
 
-#define MIN(a,b) (a < b ? a : b)
+#define AXL_MIN(a,b) (a < b ? a : b)
 
 /*
  *  We default our number of threads to the lesser of:
@@ -335,7 +335,7 @@ int axl_pthread_start (int id)
     /* Get number of hardware threads */
     cpu_threads = axl_get_nprocs();
 
-    threads = MIN(cpu_threads, MIN(file_count, MAX_THREADS));
+    threads = AXL_MIN(cpu_threads, AXL_MIN(file_count, MAX_THREADS));
 
     /* Create the data structure for our threads */
     pdata = axl_pthread_create_thread_data(threads);
