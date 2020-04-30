@@ -19,6 +19,90 @@
  */
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
+#include <sys/statfs.h>
+#include <linux/magic.h>
+#include <libgen.h>
+
+/* These aren't always defined in linux/magic.h */
+#ifndef GPFS_SUPER_MAGIC
+#define GPFS_SUPER_MAGIC 0x47504653     /* "GPFS" in ASCII */
+#endif
+#ifndef XFS_SUPER_MAGIC
+#define XFS_SUPER_MAGIC 0x58465342      /* "XFSB" in ASCII */
+#endif
+
+/* Return the filesystem magic value for a given file */
+static __fsword_t axl_get_fs_magic(char *path)
+{
+    struct statfs st;
+    int rc;
+    char *dir = NULL;
+
+    /* Stat the path itself */
+    rc = statfs(path, &st);
+    if (rc != 0) {
+        /*
+         * Couldn't statfs the path, which could be normal if the path is the
+         * destination path.  Next, try stating the underlying path's directory
+         * (which should exist for both the source and destination), for the
+         * FS type.
+         */
+        dir = strdup(path);
+        if (!dir)
+            return 0;
+        path = dirname(dir);
+        rc = statfs(path, &st);
+        if (rc != 0) {
+            free(dir);
+            return 0;
+        }
+    }
+
+    free(dir);
+    return st.f_type;
+}
+
+/*
+ * Returns 1 if its possible to transfer a file from the src to dst using the
+ * BBAPI. In general (but not all cases) BBAPI can transfer between filesystems
+ * if they both support extents.  EXT4 <-> gpfs is one exception.
+ *
+ * Returns 0 if BBAPI can not transfer from src to dst.
+ */
+int bbapi_copy_is_compatible(char *src, char *dst)
+{
+    /* List all filesystem types that are (somewhat) compatible with BBAPI */
+    const __fsword_t whitelist[] = {
+        XFS_SUPER_MAGIC,
+        GPFS_SUPER_MAGIC,
+        EXT4_SUPER_MAGIC,
+    };
+    __fsword_t source, dest;
+    int found_source = 0, found_dest = 0;
+    int i;
+
+    source = axl_get_fs_magic(src);
+    dest = axl_get_fs_magic(dst);
+
+    /* Exception: EXT4 <-> GPFS transfers are not supported by BBAPI */
+    if ((source == EXT4_SUPER_MAGIC && dest == GPFS_SUPER_MAGIC) ||
+        (source == GPFS_SUPER_MAGIC && dest == EXT4_SUPER_MAGIC)) {
+            return 0;
+    }
+
+    for (i = 0; i < sizeof(whitelist) / sizeof(whitelist[0]); i++) {
+        if (source == whitelist[i])
+            found_source = 1;
+
+        if (dest == whitelist[i])
+            found_dest = 1;
+    }
+
+    if (found_source && found_dest)
+        return 1;
+
+    return 0;
+}
 
 static void getLastErrorDetails(BBERRORFORMAT pFormat, char** pBuffer)
 {
@@ -356,9 +440,18 @@ int axl_async_wait_bbapi (int id) {
             usleep(100 * 1000);   /* 100ms */
         }
     }
-
     /* we're done now, either with error or success */
     if (status == AXL_STATUS_DEST) {
+
+        char *src;
+        char *dst;
+        kvtree_elem *elem = NULL;
+
+        /* Look though all our list of files */
+        while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
+            AXL_DBG(2, "Read and copied %s to %s sucessfully", src, dst);
+        }
+
         return AXL_SUCCESS;
     } else {
         return AXL_FAILURE;
@@ -405,15 +498,19 @@ axl_all_paths_are_bbapi_compatible(int id)
     char *dst;
     kvtree_elem *elem = NULL;
 
+    /* Look though all our list of files */
     while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
-        if (axl_file_supports_fiemap(src) == 0 ||
-            axl_file_supports_fiemap(dst) == 0) {
-                /* One of our paths doesn't support fiemap */
+        if (!bbapi_copy_is_compatible(src, dst)) {
+            /* This file copy isn't compatible with BBAPI */
             return (0);
         }
     }
-#endif
+
+    /* All files copies are BBAPI compatible */
     return (1);
+
+#endif
+    return (0);
 }
 
 /*
@@ -422,17 +519,22 @@ axl_all_paths_are_bbapi_compatible(int id)
  * Fallback mode happens when we can't transfer the files using the BBAPI due
  * to the source or destination nor supporting extents (which BBAPI requires).
  * If we're in fallback mode, we use a more compatible transfer method.
+ *
+ * Fallback mode is DISABLED by default.  You need to pass
+ * -DENABLE_BBAPI_FALLBACK to cmake to enable it.
  */
 int
 axl_bbapi_in_fallback(int id)
 {
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
     int bbapi_fallback = 0;
+#ifdef HAVE_BBAPI_FALLBACK
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     if (kvtree_util_get_int(file_list, AXL_BBAPI_KEY_FALLBACK, &bbapi_fallback) !=
         KVTREE_SUCCESS) {
         /* Value isn't set, so we're not in fallback mode */
         return 0;
     }
+#endif
     return (bbapi_fallback);
 }
