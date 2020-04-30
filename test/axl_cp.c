@@ -108,7 +108,7 @@ main(int argc, char **argv) {
     sigaction(SIGTERM, &action, NULL);
     char *state_file = NULL;
 
-    while ((opt = getopt(argc, argv, "rRX:")) != -1) {
+    while ((opt = getopt(argc, argv, "rRSX:")) != -1) {
         switch (opt) {
             case 'X':
                 xfer_str = optarg;
