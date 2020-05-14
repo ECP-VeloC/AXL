@@ -159,6 +159,13 @@ int AXL_Init (const char* state_file)
     /* TODO: set these by config file */
     axl_file_buf_size = (size_t) 1048576;
 
+    /* initialize our debug level for filterin AXL_DBG messages */
+    axl_debug = 0;
+    char* val = getenv("AXL_DEBUG");
+    if (val != NULL) {
+        axl_debug = atoi(val);
+    }
+
     /* make a copy of the path to file to record our state */
     if (state_file != NULL) {
         axl_flush_file = strdup(state_file);
