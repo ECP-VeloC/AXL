@@ -16,6 +16,10 @@
  * any changes of the existing structure must be documented */
 extern kvtree* axl_file_lists;
 
+/* current debug level for AXL library,
+ * set in AXL_Init used in axl_dbg */
+extern int axl_debug;
+
 /* "KEYS" */
 #define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")

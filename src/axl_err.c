@@ -13,6 +13,10 @@
 /* axl version */
 #include "axl.h"
 
+/* current debug level for AXL library,
+ * set in AXL_Init used in axl_dbg */
+int axl_debug;
+
 /* print message to stdout if axl_debug is set and it is >= level */
 void axl_dbg(int level, const char *fmt, ...)
 {
@@ -23,17 +27,13 @@ void axl_dbg(int level, const char *fmt, ...)
   }
 
   va_list argp;
-  /*
-  if (level == 0 || (scr_debug > 0 && scr_debug >= level)) {
-  */
+  if (level == 0 || (axl_debug > 0 && axl_debug >= level)) {
     fprintf(stdout, "AXL %s: %s: ", AXL_VERSION, hostname);
     va_start(argp, fmt);
     vfprintf(stdout, fmt, argp);
     va_end(argp);
     fprintf(stdout, "\n");
-  /*
   }
-  */
 }
 
 /* print error message to stdout */
