@@ -52,12 +52,16 @@ mode_t axl_getmode(int read, int write, int execute) {
 
 /* recursively create directory and subdirectories */
 int axl_mkdir(const char* dir, mode_t mode) {
-    int rc = AXL_SUCCESS;
-
-    if (access(dir, F_OK) == 0) {
-        /* Directory already exists.  We're done. */
-        return rc;
+    /* consider it a success if we either create the directory
+     * or we fail because it already exists */
+    int tmp_rc = mkdir(dir, mode);
+    if (tmp_rc == 0 || errno == EEXIST) {
+        return AXL_SUCCESS;
     }
+
+     /* failed to create the directory,
+      * we'll check the parent dir and try again */
+     int rc = AXL_SUCCESS;
 
     /* With dirname, either the original string may be modified or the function may return a
      * pointer to static storage which will be overwritten by the next call to dirname,
@@ -69,13 +73,16 @@ int axl_mkdir(const char* dir, mode_t mode) {
 
     /* if we can read path or path=="." or path=="/", then there's nothing to do,
      * otherwise, try to create it */
-    if (access(path, R_OK) < 0 && strcmp(path,".") != 0  && strcmp(path,"/") != 0) {
+    if (access(path, R_OK) < 0 &&
+        strcmp(path,".") != 0  &&
+        strcmp(path,"/") != 0)
+    {
         rc = axl_mkdir(path, mode);
     }
 
     /* if we can write to path, try to create subdir within path */
     if (access(path, W_OK) == 0 && rc == AXL_SUCCESS) {
-        int tmp_rc = mkdir(dir, mode);
+        tmp_rc = mkdir(dir, mode);
         if (tmp_rc < 0) {
             if (errno == EEXIST) {
                 /* don't complain about mkdir for a directory that already exists */
