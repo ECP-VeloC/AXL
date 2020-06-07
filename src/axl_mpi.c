@@ -14,6 +14,10 @@
 
 #include "mpi.h"
 
+#ifdef HAVE_LIBDTCMP
+#include "dtcmp.h"
+#endif
+
 static int axl_alltrue(int valid, MPI_Comm comm)
 {
     int all_valid;
@@ -60,14 +64,14 @@ static int axl_create_dirs(int count, const char** filelist, MPI_Comm comm)
         axl_free(&path);
 
         /* lookup original path where application wants file to go */
-#ifndef HAVE_LIBDTCMP
+#ifdef HAVE_LIBDTCMP
+        /* we'll use DTCMP to select one leader for each directory later */
+        leader[i] = 0;
+#else
         /* if we don't have DTCMP,
          * then we'll just issue a mkdir for each file, lots of extra
          * load on the file system, but this works */
         leader[i] = 1;
-#else
-        /* we'll use DTCMP to select one leader for each directory later */
-        leader[i] = 0;
 #endif
     }
 
@@ -97,14 +101,18 @@ static int axl_create_dirs(int count, const char** filelist, MPI_Comm comm)
     /* create other directories in file list */
     int success = 1;
     for (i = 0; i < count; i++) {
+        /* get dirname */
+        const char* dir = dirs[i];
+
+        /* if we're the leader, create directory */
         if (leader[i]) {
-            /* create directory */
-            const char* dir = dirs[i];
             if (axl_mkdir(dir, mode_dir) != AXL_SUCCESS) {
                 success = 0;
             }
-            axl_free(&dir);
         }
+
+        /* free the dirname we strdup'd */
+        axl_free(&dir);
     }
 
     /* free buffers */
@@ -120,6 +128,60 @@ static int axl_create_dirs(int count, const char** filelist, MPI_Comm comm)
     }
 
     return AXL_SUCCESS;
+}
+
+int AXL_Init_comm (
+    const char* state_file,
+    MPI_Comm comm)    /**< [IN]  - communicator used for coordination and flow control */
+{
+    MPI_Barrier(comm);
+
+    int rc = AXL_Init(state_file);
+
+#ifdef HAVE_LIBDTCMP
+    int dtcmp_rc = DTCMP_Init();
+    if (dtcmp_rc != DTCMP_SUCCESS) {
+        /* failed to initialize DTCMP */
+        rc = AXL_FAILURE;
+    }
+#endif
+
+    /* return same value on all ranks */
+    if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
+    }
+
+    return rc;
+}
+
+int AXL_Finalize_comm (
+    MPI_Comm comm)    /**< [IN]  - communicator used for coordination and flow control */
+{
+    int rc = AXL_SUCCESS;
+    MPI_Barrier(comm);
+
+
+#ifdef HAVE_LIBDTCMP
+    int dtcmp_rc = DTCMP_Finalize();
+    if (dtcmp_rc != DTCMP_SUCCESS) {
+        /* failed to shut down DTCMP */
+        rc = AXL_FAILURE;
+    }
+#endif
+
+    int tmp_rc = AXL_Finalize();
+    if (tmp_rc != AXL_SUCCESS) {
+        rc = tmp_rc;
+    }
+
+    /* return same value on all ranks */
+    if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
+    }
+
+    return rc;
 }
 
 int AXL_Create_comm (
@@ -211,8 +273,8 @@ int AXL_Dispatch_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;
@@ -227,8 +289,8 @@ int AXL_Test_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;
@@ -243,8 +305,8 @@ int AXL_Wait_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;
@@ -259,8 +321,8 @@ int AXL_Cancel_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;
@@ -275,8 +337,8 @@ int AXL_Free_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;
@@ -290,8 +352,8 @@ int AXL_Stop_comm (
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-      /* someone failed, so everyone fails */
-      rc = AXL_FAILURE;
+        /* someone failed, so everyone fails */
+        rc = AXL_FAILURE;
     }
 
     return rc;

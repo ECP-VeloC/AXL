@@ -192,11 +192,12 @@ main(int argc, char **argv) {
         xfer = AXL_XFER_SYNC;
     }
 
-    rc = AXL_Init(state_file);
+    rc = AXL_Init_comm(state_file, comm);
     if (rc != AXL_SUCCESS) {
-        /* not guarded by rank unless AXL_Init_comm */
-        printf("AXL_Init() failed (error %d)\n", rc);
-        MPI_Abort(comm, -1);
+        if (comm_rank == 0) {
+            printf("AXL_Init() failed (error %d)\n", rc);
+        }
+        MPI_Finalize();
         return rc;
     }
 
@@ -257,10 +258,12 @@ main(int argc, char **argv) {
         return rc;
     }
 
-    rc = AXL_Finalize();
+    rc = AXL_Finalize_comm(comm);
     if (rc != AXL_SUCCESS) {
-        printf("AXL_Finalize() failed (error %d)\n", rc);
-        MPI_Abort(comm, -1);
+        if (comm_rank == 0) {
+            printf("AXL_Finalize() failed (error %d)\n", rc);
+        }
+        MPI_Finalize();
         return rc;
     }
 
