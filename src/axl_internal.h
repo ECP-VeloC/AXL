@@ -24,6 +24,10 @@ extern int axl_debug;
  * which includes uid/gid, permission bits, and timestamps */
 extern int axl_copy_metadata;
 
+/* whether axl should first create parent directories
+ * before transferring files */
+extern int axl_make_directories;
+
 /* "KEYS" */
 #define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")
