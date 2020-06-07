@@ -4,6 +4,7 @@
 #cmakedefine HAVE_DATAWARP
 #cmakedefine HAVE_BBAPI
 #cmakedefine HAVE_BBAPI_FALLBACK
+#cmakedefine HAVE_LIBDTCMP
 
 // Flush ASYNC API
 #define AXL_FLUSH_ASYNC_@AXL_ASYNC_API@
