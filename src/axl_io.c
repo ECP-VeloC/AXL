@@ -17,6 +17,10 @@
 #include <errno.h>
 #include <string.h>
 
+#include <unistd.h>
+#include <sys/types.h>
+#include <stdint.h>
+
 #include "axl_internal.h"
 
 /* Configurations */
@@ -27,6 +31,16 @@
 #ifndef AXL_OPEN_USLEEP
 #define AXL_OPEN_USLEEP (100)
 #endif
+
+/* TODO: ugly hack until we get a configure test */
+#if defined(__APPLE__)
+#define HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC 1
+#else
+#define HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC 1
+#endif
+// HAVE_STRUCT_STAT_ST_MTIME_N
+// HAVE_STRUCT_STAT_ST_UMTIME
+// HAVE_STRUCT_STAT_ST_MTIME_USEC
 
 /* returns user's current mode as determine by their umask */
 mode_t axl_getmode(int read, int write, int execute) {
@@ -296,6 +310,190 @@ int axl_close(const char* file, int fd) {
     return AXL_SUCCESS;
 }
 
+static void axl_stat_get_atimes(const struct stat* sb, uint64_t* secs, uint64_t* nsecs)
+{
+    *secs = (uint64_t) sb->st_atime;
+
+#if HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+    *nsecs = (uint64_t) sb->st_atimespec.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+    *nsecs = (uint64_t) sb->st_atim.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIME_N
+    *nsecs = (uint64_t) sb->st_atime_n;
+#elif HAVE_STRUCT_STAT_ST_UMTIME
+    *nsecs = (uint64_t) sb->st_uatime * 1000;
+#elif HAVE_STRUCT_STAT_ST_MTIME_USEC
+    *nsecs = (uint64_t) sb->st_atime_usec * 1000;
+#else
+    *nsecs = 0;
+#endif
+}
+
+static void axl_stat_get_mtimes (const struct stat* sb, uint64_t* secs, uint64_t* nsecs)
+{
+    *secs = (uint64_t) sb->st_mtime;
+
+#if HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+    *nsecs = (uint64_t) sb->st_mtimespec.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+    *nsecs = (uint64_t) sb->st_mtim.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIME_N
+    *nsecs = (uint64_t) sb->st_mtime_n;
+#elif HAVE_STRUCT_STAT_ST_UMTIME
+    *nsecs = (uint64_t) sb->st_umtime * 1000;
+#elif HAVE_STRUCT_STAT_ST_MTIME_USEC
+    *nsecs = (uint64_t) sb->st_mtime_usec * 1000;
+#else
+    *nsecs = 0;
+#endif
+}
+
+static void axl_stat_get_ctimes (const struct stat* sb, uint64_t* secs, uint64_t* nsecs)
+{
+    *secs = (uint64_t) sb->st_ctime;
+
+#if HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+    *nsecs = (uint64_t) sb->st_ctimespec.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+    *nsecs = (uint64_t) sb->st_ctim.tv_nsec;
+#elif HAVE_STRUCT_STAT_ST_MTIME_N
+    *nsecs = (uint64_t) sb->st_ctime_n;
+#elif HAVE_STRUCT_STAT_ST_UMTIME
+    *nsecs = (uint64_t) sb->st_uctime * 1000;
+#elif HAVE_STRUCT_STAT_ST_MTIME_USEC
+    *nsecs = (uint64_t) sb->st_ctime_usec * 1000;
+#else
+    *nsecs = 0;
+#endif
+}
+
+int axl_meta_encode(const char* file, kvtree* meta)
+{
+  struct stat statbuf;
+  int rc = lstat(file, &statbuf);
+  if (rc == 0) {
+    kvtree_util_set_unsigned_long(meta, "MODE", (unsigned long) statbuf.st_mode);
+    kvtree_util_set_unsigned_long(meta, "UID",  (unsigned long) statbuf.st_uid);
+    kvtree_util_set_unsigned_long(meta, "GID",  (unsigned long) statbuf.st_gid);
+    kvtree_util_set_unsigned_long(meta, "SIZE", (unsigned long) statbuf.st_size);
+
+    uint64_t secs, nsecs;
+    axl_stat_get_atimes(&statbuf, &secs, &nsecs);
+    kvtree_util_set_unsigned_long(meta, "ATIME_SECS",  (unsigned long) secs);
+    kvtree_util_set_unsigned_long(meta, "ATIME_NSECS", (unsigned long) nsecs);
+
+    axl_stat_get_ctimes(&statbuf, &secs, &nsecs);
+    kvtree_util_set_unsigned_long(meta, "CTIME_SECS",  (unsigned long) secs);
+    kvtree_util_set_unsigned_long(meta, "CTIME_NSECS", (unsigned long) nsecs);
+
+    axl_stat_get_mtimes(&statbuf, &secs, &nsecs);
+    kvtree_util_set_unsigned_long(meta, "MTIME_SECS",  (unsigned long) secs);
+    kvtree_util_set_unsigned_long(meta, "MTIME_NSECS", (unsigned long) nsecs);
+
+    return AXL_SUCCESS;
+  }
+  return AXL_FAILURE;
+}
+
+int axl_meta_apply(const char* file, const kvtree* meta)
+{
+  int rc = AXL_SUCCESS;
+
+  /* set permission bits on file */
+  unsigned long mode_val;
+  if (kvtree_util_get_unsigned_long(meta, "MODE", &mode_val) == KVTREE_SUCCESS) {
+    mode_t mode = (mode_t) mode_val;
+
+    /* TODO: mask some bits here */
+
+    int chmod_rc = chmod(file, mode);
+    if (chmod_rc != 0) {
+      /* failed to set permissions */
+      axl_err("chmod(%s) failed: errno=%d %s @ %s:%d",
+        file, errno, strerror(errno), __FILE__, __LINE__
+      );
+      rc = AXL_FAILURE;
+    }
+  }
+
+  /* set uid and gid on file */
+  unsigned long uid_val = -1;
+  unsigned long gid_val = -1;
+  kvtree_util_get_unsigned_long(meta, "UID", &uid_val);
+  kvtree_util_get_unsigned_long(meta, "GID", &gid_val);
+  if (uid_val != -1 || gid_val != -1) {
+    /* got a uid or gid value, try to set them */
+    int chown_rc = chown(file, (uid_t) uid_val, (gid_t) gid_val);
+    if (chown_rc != 0) {
+      /* failed to set uid and gid */
+      axl_err("chown(%s, %lu, %lu) failed: errno=%d %s @ %s:%d",
+        file, uid_val, gid_val, errno, strerror(errno), __FILE__, __LINE__
+      );
+      rc = AXL_FAILURE;
+    }
+  }
+
+  /* can't set the size at this point, but we can check it */
+  unsigned long size;
+  if (kvtree_util_get_unsigned_long(meta, "SIZE", &size) == KVTREE_SUCCESS) {
+    /* got a size field in the metadata, stat the file */
+    struct stat statbuf;
+    int stat_rc = lstat(file, &statbuf);
+    if (stat_rc == 0) {
+      /* stat succeeded, check that sizes match */
+      if (size != statbuf.st_size) {
+        /* file size is not correct */
+        axl_err("file `%s' size is %lu expected %lu @ %s:%d",
+          file, (unsigned long) statbuf.st_size, size, __FILE__, __LINE__
+        );
+        rc = AXL_FAILURE;
+      }
+    } else {
+      /* failed to stat file */
+      axl_err("stat(%s) failed: errno=%d %s @ %s:%d",
+        file, errno, strerror(errno), __FILE__, __LINE__
+      );
+      rc = AXL_FAILURE;
+    }
+  }
+
+  /* set timestamps on file as last step */
+  unsigned long atime_secs  = 0;
+  unsigned long atime_nsecs = 0;
+  kvtree_util_get_unsigned_long(meta, "ATIME_SECS",  &atime_secs);
+  kvtree_util_get_unsigned_long(meta, "ATIME_NSECS", &atime_nsecs);
+
+  unsigned long mtime_secs  = 0;
+  unsigned long mtime_nsecs = 0;
+  kvtree_util_get_unsigned_long(meta, "MTIME_SECS",  &mtime_secs);
+  kvtree_util_get_unsigned_long(meta, "MTIME_NSECS", &mtime_nsecs);
+
+  if (atime_secs != 0 || atime_nsecs != 0 ||
+      mtime_secs != 0 || mtime_nsecs != 0)
+  {
+    /* fill in time structures */
+    struct timespec times[2];
+    times[0].tv_sec  = (time_t) atime_secs;
+    times[0].tv_nsec = (long)   atime_nsecs;
+    times[1].tv_sec  = (time_t) mtime_secs;
+    times[1].tv_nsec = (long)   mtime_nsecs;
+
+    /* set times with nanosecond precision using utimensat,
+     * assume path is relative to current working directory,
+     * if it's not absolute, and set times on link (not target file)
+     * if dest_path refers to a link */
+    int utime_rc = utimensat(AT_FDCWD, file, times, AT_SYMLINK_NOFOLLOW);
+    if (utime_rc != 0) {
+      axl_err("Failed to change timestamps on `%s' utimensat() errno=%d %s @ %s:%d",
+        file, errno, strerror(errno), __FILE__, __LINE__
+      );
+      rc = AXL_FAILURE;
+    }
+  }
+
+  return rc;
+}
+
 /* TODO: could perhaps use O_DIRECT here as an optimization */
 /* TODO: could apply compression/decompression here */
 /* copy src_file (full path) to dest_path and return new full path in dest_file */
@@ -408,8 +606,17 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
         rc = AXL_FAILURE;
     }
 
-    /* unlink the file if the copy failed */
-    if (rc != AXL_SUCCESS) {
+    if (rc == AXL_SUCCESS) {
+        /* succeeded in copying the file, now copy uid/gid,
+         * permissions, and timestamps */
+        if (axl_copy_metadata) {
+            kvtree* meta = kvtree_new();
+            axl_meta_encode(src_file, meta);
+            axl_meta_apply(dst_file, meta);
+            kvtree_delete(&meta);
+        }
+    } else {
+        /* unlink the file if the copy failed */
         unlink(dst_file);
     }
 

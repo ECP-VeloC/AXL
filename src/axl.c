@@ -59,6 +59,9 @@ static int axl_next_handle_UID = -1;
 /* tracks list of files written with transfer */
 kvtree* axl_file_lists = NULL;
 
+/* track whether file metadata should also be copied */
+int axl_copy_metadata = 0;
+
 /* given an id, lookup and return the file list and transfer type,
  * returns AXL_FAILURE if info could not be found */
 static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_t* state)
@@ -164,6 +167,13 @@ int AXL_Init (const char* state_file)
     char* val = getenv("AXL_DEBUG");
     if (val != NULL) {
         axl_debug = atoi(val);
+    }
+
+    /* initialize our flag on whether to copy file metadata */
+    axl_copy_metadata = 0;
+    val = getenv("AXL_COPY_METADATA");
+    if (val != NULL) {
+        axl_copy_metadata = atoi(val);
     }
 
     /* make a copy of the path to file to record our state */
