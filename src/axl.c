@@ -50,6 +50,10 @@ Global Variables
 ========================================
 */
 
+/* whether axl should first create parent directories
+ * before transferring files */
+int axl_make_directories;
+
 /* AXL's flush file, SCR has one as well */
 char* axl_flush_file = NULL;
 
@@ -162,7 +166,7 @@ int AXL_Init (const char* state_file)
     /* TODO: set these by config file */
     axl_file_buf_size = (size_t) 1048576;
 
-    /* initialize our debug level for filterin AXL_DBG messages */
+    /* initialize our debug level for filtering AXL_DBG messages */
     axl_debug = 0;
     char* val = getenv("AXL_DEBUG");
     if (val != NULL) {
@@ -174,6 +178,14 @@ int AXL_Init (const char* state_file)
     val = getenv("AXL_COPY_METADATA");
     if (val != NULL) {
         axl_copy_metadata = atoi(val);
+    }
+
+    /* whether axl should first create parent directories
+     * before transferring files */
+    axl_make_directories = 1;
+    val = getenv("AXL_MKDIR");
+    if (val != NULL) {
+        axl_make_directories = atoi(val);
     }
 
     /* make a copy of the path to file to record our state */
@@ -523,12 +535,14 @@ int AXL_Dispatch (int id)
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
     /* create destination directories for each file */
-    while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
-        char* dest_path = strdup(dest);
-        char* dest_dir = dirname(dest_path);
-        mode_t mode_dir = axl_getmode(1, 1, 1);
-        axl_mkdir(dest_dir, mode_dir);
-        axl_free(&dest_path);
+    if (axl_make_directories) {
+        while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
+            char* dest_path = strdup(dest);
+            char* dest_dir = dirname(dest_path);
+            mode_t mode_dir = axl_getmode(1, 1, 1);
+            axl_mkdir(dest_dir, mode_dir);
+            axl_free(&dest_path);
+        }
     }
 
     /*
