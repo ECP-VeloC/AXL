@@ -7,23 +7,39 @@ IF(POLICY CMP0042)
 ENDIF(POLICY CMP0042)
 SET(CMAKE_MACOSX_RPATH ON)
 
+# Linux rpath settings
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-INCLUDE(GNUInstallDirs)
-
 # Configuration Options
+OPTION(MPI "Enable MPI operations for AXL" ON)
 OPTION(AXL_LINK_STATIC "Default to static linking? (Needed for Cray)" OFF)
 
 # TODO: make these NOT mutually exclusive
 SET(AXL_ASYNC_API "NONE" CACHE STRING "Vendor-specific asynchronous file transfer (CRAY_DW INTEL_CPPR IBM_BBAPI NONE)")
 SET_PROPERTY(CACHE AXL_ASYNC_API PROPERTY STRINGS NONE CRAY_DW INTEL_CPPR IBM_BBAPI)
 
-
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 
 # Find Packages & Files
 
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
+## MPI
+IF(MPI)
+  INCLUDE(SetupMPI)
+  IF(MPI_C_FOUND)
+        INCLUDE_DIRECTORIES(${MPI_C_INCLUDE_PATH})
+        LIST(APPEND KVTREE_EXTERNAL_LIBS ${MPI_C_LIBRARIES})
+  ELSE(MPI_C_FOUND)
+        MESSAGE("WARNING: Could not find MPI!")
+        MESSAGE("         Either add an MPI compiler to your path (using modules)")
+        MESSAGE("         Or force CMake to build using the correct compiler (`export CC=mpicc`)")
+  ENDIF(MPI_C_FOUND)
+ENDIF(MPI)
 
 ## KVTREE
 FIND_PACKAGE(KVTREE REQUIRED)
@@ -108,6 +124,10 @@ ENDIF("${isSystemDir}" STREQUAL "-1")
 ############
 # End rpath stuff
 ############
+
+# this needs to come after the SetupMPI
+# or otherwise it interferes with finding MPI
+INCLUDE(GNUInstallDirs)
 
 # Subdirectories
 ADD_SUBDIRECTORY(src)
