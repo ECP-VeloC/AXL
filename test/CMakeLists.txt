@@ -13,6 +13,11 @@ ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
 
 TARGET_LINK_LIBRARIES(axl_cp axl)
 
+IF(MPI_FOUND)
+    ADD_EXECUTABLE(axl_mpi_cp axl_mpi_cp.c)
+    TARGET_LINK_LIBRARIES(axl_mpi_cp axl)
+ENDIF(MPI_FOUND)
+
 ################
 # Add tests to ctest
 ################
