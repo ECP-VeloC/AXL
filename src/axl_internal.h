@@ -20,6 +20,10 @@ extern kvtree* axl_file_lists;
  * set in AXL_Init used in axl_dbg */
 extern int axl_debug;
 
+/* flag to track whether file metadata should also be copied,
+ * which includes uid/gid, permission bits, and timestamps */
+extern int axl_copy_metadata;
+
 /* "KEYS" */
 #define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")
@@ -141,5 +145,12 @@ void axl_free(void* p);
  */
 kvtree_elem * axl_get_next_path(int id, kvtree_elem *elem, char **src,
     char **dst);
+
+/* given a source file, record its current uid/gid, permissions,
+ * and timestamps, record them in provided kvtree */
+int axl_meta_encode(const char* file, kvtree* meta);
+
+/* copy metadata settings recorded in provided kvtree to specified file */
+int axl_meta_apply(const char* file, const kvtree* meta);
 
 #endif /* AXL_INTERNAL_H */
