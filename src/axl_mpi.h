@@ -1,6 +1,9 @@
 #ifndef AXL_MPI_H
 #define AXL_MPI_H
 
+#include "axl.h"
+#include "mpi.h"
+
 /* enable C++ codes to include this header directly */
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +54,6 @@ int AXL_Free_comm (
 );
 
 int AXL_Stop_comm (
-  int id,       /**< [IN]  - transfer hander ID returned from AXL_Create */
   MPI_Comm comm /**< [IN]  - communicator used for coordination and flow control */
 );
 

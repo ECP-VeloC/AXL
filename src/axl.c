@@ -515,13 +515,13 @@ int AXL_Add (int id, const char *src, const char *dest)
 /* Initiate a transfer for all files in handle ID */
 int AXL_Dispatch (int id)
 {
+    kvtree_elem *elem = NULL;
+    char *dest;
+
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
-    kvtree_elem *elem = NULL;
-    char *dest;
-
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
