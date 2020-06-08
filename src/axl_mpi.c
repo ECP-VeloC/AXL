@@ -134,9 +134,22 @@ int AXL_Init_comm (
     const char* state_file,
     MPI_Comm comm)    /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
-
+    /* initialize AXL */
     int rc = AXL_Init(state_file);
+
+    /* return same value on all ranks */
+    if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
+        /* someone failed, so everyone fails */
+
+        /* if our call to init succeeded,
+         * cal finalize to clean up */
+        if (rc == AXL_SUCCESS) {
+            AXL_Finalize();
+        }
+
+        /* return failure to everyone */
+        return AXL_FAILURE;
+    }
 
 #ifdef HAVE_LIBDTCMP
     int dtcmp_rc = DTCMP_Init();
@@ -146,12 +159,6 @@ int AXL_Init_comm (
     }
 #endif
 
-    /* return same value on all ranks */
-    if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
-        /* someone failed, so everyone fails */
-        rc = AXL_FAILURE;
-    }
-
     return rc;
 }
 
@@ -159,8 +166,6 @@ int AXL_Finalize_comm (
     MPI_Comm comm)    /**< [IN]  - communicator used for coordination and flow control */
 {
     int rc = AXL_SUCCESS;
-    MPI_Barrier(comm);
-
 
 #ifdef HAVE_LIBDTCMP
     int dtcmp_rc = DTCMP_Finalize();
@@ -170,14 +175,16 @@ int AXL_Finalize_comm (
     }
 #endif
 
-    int tmp_rc = AXL_Finalize();
-    if (tmp_rc != AXL_SUCCESS) {
-        rc = tmp_rc;
+    int axl_rc = AXL_Finalize();
+    if (axl_rc != AXL_SUCCESS) {
+        rc = axl_rc;
     }
 
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
         /* someone failed, so everyone fails */
+
+        /* return failure to everyone */
         rc = AXL_FAILURE;
     }
 
@@ -189,7 +196,6 @@ int AXL_Create_comm (
     const char* name, 
     MPI_Comm comm)    /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int id = AXL_Create(type, name);
 
     /* NOTE: We do not force id to be the same on all ranks.
@@ -199,9 +205,10 @@ int AXL_Create_comm (
     /* return same value on all ranks */
     if (! axl_alltrue(id != -1, comm)) {
       /* someone failed, so everyone fails */
+
+      /* if this process succeeded in create,
+       * free its handle to clean up */
       if (id != -1) {
-          /* this process succeeded in create,
-           * so we need to free its handle */
           AXL_Free(id);
       }
 
@@ -216,11 +223,6 @@ int AXL_Dispatch_comm (
     int id,        /**< [IN]  - transfer hander ID returned from AXL_Create */
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    kvtree_elem *elem = NULL;
-    char *dest;
-
-    MPI_Barrier(comm);
-
 #if 0
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
@@ -251,6 +253,8 @@ int AXL_Dispatch_comm (
 
         /* set pointer to each file */
         int i;
+        char* dest;
+        kvtree_elem* elem;
         while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
             files[i] = dest;
             i++;
@@ -274,6 +278,10 @@ int AXL_Dispatch_comm (
     /* return same value on all ranks */
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
         /* someone failed, so everyone fails */
+
+        /* TODO: if dispatch succeeded what should we cancel and wait? */
+
+        /* return failure to everyone */
         rc = AXL_FAILURE;
     }
 
@@ -284,7 +292,6 @@ int AXL_Test_comm (
     int id,        /**< [IN]  - transfer hander ID returned from AXL_Create */
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int rc = AXL_Test(id);
 
     /* return same value on all ranks */
@@ -300,7 +307,6 @@ int AXL_Wait_comm (
     int id,        /**< [IN]  - transfer hander ID returned from AXL_Create */
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int rc = AXL_Wait(id);
 
     /* return same value on all ranks */
@@ -316,7 +322,6 @@ int AXL_Cancel_comm (
     int id,        /**< [IN]  - transfer hander ID returned from AXL_Create */
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int rc = AXL_Cancel(id);
 
     /* return same value on all ranks */
@@ -332,7 +337,6 @@ int AXL_Free_comm (
     int id,        /**< [IN]  - transfer hander ID returned from AXL_Create */
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int rc = AXL_Free(id);
 
     /* return same value on all ranks */
@@ -347,7 +351,6 @@ int AXL_Free_comm (
 int AXL_Stop_comm (
     MPI_Comm comm) /**< [IN]  - communicator used for coordination and flow control */
 {
-    MPI_Barrier(comm);
     int rc = AXL_Stop();
 
     /* return same value on all ranks */
