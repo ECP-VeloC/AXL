@@ -12,6 +12,7 @@
 #include "mpi.h"
 
 int id = -1;
+char *old_env = NULL;
 
 MPI_Comm comm = MPI_COMM_NULL;
 int comm_rank = 0;
@@ -59,9 +60,11 @@ static void
 usage(void)
 {
     if (comm_rank == 0) {
-        printf("Usage: axl_cp [-r|-R] [-X xfer_type] SOURCE DEST\n");
-        printf("       axl_cp [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
+        printf("Usage: axl_mpi_cp [-ap] [-r|-R] [-X xfer_type] SOURCE DEST\n");
+        printf("       axl_mpi_cp [-ap] [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
         printf("\n");
+        printf("-a:             Archive mode.  Preserve permissions + times + recursive.  Implies -pr\n");
+        printf("-p:             Preserve permissions + times.\n");
         printf("-r|-R:          Copy directories recursively\n");
         printf("-X xfer_type:   AXL transfer type:  default native pthread sync dw bbapi cppr\n");
         printf("\n");
@@ -97,6 +100,9 @@ void sig_func(int signum)
         exit(rc);
     }
 
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
+
     exit(AXL_SUCCESS);
 }
 
@@ -123,9 +129,17 @@ main(int argc, char **argv) {
     action.sa_handler = sig_func;
     sigaction(SIGTERM, &action, NULL);
     char *state_file = NULL;
+    int preserve = 0;
 
-    while ((opt = getopt(argc, argv, "rRSX:")) != -1) {
+    while ((opt = getopt(argc, argv, "aprRSX:")) != -1) {
         switch (opt) {
+            case 'p':
+                preserve = 1;
+                break;
+            case 'a':
+                preserve = 1;
+                recursive = 1;
+                break;
             case 'X':
                 xfer_str = optarg;
                 break;
@@ -142,6 +156,10 @@ main(int argc, char **argv) {
                 exit(1);
         }
     }
+
+    if (preserve)
+       old_env = getenv("AXL_COPY_METADATA");
+
     args_left = argc - optind;
 
     /* Did they specify source(s) and destination? */
@@ -191,6 +209,9 @@ main(int argc, char **argv) {
     } else {
         xfer = AXL_XFER_SYNC;
     }
+
+    if (preserve)
+        setenv("AXL_COPY_METADATA", "1", 1);
 
     rc = AXL_Init_comm(state_file, comm);
     if (rc != AXL_SUCCESS) {
@@ -266,6 +287,9 @@ main(int argc, char **argv) {
         MPI_Finalize();
         return rc;
     }
+
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
 
     MPI_Finalize();
 
