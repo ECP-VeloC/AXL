@@ -6,9 +6,11 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <stdlib.h>
 #include "axl.h"
 
 int id = -1;
+char *old_env = NULL;
 
 /* Return 1 if path is a directory */
 static int
@@ -51,9 +53,11 @@ axl_xfer_str_to_xfer(const char *xfer_str)
 static void
 usage(void)
 {
-    printf("Usage: axl_cp [-r|-R] [-X xfer_type] SOURCE DEST\n");
-    printf("       axl_cp [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
+    printf("Usage: axl_cp [-ap] [-r|-R] [-X xfer_type] SOURCE DEST\n");
+    printf("       axl_cp [-ap] [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
     printf("\n");
+    printf("-a:             Archive mode.  Preserve permissions + times + recursive.  Implies -pr\n");
+    printf("-p:             Preserve permissions + times.\n");
     printf("-r|-R:          Copy directories recursively\n");
     printf("-X xfer_type:   AXL transfer type:  default native pthread sync dw bbapi cppr\n");
     printf("\n");
@@ -86,6 +90,9 @@ void sig_func(int signum)
         exit(rc);
     }
 
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
+
     exit(AXL_SUCCESS);
 }
 
@@ -107,9 +114,17 @@ main(int argc, char **argv) {
     action.sa_handler = sig_func;
     sigaction(SIGTERM, &action, NULL);
     char *state_file = NULL;
+    int preserve = 0;
 
-    while ((opt = getopt(argc, argv, "rRSX:")) != -1) {
+    while ((opt = getopt(argc, argv, "aprRSX:")) != -1) {
         switch (opt) {
+            case 'p':
+                preserve = 1;
+                break;
+            case 'a':
+                preserve = 1;
+                recursive = 1;
+                break;
             case 'X':
                 xfer_str = optarg;
                 break;
@@ -125,6 +140,10 @@ main(int argc, char **argv) {
                 exit(1);
         }
     }
+
+    if (preserve)
+       old_env = getenv("AXL_COPY_METADATA");
+
     args_left = argc - optind;
 
     /* Did they specify source(s) and destination? */
@@ -162,6 +181,9 @@ main(int argc, char **argv) {
     } else {
         xfer = AXL_XFER_SYNC;
     }
+
+    if (preserve)
+        setenv("AXL_COPY_METADATA", "1", 1);
 
     rc = AXL_Init(state_file);
     if (rc != AXL_SUCCESS) {
@@ -211,6 +233,9 @@ main(int argc, char **argv) {
         printf("AXL_Finalize() failed (error %d)\n", rc);
         return rc;
     }
+
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
 
     return AXL_SUCCESS;
 }
