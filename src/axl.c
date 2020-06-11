@@ -845,18 +845,26 @@ int AXL_Stop ()
     int* ids;
     kvtree_list_int(ids_hash, &numids, &ids);
 
-    /* cancel and free each active id */
+    /* cancel each active id */
     int i;
     for (i = 0; i < numids; i++) {
-        /* get id for this transfer */
         int id = ids[i];
-
-        /* cancel it */
         if (AXL_Cancel(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
+    }
 
-        /* and free it */
+    /* wait */
+    for (i = 0; i < numids; i++) {
+        int id = ids[i];
+        if (AXL_Wait(id) != AXL_SUCCESS) {
+            rc = AXL_FAILURE;
+        }
+    }
+
+    /* and free it */
+    for (i = 0; i < numids; i++) {
+        int id = ids[i];
         if (AXL_Free(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
