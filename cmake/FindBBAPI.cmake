@@ -1,8 +1,8 @@
 # - Try to find libbbAPI
 # Once done this will define
-#  BBAPI_FOUND - System has libdatawarp
-#  BBAPI_INCLUDE_DIRS - The libdatawarp include directories
-#  BBAPI_LIBRARIES - The libraries needed to use libdatawarp
+#  BBAPI_FOUND - System has libbbAPI
+#  BBAPI_INCLUDE_DIRS - The libbbAPI include directories
+#  BBAPI_LIBRARIES - The libraries needed to use libbbAPI
 
 FIND_PATH(WITH_BBAPI_PREFIX
     NAMES include/bbapi.h
