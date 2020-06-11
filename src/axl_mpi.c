@@ -279,7 +279,19 @@ int AXL_Dispatch_comm (
     if (! axl_alltrue(rc == AXL_SUCCESS, comm)) {
         /* someone failed, so everyone fails */
 
-        /* TODO: if dispatch succeeded what should we cancel and wait? */
+        /* TODO: do we have another option than cancel/wait? */
+        /* If dispatch succeeded on this process, cancel and wait.
+         * This is ugly but necessary since the caller will free
+         * the handle when we return, since we're telling the caller
+         * that the collective dispatch failed.  The handle needs
+         * to be in a state that can be freed. */
+        if (rc == AXL_SUCCESS) {
+            AXL_Cancel(id);
+            AXL_Wait(id);
+
+            /* TODO: should we also delete files,
+             * since they may have already been transferred? */
+        }
 
         /* return failure to everyone */
         rc = AXL_FAILURE;
