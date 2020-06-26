@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -308,6 +309,101 @@ int AXL_Finalize (void)
 
     return rc;
 }
+
+
+/** Set a AXL config parameters */
+int AXL_Config(const kvtree* config)
+{
+  int retval = AXL_SUCCESS;
+
+  static int configured = 0;
+  static const char* known_options[] = {
+    AXL_KEY_CONFIG_FLUSH_ASYNC_BW,
+    AXL_KEY_CONFIG_FLUSH_ASYNC_PERCENT,
+    AXL_KEY_CONFIG_FILE_BUF_SIZE,
+    AXL_KEY_CONFIG_CRC_ON_FLUSH,
+    AXL_KEY_CONFIG_DEBUG,
+    AXL_KEY_CONFIG_MKDIR,
+    AXL_KEY_CONFIG_COPY_METADATA,
+    NULL
+  };
+
+  if (!configured)
+  {
+    if (config != NULL)
+    {
+      const kvtree_elem* elem;
+
+      /* dummy variables for options not actually supported (anymore) */
+      double axl_flush_async_bw = 0.0;
+      double axl_flush_async_percent = 0.0;
+      int axl_crc_on_flush = 1;
+
+      /* read out all options we know about */
+      /* TODO: this could be turned into a list of structs */
+      kvtree_util_get_double(config, AXL_KEY_CONFIG_FLUSH_ASYNC_BW,
+                             &axl_flush_async_bw);
+      kvtree_util_get_double(config, AXL_KEY_CONFIG_FLUSH_ASYNC_PERCENT,
+                             &axl_flush_async_percent);
+      kvtree_util_get_bytecount(config, AXL_KEY_CONFIG_FILE_BUF_SIZE,
+                                &axl_file_buf_size);
+      kvtree_util_get_int(config, AXL_KEY_CONFIG_CRC_ON_FLUSH,
+                          &axl_crc_on_flush);
+      kvtree_util_get_int(config, AXL_KEY_CONFIG_DEBUG, &axl_debug);
+      kvtree_util_get_int(config, AXL_KEY_CONFIG_MKDIR, &axl_make_directories);
+      kvtree_util_get_int(config, AXL_KEY_CONFIG_COPY_METADATA,
+                          &axl_copy_metadata);
+
+      /* report all unknown options (typos?) */
+      for (elem = kvtree_elem_first(config); elem ;
+           elem = kvtree_elem_next(elem))
+      {
+        /* must be only one level deep, ie plain kev = value */
+        {
+          const kvtree* elem_hash = kvtree_elem_hash(elem);
+          assert(kvtree_size(elem_hash) == 1);
+          {
+            const kvtree* kvtree_first_elem_hash =
+              kvtree_elem_hash(kvtree_elem_first(elem_hash));
+            assert(kvtree_size(kvtree_first_elem_hash) == 0);
+          }
+        }
+        /* check against known options */
+        {
+          const char** opt;
+          int found = 0;
+          for (opt = known_options; opt; opt++)
+          {
+            if (strcmp(*opt, kvtree_elem_key(elem)) == 0)
+            {
+              found = 1;
+              break;
+            }
+          }
+          if (!found)
+          {
+            fprintf(stderr,
+                    "Unknown configuration parameter '%s' with value '%s'\n",
+                    kvtree_elem_key(elem),
+                    kvtree_elem_key(kvtree_elem_first(kvtree_elem_hash(elem))));
+            retval = AXL_FAILURE;
+          }
+        }
+      }
+    }
+
+    /* only accept configuration options once */
+    configured = 1;
+  }
+  else
+  {
+    fprintf(stderr, "Already configured\n");
+    retval = AXL_FAILURE;
+  }
+
+  return retval;
+}
+
 
 /* Create a transfer handle (used for 0+ files)
  * Type specifies a particular method to use

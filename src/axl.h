@@ -1,6 +1,8 @@
 #ifndef AXL_H
 #define AXL_H
 
+#include "kvtree.h"
+
 /* enable C++ codes to include this header directly */
 #ifdef __cplusplus
 extern "C" {
@@ -23,6 +25,15 @@ extern "C" {
 /** \file axl.h
  *  \ingroup axl
  *  \brief asynchronous transfer library */
+
+/** AXL configuration options */
+#define AXL_KEY_CONFIG_FLUSH_ASYNC_BW "FLUSH_ASYNC_BW" /* UNUSED */
+#define AXL_KEY_CONFIG_FLUSH_ASYNC_PERCENT "FLUSH_ASYNC_PERCENT" /* UNUSED */
+#define AXL_KEY_CONFIG_FILE_BUF_SIZE "FILE_BUF_SIZE"
+#define AXL_KEY_CONFIG_CRC_ON_FLUSH "CRC_ON_FLUSH" /* UNUSED */
+#define AXL_KEY_CONFIG_DEBUG "DEBUG"
+#define AXL_KEY_CONFIG_MKDIR "MKDIR"
+#define AXL_KEY_CONFIG_COPY_METADATA "COPY_METADATA"
 
 /** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
@@ -81,6 +92,11 @@ int AXL_Finalize (void);
 #define AXL_Create(type, name, ...) \
         __AXL_Create(type, name, GET_ARG0(__VA_ARGS__))
 int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
+
+/** Configure AXL options */
+int AXL_Config(
+  const kvtree* config        /** [IN] - kvtree of options */
+);
 
 /** Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
