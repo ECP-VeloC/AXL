@@ -188,7 +188,7 @@ int axl_open(const char* file, int flags, ...)
 }
 
 /* reliable read from file descriptor (retries, if necessary, until hard error) */
-ssize_t axl_read(const char* file, int fd, void* buf, size_t size)
+ssize_t axl_read(const char* file, int fd, void* buf, unsigned long size)
 {
     ssize_t n = 0;
     int retries = 10;
@@ -225,7 +225,7 @@ ssize_t axl_read(const char* file, int fd, void* buf, size_t size)
 }
 
 /* make a good attempt to read from file (retries, if necessary, return error if fail) */
-ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size)
+ssize_t axl_read_attempt(const char* file, int fd, void* buf, unsigned long size)
 {
     ssize_t n = 0;
     int retries = 10;
@@ -263,7 +263,7 @@ ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size)
 
 
 /* make a good attempt to write to file (retries, if necessary, return error if fail) */
-ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size)
+ssize_t axl_write_attempt(const char* file, int fd, const void* buf, unsigned long size)
 {
     ssize_t n = 0;
     int retries = 10;
@@ -531,6 +531,7 @@ int axl_file_copy(
     const char* src_file,
     const char* dst_file,
     unsigned long buf_size,
+    int copy_metadata,
     int resume)
 {
     /* check that we got something for a source file */
@@ -588,7 +589,7 @@ int axl_file_copy(
     /* allocate buffer to read in file chunks */
     char* buf = (char*) malloc(buf_size);
     if (buf == NULL) {
-        AXL_ERR("Allocating memory: malloc(%llu) errno=%d %s",
+        AXL_ERR("Allocating memory: malloc(%lu) errno=%d %s",
             buf_size, errno, strerror(errno)
         );
         axl_close(dst_file, dst_fd);
@@ -666,7 +667,7 @@ int axl_file_copy(
     if (rc == AXL_SUCCESS) {
         /* succeeded in copying the file, now copy uid/gid,
          * permissions, and timestamps */
-        if (axl_copy_metadata) {
+        if (copy_metadata) {
             kvtree* meta = kvtree_new();
             axl_meta_encode(src_file, meta);
             axl_meta_apply(dst_file, meta);

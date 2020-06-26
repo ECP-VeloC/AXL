@@ -24,6 +24,12 @@ extern "C" {
  *  \ingroup axl
  *  \brief asynchronous transfer library */
 
+/** AXL configuration options */
+#define AXL_KEY_CONFIG_FILE_BUF_SIZE "FILE_BUF_SIZE"
+#define AXL_KEY_CONFIG_DEBUG "DEBUG"
+#define AXL_KEY_CONFIG_MKDIR "MKDIR"
+#define AXL_KEY_CONFIG_COPY_METADATA "COPY_METADATA"
+
 /** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
@@ -81,6 +87,23 @@ int AXL_Finalize (void);
 #define AXL_Create(type, name, ...) \
         __AXL_Create(type, name, GET_ARG0(__VA_ARGS__))
 int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
+
+/**
+ * Get/set AXL configuration values.
+ *
+ * config: The new configuration.  Global variables are in top level of
+ *              the tree, and per-ID values are subtrees.  If config=NULL,
+ *              then return a kvtree with all the configuration values (globals
+ *              and all per-ID trees).
+ *
+ * Return value: If config != NULL, then return config on success.  If
+ *                      config=NULL (you're querying the config) then return
+ *                      a new kvtree on success.  Return NULL on any failures.
+ */
+typedef struct kvtree_struct kvtree;
+kvtree* AXL_Config(
+  const kvtree* config        /** [IN] - kvtree of options */
+);
 
 /** Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);

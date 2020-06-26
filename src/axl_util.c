@@ -10,7 +10,7 @@
 
 #include "axl_internal.h"
 
-size_t axl_file_buf_size;
+unsigned long axl_file_buf_size;
 
 /* returns the current linux timestamp (secs + usecs since epoch) as a double */
 double axl_seconds()
