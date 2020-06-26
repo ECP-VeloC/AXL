@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -245,7 +246,7 @@ int __AXL_Init (const char* state_file)
     int rc = AXL_SUCCESS;
 
     /* TODO: set these by config file */
-    axl_file_buf_size = (size_t) 1048576;
+    axl_file_buf_size = (unsigned long) 1048576;
 
     /* initialize our debug level for filtering AXL_DBG messages */
     axl_debug = 0;
@@ -308,6 +309,236 @@ int AXL_Finalize (void)
 
     return rc;
 }
+
+/** Actual function to set config parameters */
+static kvtree* AXL_Config_Set(const kvtree* config)
+{
+    assert(config != NULL);
+
+    kvtree* retval = (kvtree*)(config);
+
+    static const char* known_global_options[] = {
+        AXL_KEY_CONFIG_FILE_BUF_SIZE,
+        AXL_KEY_CONFIG_DEBUG,
+        AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_COPY_METADATA,
+        NULL
+    };
+    static const char* known_transfer_options[] = {
+        AXL_KEY_CONFIG_FILE_BUF_SIZE,
+        AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_COPY_METADATA,
+        NULL
+    };
+
+    /* global options */
+    /* TODO: this could be turned into a list of structs */
+   kvtree_util_get_bytecount(config, AXL_KEY_CONFIG_FILE_BUF_SIZE,
+                             &axl_file_buf_size);
+
+    kvtree_util_get_int(config, AXL_KEY_CONFIG_DEBUG, &axl_debug);
+
+    kvtree_util_get_int(config, AXL_KEY_CONFIG_MKDIR, &axl_make_directories);
+
+    kvtree_util_get_int(config, AXL_KEY_CONFIG_COPY_METADATA,
+        &axl_copy_metadata);
+
+    /* check for local options inside an "id" subkey */
+    kvtree* ids = kvtree_get(config, "id");
+    if (ids != NULL) {
+        const kvtree_elem* elem;
+        for (elem = kvtree_elem_first(ids); elem != NULL && retval != NULL;
+             elem = kvtree_elem_next(elem))
+        {
+            const char* key = kvtree_elem_key(elem);
+            char* endptr;
+            long id = strtol(key, &endptr, 10);
+            if ((*key == '\0' || *endptr != '\0') ||
+                (id < 0 || id >= axl_kvtrees_count)) {
+                retval = NULL;
+                break;
+            }
+            kvtree* local_config = kvtree_elem_hash(elem);
+            if (local_config == NULL) {
+                retval = NULL;
+                break;
+            }
+
+            /* this should be protected by a mutex_lock to prevent issues with
+             * realloc() moving memory when growing axl_kvtrees, but no one else
+             * does ... */
+            kvtree* file_list = axl_kvtrees[id];
+
+            const char** opt;
+            for (opt = known_transfer_options; *opt != NULL; opt++) {
+                const char* val = kvtree_get_val(local_config, *opt);
+                if (val != NULL) {
+                    /* this is (annoyingly) non-atomic so could leave file_list in
+                     * a strange state if malloc() fails at the wrong time.
+                     * Using kvtree_merge with a temporary tree does not seem to be any
+                     * better though */
+                    if (kvtree_util_set_str(file_list, *opt, val) != KVTREE_SUCCESS) {
+                        retval = NULL;
+                        break;
+                    }
+                }
+            }
+
+            /* report all unknown options (typos?) */
+            /* TODO: move into a function, is used twice (well almost, differs in
+             * whether "id" is acceptable */
+            const kvtree_elem* local_elem;
+            for (local_elem = kvtree_elem_first(local_config);
+                 local_elem != NULL;
+                 local_elem = kvtree_elem_next(local_elem))
+            {
+                /* must be only one level deep, ie plain kev = value */
+                const kvtree* elem_hash = kvtree_elem_hash(local_elem);
+                assert(kvtree_size(elem_hash) == 1);
+
+                const kvtree* kvtree_first_elem_hash =
+                  kvtree_elem_hash(kvtree_elem_first(elem_hash));
+                assert(kvtree_size(kvtree_first_elem_hash) == 0);
+
+                /* check against known options */
+                const char** opt;
+                int found = 0;
+                for (opt = known_transfer_options; *opt != NULL; opt++) {
+                    if (strcmp(*opt, kvtree_elem_key(local_elem)) == 0) {
+                        found = 1;
+                        break;
+                    }
+                }
+                if (! found) {
+                    AXL_ERR("Unknown configuration parameter '%s' with value '%s'",
+                      kvtree_elem_key(local_elem),
+                      kvtree_elem_key(kvtree_elem_first(kvtree_elem_hash(local_elem)))
+                    );
+                    retval = NULL;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* report all unknown options (typos?) */
+    const kvtree_elem* elem;
+    for (elem = kvtree_elem_first(config);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
+        const char* key = kvtree_elem_key(elem);
+        if (strcmp("id", key) == 0)
+            continue;
+
+        /* must be only one level deep, ie plain kev = value */
+        const kvtree* elem_hash = kvtree_elem_hash(elem);
+        assert(kvtree_size(elem_hash) == 1);
+
+        const kvtree* kvtree_first_elem_hash =
+          kvtree_elem_hash(kvtree_elem_first(elem_hash));
+        assert(kvtree_size(kvtree_first_elem_hash) == 0);
+
+        /* check against known options */
+        const char** opt;
+        int found = 0;
+        for (opt = known_global_options; *opt != NULL; opt++) {
+            if (strcmp(*opt, key) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        if (! found) {
+            AXL_ERR("Unknown configuration parameter '%s' with value '%s'",
+              key, kvtree_elem_key(kvtree_elem_first(kvtree_elem_hash(elem)))
+            );
+            retval = NULL;
+        }
+    }
+
+    return retval;
+}
+
+/** Actual function to get config parameters */
+static kvtree* AXL_Config_Get()
+{
+    kvtree* config = kvtree_new();
+    assert(config != NULL);
+
+    static const char* known_options[] = {
+        AXL_KEY_CONFIG_FILE_BUF_SIZE,
+        AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_COPY_METADATA,
+        NULL
+    };
+
+    int success = 1; /* all values could be set? */
+
+    /* global options */
+    success &= kvtree_util_set_bytecount(config,
+                                         AXL_KEY_CONFIG_FILE_BUF_SIZE,
+                                         axl_file_buf_size)
+                 == KVTREE_SUCCESS;
+    success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_DEBUG, axl_debug)
+                 == KVTREE_SUCCESS;
+    success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_MKDIR,
+                                   axl_make_directories) == KVTREE_SUCCESS;
+    success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_COPY_METADATA,
+                                   axl_copy_metadata) == KVTREE_SUCCESS;
+
+    /* per transfer options */
+    /* this should be protected by a mutex_lock to prevent issues with
+     * realloc() moving memory when growing axl_kvtrees, but no one else
+     * does ... */
+    int id;
+    for (id = 0; id < axl_kvtrees_count; id++) {
+        kvtree* file_list = axl_kvtrees[id];
+        /* TODO: check if it would be better to return an empty hash instead */
+        if (file_list == NULL)
+            continue;
+
+        kvtree* new = kvtree_set_kv_int(config, "id", id);
+        if (new == NULL) {
+            success = 0;
+            break;
+        }
+        /* get all known options */
+        const char** opt;
+        for (opt = known_options; *opt != NULL; opt++) {
+            const char* val = kvtree_get_val(file_list, *opt);
+            if (val != NULL) {
+                /* this is (annoyingly) non-atomic so could leave new in
+                 * a strange state if malloc() fails at the wrong time.
+                 * Using kvtree_merge with a temporary tree does not seem to be any
+                 * better though */
+                if (kvtree_util_set_str(new, *opt, val) != KVTREE_SUCCESS) {
+                    success = 0;
+                    break;
+                }
+            } else {
+                /* these options must exist, if not something is wrong */
+                success = 0;
+                break;
+            }
+        }
+    }
+    if (!success) {
+        kvtree_delete(&config);
+    }
+
+    return config;
+}
+
+/** Set a AXL config parameters */
+kvtree* AXL_Config(const kvtree* config)
+{
+    if (config != NULL) {
+        return AXL_Config_Set(config);
+    } else {
+        return AXL_Config_Get();
+    }
+}
+
 
 /* Create a transfer handle (used for 0+ files)
  * Type specifies a particular method to use
@@ -372,6 +603,21 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
         kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
+
+        /* options */
+        /* TODO: handle return code of kvtree_util_set_XXX */
+        /* TODO: handle differnces between size_t and unsigned long */
+        kvtree_util_set_bytecount(file_list,
+                                  AXL_KEY_CONFIG_FILE_BUF_SIZE,
+                                  axl_file_buf_size);
+        /* a per transfer debug value is not currently supported
+        success &= kvtree_util_set_int(file_list, AXL_KEY_CONFIG_DEBUG, axl_debug)
+                     == KVTREE_SUCCESS;
+        */
+        kvtree_util_set_int(file_list, AXL_KEY_CONFIG_MKDIR,
+                            axl_make_directories);
+        kvtree_util_set_int(file_list, AXL_KEY_CONFIG_COPY_METADATA,
+                            axl_copy_metadata);
     }
 
     /* create a structure based on transfer type */
@@ -697,8 +943,13 @@ int __AXL_Dispatch (int id, int resume)
 
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
+    int make_directories;
+    int success = kvtree_util_get_int(file_list, AXL_KEY_CONFIG_MKDIR,
+                                      &make_directories);
+    assert(success == KVTREE_SUCCESS);
+
     /* create destination directories for each file */
-    if (axl_make_directories) {
+    if (make_directories) {
         while ((elem = axl_get_next_path(id, elem, NULL, &dest))) {
             char* dest_path = strdup(dest);
             char* dest_dir = dirname(dest_path);

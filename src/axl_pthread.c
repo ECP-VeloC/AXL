@@ -205,8 +205,25 @@ static void* axl_pthread_func(void* arg)
         char* dst = NULL;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst);
 
+        int success;
+        /* TODO: check bytecount conversion success, do not use global
+         * axl_kvtrees to get file_list */
+        unsigned long file_buf_size;
+        /* this should be protected by a mutex_lock to prevent issues with
+         * realloc() moving memory when growing axl_kvtrees, but no one else
+         * does ... */
+        const kvtree* file_list = axl_kvtrees[pdata->id];
+        success = kvtree_util_get_bytecount(file_list,
+                                            AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
+        assert(success == KVTREE_SUCCESS);
+
+        int copy_metadata;
+        success = kvtree_util_get_int(file_list, AXL_KEY_CONFIG_COPY_METADATA,
+                                      &copy_metadata);
+        assert(success == KVTREE_SUCCESS);
+
         /* Copy the file from soruce to destination */
-        int rc = axl_file_copy(src, dst, axl_file_buf_size, pdata->resume);
+        int rc = axl_file_copy(src, dst, file_buf_size, copy_metadata, pdata->resume);
         AXL_DBG(2, "%s: Read and copied %s to %s, rc %d",
             __func__, src, dst, rc);
 

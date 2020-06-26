@@ -17,7 +17,7 @@
 /*
  * A list of pointers to kvtrees, indexed by AXL ID.
  */
-kvtree** axl_kvtrees;
+extern kvtree** axl_kvtrees;
 
 /* current debug level for AXL library,
  * set in AXL_Init used in axl_dbg */
@@ -103,19 +103,20 @@ int axl_open(const char* file, int flags, ...);
 int axl_close(const char* file, int fd);
 
 /* reliable read from opened file descriptor (retries, if necessary, until hard error) */
-ssize_t axl_read(const char* file, int fd, void* buf, size_t size);
+ssize_t axl_read(const char* file, int fd, void* buf, unsigned long size);
 
 /* make a good attempt to read to file (retries, if necessary, return error if fail) */
-ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size);
+ssize_t axl_read_attempt(const char* file, int fd, void* buf, unsigned long size);
 
 /* make a good attempt to write to file (retries, if necessary, return error if fail) */
-ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size);
+ssize_t axl_write_attempt(const char* file, int fd, const void* buf, unsigned long size);
 
 /* copy a file from src to dst */
 int axl_file_copy(
     const char* src_file,
     const char* dst_file,
     unsigned long buf_size,
+    int copy_metadata,
     int resume
 );
 
@@ -134,7 +135,7 @@ axl_util.c functions
 /* returns the current linux timestamp (secs + usecs since epoch) as a double */
 double axl_seconds();
 
-extern size_t axl_file_buf_size;
+extern unsigned long axl_file_buf_size;
 
 int axl_compare_files_or_dirs(char *path1, char *path2);
 
