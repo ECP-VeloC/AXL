@@ -1,5 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+
 #include <sys/time.h>
 
 #include "axl_internal.h"
@@ -30,6 +36,60 @@ void axl_free(void* p) {
         *(void**)p = NULL;
     }
 }
+
+/* Clone of apsrintf().  See the standard asprintf() man page for details */
+int asprintf(char** strp, const char* fmt, ...)
+{
+    /*
+     * This code is taken from the vmalloc(3) man page and modified slightly.
+     */
+    int n;
+    int size = 100;     /* Guess we need no more than 100 bytes */
+    char* p;
+    char* np;
+    va_list ap;
+
+    p = malloc(size);
+    if (p == NULL) {
+        *strp = NULL;
+        return -ENOMEM;
+    }
+
+    while (1) {
+        /* Try to print in the allocated space */
+
+        va_start(ap, fmt);
+        n = vsnprintf(p, size, fmt, ap);
+        va_end(ap);
+
+        /* Check error code */
+
+        if (n < 0) {
+            *strp = NULL;
+            return -1;
+        }
+
+        /* If that worked, return the string */
+        if (n < size) {
+            *strp = p;
+            return n;
+        }
+
+        /* Else try again with more space */
+
+        size = n + 1;       /* Precisely what is needed */
+
+        np = realloc(p, size);
+        if (np == NULL) {
+            *strp = NULL;
+            free(p);
+            return -ENOMEM;
+        } else {
+            p = np;
+        }
+    }
+}
+
 
 /*
  * This is an helper function to iterate though a file list for a given
