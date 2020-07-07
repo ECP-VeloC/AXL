@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <stdint.h>
 #include "axl_internal.h"
 #include "axl_async_bbapi.h"
 #include "axl_pthread.h"
@@ -283,6 +284,29 @@ int axl_async_create_bbapi(int id) {
     kvtree_util_set_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
 
     return bb_check(rc);
+#endif
+    return AXL_FAILURE;
+}
+
+/*
+ * Return the BBTransferHandle_t (which is just a uint64_t) for a given AXL id.
+ *
+ * You can only call this function after axl_async_create_bbapi(id) has been
+ * called.
+ *
+ * Returns 0 on success, 1 on error.  On success, thandle contains the transfer
+ * handle value.
+ */
+int axl_async_get_bbapi_handle(int id, uint64_t *thandle)
+{
+#ifdef HAVE_BBAPI
+    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+
+    if (kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE,
+        thandle) != KVTREE_SUCCESS)
+            return 1;
+
+    return 0;
 #endif
     return AXL_FAILURE;
 }

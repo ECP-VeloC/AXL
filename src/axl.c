@@ -44,6 +44,9 @@ typedef enum {
     AXL_XFER_STATE_CANCELED,   /* transfer was AXL_Cancel'd */
 } axl_xfer_state_t;
 
+/* Temporary extension added onto files while they're being transferred. */
+#define AXL_EXTENSION "._AXL"
+
 /*
 =========================================
 Global Variables
@@ -332,6 +335,23 @@ static int path_type(const char *path) {
 }
 
 /*
+ * Given a path name to a file ('path'), add on an extra AXL temporary extension
+ * in the form of: path._AXL[extra].  So if path = '/tmp/file1' and
+ * extra = "1234", then the new name is /tmp/file1._AXL1234.  The new name is
+ * allocated and returned as a new string (which must be freed).
+ *
+ * 'extra' can be optionally used to store additional information about the
+ * transfer, such as the BB API transfer handle number, or it can be left NULL.
+ */
+static char * axl_add_extension(const char *path, const char *extra)
+{
+    char *tmp = NULL;
+    asprintf(&tmp, "%s%s%s", path, AXL_EXTENSION, extra ? extra : "");
+    return tmp;
+}
+
+
+/*
  * Add a file to an existing transfer handle.  No directories.
  *
  * If the file's destination path doesn't exist, then automatically create the
@@ -341,6 +361,8 @@ static int
 __AXL_Add (int id, const char* src, const char* dest)
 {
     kvtree* file_list = NULL;
+    char *newdest = NULL;
+    char *extra = NULL;
 
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
@@ -365,7 +387,32 @@ __AXL_Add (int id, const char* src, const char* dest)
      *         STATUS
      *           SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, src);
-    kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, dest);
+
+#ifdef HAVE_BBAPI
+    /*
+     * Special case: For BB API we includes the transfer handle in the temporary
+     * file extension.  That way, we can later use it to lookup the transfer
+     * handle for old transfers and cancel them.
+     */
+    if (xtype == AXL_XFER_ASYNC_BBAPI) {
+        uint64_t thandle;
+        if (axl_async_get_bbapi_handle(id, &thandle) !=0 ) {
+            AXL_ERR("Couldn't get BB API transfer handle");
+            return AXL_FAILURE;
+        }
+
+        asprintf(&extra, "%lu", thandle);
+    }
+#endif
+
+    newdest = axl_add_extension(dest, extra);
+
+#ifdef HAVE_BBAPI
+    free(extra);
+#endif
+
+    kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, newdest);
+    free(newdest);
     kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* add file to transfer data structure, depending on its type */
@@ -610,6 +657,74 @@ int AXL_Dispatch (int id)
     return rc;
 }
 
+/*
+ * Given a path with an AXL temporary extension, allocate an return a new
+ * string with the extension removed.  Also, if extra is specified, return
+ * a pointer to the offset in 'path_with_extension' where the 'extra' field
+ * is.
+ *
+ * Returns the new allocated path string on success, or NULL on error.
+ */
+static char * axl_remove_extension(char *path_with_extension, char **extra)
+{
+    int i;
+    size_t size = strlen(path_with_extension);
+    char *ext = AXL_EXTENSION;
+    size_t ext_len = sizeof(AXL_EXTENSION) - 1; /* -1 for '\0' */
+
+    /* path should at the very least be a one char file name + extension */
+    if (size < 1 + ext_len) {
+        return NULL;
+    }
+
+    /*
+     * Look backwards from the end of the string for the start of the
+     * extension.
+     */
+    for (i = size - ext_len; i >= 0; i--) {
+        if (memcmp(&path_with_extension[i], ext, strlen(AXL_EXTENSION)) == 0) {
+            /* Match! */
+            if (extra)
+                *extra = &path_with_extension[i] + ext_len;
+            return strndup(path_with_extension, i);
+        }
+    }
+    return NULL;
+}
+
+/*
+ * When you do an AXL transfer, it actually transfers to a temporary file
+ * behind the scenes.  It's only after the transfer is finished that the file
+ * is renamed to its final name.
+ *
+ * This function renames all the temporary files to their final names.  We
+ * assume you're calling this after all the transfers have been successfully
+ * transferred.
+ *
+ * TODO: Make the file renames multithreaded
+ */
+static void axl_rename_files_to_final_names(int id)
+{
+    char *dst;
+    kvtree_elem *elem = NULL;
+    char *newdst;
+    char *extra;
+
+    while ((elem = axl_get_next_path(id, elem, NULL, &dst))) {
+        extra = NULL;
+        newdst = NULL;
+        newdst = axl_remove_extension(dst, &extra);
+        if (!newdst) {
+            AXL_ERR("Couldn't remove extension, this shouldn't happen");
+            /* Nothing we can do... */
+            free(newdst);
+            continue;
+        }
+        rename(dst, newdst);
+        free(newdst);
+    }
+}
+
 /* Test if a transfer has completed
  * Returns AXL_SUCCESS if the transfer has completed */
 int AXL_Test (int id)
@@ -618,6 +733,8 @@ int AXL_Test (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    int rc;
+
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -632,7 +749,8 @@ int AXL_Test (int id)
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
     if (status == AXL_STATUS_DEST) {
-        return AXL_SUCCESS;
+        rc = AXL_SUCCESS;
+        goto end;
     } else if (status == AXL_STATUS_ERROR) {
         /* we return success since it's done, even on error,
          * caller must call wait to determine whether it was successful */
@@ -642,7 +760,7 @@ int AXL_Test (int id)
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
-    int rc = AXL_SUCCESS;
+    rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_test(id);
@@ -665,6 +783,12 @@ int AXL_Test (int id)
         break;
     }
 
+end:
+
+    if (rc == AXL_SUCCESS) {
+        axl_rename_files_to_final_names(id);
+    }
+
     return rc;
 }
 
@@ -676,6 +800,8 @@ int AXL_Wait (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
+    int rc;
+
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -694,7 +820,8 @@ int AXL_Wait (int id)
 
     if (status == AXL_STATUS_DEST) {
         kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
-        return AXL_SUCCESS;
+        rc = AXL_SUCCESS;
+        goto end;
     } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
     } else if (status == AXL_STATUS_SOURCE) {
@@ -703,7 +830,7 @@ int AXL_Wait (int id)
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
     /* if not done, call vendor API to wait */
-    int rc = AXL_SUCCESS;
+    rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_wait(id);
@@ -725,6 +852,12 @@ int AXL_Wait (int id)
         rc = AXL_FAILURE;
         break;
     }
+
+end:
+    if (rc == AXL_SUCCESS) {
+        axl_rename_files_to_final_names(id);
+    }
+
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
     /* write data to file if we have one */

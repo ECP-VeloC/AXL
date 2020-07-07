@@ -5,6 +5,8 @@
 #include "config.h"
 
 #include <zlib.h>
+#include <stdarg.h>
+
 #include "kvtree.h"
 #include "kvtree_util.h"
 
@@ -149,6 +151,9 @@ void axl_free(void* p);
  */
 kvtree_elem * axl_get_next_path(int id, kvtree_elem *elem, char **src,
     char **dst);
+
+/* Clone of apsrintf().  See the standard asprintf() man page for details */
+int asprintf(char** strp, const char* fmt, ...);
 
 /* given a source file, record its current uid/gid, permissions,
  * and timestamps, record them in provided kvtree */
