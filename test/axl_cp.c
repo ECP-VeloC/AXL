@@ -53,12 +53,13 @@ axl_xfer_str_to_xfer(const char *xfer_str)
 static void
 usage(void)
 {
-    printf("Usage: axl_cp [-ap] [-r|-R] [-X xfer_type] SOURCE DEST\n");
-    printf("       axl_cp [-ap] [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
+    printf("Usage: axl_cp [-apU] [-r|-R] [-S state_file] [-X xfer_type] SOURCE DEST\n");
+    printf("       axl_cp [-apU] [-r|-R] [-S state_file] [-X xfer_type] SOURCE... DIRECTORY\n");
     printf("\n");
     printf("-a:             Archive mode.  Preserve permissions + times + recursive.  Implies -pr\n");
     printf("-p:             Preserve permissions + times.\n");
     printf("-r|-R:          Copy directories recursively\n");
+    printf("-U:             Resume copies to existing destination files if they exist\n");
     printf("-X xfer_type:   AXL transfer type:  default native pthread sync dw bbapi cppr\n");
     printf("\n");
 
@@ -107,7 +108,7 @@ main(int argc, char **argv) {
     axl_xfer_t xfer;
     unsigned int src_count;
     int i;
-    int recursive = 0;
+    int recursive = 0, resume = 0;
     struct sigaction action;
 
     memset(&action, 0, sizeof(action));
@@ -116,24 +117,27 @@ main(int argc, char **argv) {
     char *state_file = NULL;
     int preserve = 0;
 
-    while ((opt = getopt(argc, argv, "aprRSX:")) != -1) {
+    while ((opt = getopt(argc, argv, "aprRS:UX:")) != -1) {
         switch (opt) {
-            case 'p':
-                preserve = 1;
-                break;
             case 'a':
                 preserve = 1;
                 recursive = 1;
                 break;
-            case 'X':
-                xfer_str = optarg;
-                break;
-            case 'S':
-                state_file = optarg;
+            case 'p':
+                preserve = 1;
                 break;
             case 'r':
             case 'R':
                 recursive = 1;
+                break;
+            case 'U':
+                resume = 1;
+                break;
+            case 'S':
+                state_file = optarg;
+                break;
+            case 'X':
+                xfer_str = optarg;
                 break;
             default: /* '?' */
                 usage();
@@ -185,33 +189,39 @@ main(int argc, char **argv) {
     if (preserve)
         setenv("AXL_COPY_METADATA", "1", 1);
 
-    rc = AXL_Init(state_file);
+    rc = AXL_Init();
     if (rc != AXL_SUCCESS) {
         printf("AXL_Init() failed (error %d)\n", rc);
         return rc;
     }
 
-    id = AXL_Create(xfer, "axl_cp");
+    id = AXL_Create(xfer, "axl_cp", state_file);
     if (id == -1) {
         printf("AXL_Create() failed (error %d)\n", id);
         return id;
     }
 
-    for (i = 0; i < src_count; i++) {
-        if (!recursive && is_dir(src[i])) {
-            printf("axl_cp: omitting directory '%s'\n", src[i]);
-            continue;
+    if (resume) {
+        rc = AXL_Resume(id);
+    } else {
+        /* Starting a new file list */
+        for (i = 0; i < src_count; i++) {
+            if (!recursive && is_dir(src[i])) {
+                printf("axl_cp: omitting directory '%s'\n", src[i]);
+                continue;
+            }
+            rc = AXL_Add(id, src[i], dest);
+            if (rc != AXL_SUCCESS) {
+                printf("AXL_Add(..., %s, %s) failed (error %d)\n", src[i], dest, rc);
+                return rc;
+            }
         }
-        rc = AXL_Add(id, src[i], dest);
-        if (rc != AXL_SUCCESS) {
-            printf("AXL_Add(..., %s, %s) failed (error %d)\n", src[i], dest, rc);
-            return rc;
-        }
+
+        rc = AXL_Dispatch(id);
     }
 
-    rc = AXL_Dispatch(id);
     if (rc != AXL_SUCCESS) {
-        printf("AXL_Dispatch() failed (error %d)\n", rc);
+        printf("AXL_Dispatch()/AXL_Resume() failed (error %d)\n", rc);
         return rc;
     }
 

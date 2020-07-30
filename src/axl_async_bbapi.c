@@ -255,7 +255,8 @@ static BBTAG axl_get_unique_tag(void)
 int axl_async_create_bbapi(int id) {
 #ifdef HAVE_BBAPI
     int rc;
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
+
     BBTAG bbtag;
 
     /* allocate a new transfer definition */
@@ -300,7 +301,7 @@ int axl_async_create_bbapi(int id) {
 int axl_async_get_bbapi_handle(int id, uint64_t *thandle)
 {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     if (kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE,
         thandle) != KVTREE_SUCCESS)
@@ -315,7 +316,7 @@ int axl_async_get_bbapi_handle(int id, uint64_t *thandle)
  * Adds file source/destination to BBTransferDef */
 int axl_async_add_bbapi (int id, const char* source, const char* dest) {
 #ifdef HAVE_BBAPI
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     /* get transfer definition for this id */
     BBTransferDef_t *tdef;
@@ -331,18 +332,31 @@ int axl_async_add_bbapi (int id, const char* source, const char* dest) {
 /* Called from AXL_Dispatch
  * Start the transfer, mark all files & set as INPROG
  * Assumes that mkdirs have already happened */
-int axl_async_start_bbapi (int id) {
+int __axl_async_start_bbapi (int id, int resume) {
 #ifdef HAVE_BBAPI
+    int old_status;
+    kvtree* file_list = axl_kvtrees[id];
+
     if (axl_bbapi_in_fallback(id)) {
         /*
          * We're in fallback mode because some of the paths we want to
          * transfer from/to are not compatible with the BBAPI transfers (like
          * if the underlying filesystem doesn't support extent).
          */
-        return axl_pthread_start(id);
+        if (resume) {
+            axl_pthread_resume(id);
+        } else {
+            axl_pthread_start(id);
+        }
     }
 
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (resume) {
+        kvtree_util_get_int(file_list, AXL_KEY_STATUS, &old_status);
+        if (old_status == AXL_STATUS_INPROG) {
+            /* Our transfers are already going.  Nothing to do */
+            return AXL_SUCCESS;
+        }
+    }
 
     /* mark this transfer as in progress */
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
@@ -391,13 +405,20 @@ int axl_async_start_bbapi (int id) {
     return AXL_FAILURE;
 }
 
+int axl_async_start_bbapi (int id) {
+    return __axl_async_start_bbapi(id, 0);
+}
+
+int axl_async_resume_bbapi (int id) {
+    return __axl_async_start_bbapi(id, 1);
+}
+
 int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_test(id);
     }
-
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     /* Get the BB-Handle to query the status */
     BBTransferHandle_t thandle;
@@ -446,11 +467,11 @@ int axl_async_test_bbapi (int id) {
 
 int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
+    kvtree* file_list = axl_kvtrees[id];
+
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_wait(id);
     }
-
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
 
     /* Sleep until test changes set status */
     int status = AXL_STATUS_INPROG;
@@ -490,7 +511,7 @@ int axl_async_cancel_bbapi (int id) {
         return axl_pthread_cancel(id);
     }
 
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     /* Get the BB-Handle to query the status */
     BBTransferHandle_t thandle;
@@ -552,7 +573,7 @@ axl_bbapi_in_fallback(int id)
 {
     int bbapi_fallback = 0;
 #ifdef HAVE_BBAPI_FALLBACK
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     if (kvtree_util_get_int(file_list, AXL_BBAPI_KEY_FALLBACK, &bbapi_fallback) !=
         KVTREE_SUCCESS) {

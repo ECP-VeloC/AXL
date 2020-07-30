@@ -113,7 +113,7 @@ axl_get_next_path(int id, kvtree_elem *elem, char **src, char **dst)
     kvtree* files;
     kvtree* elem_hash;
 
-    file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    file_list = axl_kvtrees[id];
     if (!file_list) {
         return NULL;
     }

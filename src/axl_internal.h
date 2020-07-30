@@ -6,6 +6,7 @@
 
 #include <zlib.h>
 #include <stdarg.h>
+#include "axl.h"
 
 #include "kvtree.h"
 #include "kvtree_util.h"
@@ -13,10 +14,10 @@
 #define AXL_SUCCESS (0)
 #define AXL_FAILURE (-1)
 
-/* AXL internal data structure
- * this structure is accessed by the each transfer interface
- * any changes of the existing structure must be documented */
-extern kvtree* axl_file_lists;
+/*
+ * A list of pointers to kvtrees, indexed by AXL ID.
+ */
+kvtree** axl_kvtrees;
 
 /* current debug level for AXL library,
  * set in AXL_Init used in axl_dbg */
@@ -31,7 +32,6 @@ extern int axl_copy_metadata;
 extern int axl_make_directories;
 
 /* "KEYS" */
-#define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")
 #define AXL_KEY_XFER_TYPE     ("TYPE")
 #define AXL_KEY_STATE         ("STATE")
@@ -40,6 +40,7 @@ extern int axl_make_directories;
 #define AXL_KEY_FILE_DEST     ("DEST")
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
+#define AXL_KEY_STATE_FILE    ("STATE_FILE")
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
@@ -112,7 +113,8 @@ ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size
 
 /* copy a file from src to dst and calculate CRC32 in the process
  * if crc == NULL, the CRC32 value is not computed */
-int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_size, uLong* crc);
+int axl_file_copy(const char* src_file, const char* dst_file,
+    unsigned long buf_size, uLong* crc, int resume);
 
 /* opens, reads, and computes the crc32 value for the given filename */
 int axl_crc32(const char* filename, uLong* crc);

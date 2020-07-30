@@ -20,6 +20,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <limits.h>
+
+#include <stdio.h>
 
 #include "axl_internal.h"
 
@@ -494,10 +497,33 @@ int axl_meta_apply(const char* file, const kvtree* meta)
   return rc;
 }
 
+/*
+ * Get env var AXL_DEBUG_PAUSE_AFTER and convert it to an unsigned long.
+ * This tells AXL to pause a transfer after AXL_DEBUG_PAUSE_AFTER bytes have
+ * been copied.  It's only used for test cases (like testing resuming a
+ * transfer).
+ *
+ * If the var is not set, return ULONG_MAX.
+ */
+static unsigned long axl_debug_pause_after(void)
+{
+    char* env = getenv("AXL_DEBUG_PAUSE_AFTER");
+    if (!env) {
+        return ULONG_MAX;
+    }
+    return strtoul(env, 0, 10);
+}
+
 /* TODO: could perhaps use O_DIRECT here as an optimization */
 /* TODO: could apply compression/decompression here */
 /* copy src_file (full path) to dest_path and return new full path in dest_file */
-int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_size, uLong* crc) {
+int axl_file_copy(const char* src_file, const char* dst_file,
+    unsigned long buf_size, uLong* crc, int resume) {
+    off_t start_offset;
+    int flags;
+    unsigned long total_copied = 0;
+    unsigned long pause_after = axl_debug_pause_after();
+
     /* check that we got something for a source file */
     if (src_file == NULL || strcmp(src_file, "") == 0) {
         AXL_ERR("Invalid source file");
@@ -523,7 +549,14 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
 
     /* open dest_file for writing */
     mode_t mode_file = axl_getmode(1, 1, 0);
-    int dst_fd = axl_open(dst_file, O_WRONLY | O_CREAT | O_TRUNC, mode_file);
+
+    if (resume) {
+        flags = O_WRONLY | O_CREAT | O_APPEND;
+    } else {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    }
+
+    int dst_fd = axl_open(dst_file, flags, mode_file);
     if (dst_fd < 0) {
         AXL_ERR("Opening file for writing: axl_open(%s) errno=%d %s",
                 dst_file, errno, strerror(errno)
@@ -556,6 +589,22 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
     /* initialize crc values */
     if (crc != NULL) {
         *crc = crc32(0L, Z_NULL, 0);
+    }
+
+    /* Resume the transfer to our destination file where we left off */
+    if (resume) {
+        /* Seek to the end of our destination file, while recording offset */
+        start_offset = lseek(dst_fd, 0, SEEK_END);
+
+        /* Set the src file position to the start_offset of dst file */
+        if (lseek(src_fd, start_offset, SEEK_SET) != start_offset) {
+            AXL_ERR("Couldn't seek src file errno=%d %s",
+                    errno, strerror(errno));
+            axl_free(buf);
+            axl_close(dst_file, dst_fd);
+            axl_close(src_file, src_fd);
+            return AXL_FAILURE;
+        }
     }
 
     /* write chunks */
@@ -592,6 +641,12 @@ int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_
             /* read had a problem, stop copying and return an error */
             copying = 0;
             rc = AXL_FAILURE;
+        }
+        total_copied += nread;
+
+        /* Possibly pause our transfer for unit tests */
+        if (pause_after != ULONG_MAX && total_copied >= pause_after) {
+            while(1);
         }
     }
 
