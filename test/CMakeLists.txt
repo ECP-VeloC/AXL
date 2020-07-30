@@ -23,11 +23,25 @@ ADD_TEST(sync_test test_axl.sh sync)
 ADD_TEST(pthreads_test test_axl.sh pthread)
 IF(BBAPI_FOUND)
     ADD_TEST(bbapi_test test_axl.sh bbapi)
-    ADD_TEST(bbapi_cancel_test test_axl.sh -n 1500 -c 0.5 bbapi)
+
+    # Create 300 files, cancel transfer after 3 seconds.
+    ADD_TEST(bbapi_cancel_test test_axl.sh -n 300 -c 3 bbapi)
 ENDIF(BBAPI_FOUND)
 
-# Create 1500 files (~871MB) and cancel the test 200ms into the transfer
-ADD_TEST(pthreads_cancel_test test_axl.sh -n 1500 -c 0.2 pthread)
+# Create 100 files, pause the transfer after 1000 bytes or more
+# have been written, and cancel the transfer after 1 second.
+ADD_TEST(pthreads_cancel_test test_axl.sh -n 100 -p 1000 -c 1 pthread)
+
+# Create 100 files, pause the transfer after 1000 bytes or more
+# have been written, cancel the transfer after 1 second, and resume
+# the transfer.
+ADD_TEST(sync_resume_test test_axl.sh -n 100 -p 1000 -c 1 -U sync)
+ADD_TEST(pthread_resume_test test_axl.sh -n 100 -p 1000 -c 1 -U pthread)
+IF(BBAPI_FOUND)
+    # Create 300 files, cancel transfer after 3 seconds, resume transfer.
+    # Values found through experimentation.
+    ADD_TEST(bbapi_resume_test test_axl.sh -n 300 -c 3 -U  bbapi)
+ENDIF(BBAPI_FOUND)
 
 ####################
 # make a verbose "test" target named "check"

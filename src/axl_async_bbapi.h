@@ -18,6 +18,7 @@ int axl_async_create_bbapi(int id);
 int axl_async_add_bbapi(int id, const char* source, const char* destination);
 int axl_async_get_bbapi_handle(int id, uint64_t *thandle);
 int axl_async_start_bbapi(int id);
+int axl_async_resume_bbapi(int id);
 int axl_async_test_bbapi(int id);
 int axl_async_wait_bbapi(int id);
 int axl_async_cancel_bbapi(int id);

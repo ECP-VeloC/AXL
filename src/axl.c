@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <pthread.h>
 
 /* PATH_MAX */
 #include <limits.h>
@@ -57,14 +58,85 @@ Global Variables
  * before transferring files */
 int axl_make_directories;
 
-/* AXL's flush file, SCR has one as well */
-char* axl_flush_file = NULL;
+/*
+ * Array for all the AXL_Create'd kvtree pointers.  It's indexed by the AXL id.
+ *
+ * Note: We only expand this array, we never shrink it.  This is fine since
+ * the user is only going to be calling AXL_Create() a handful of times.  It
+ * also simplifies the code if we never shrink it, and the extra memory usage
+ * is negligible, if any at all.
+ */
+kvtree** axl_kvtrees;
+static unsigned int axl_kvtrees_count = 0;
 
-/* Transfer handle unique IDs */
-static int axl_next_handle_UID = -1;
+static pthread_mutex_t id_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/* tracks list of files written with transfer */
-kvtree* axl_file_lists = NULL;
+/*
+ * Allocate a new kvtree and return the AXL ID for it.  If state_file is
+ * specified, then populate the kvtree with it's data.
+ */
+static int axl_alloc_id(const char* state_file)
+{
+    kvtree* new;
+
+    new = kvtree_new();
+    if (state_file) {
+         /* initialize kvtree values from state_file if we have one */
+        if (access(state_file, F_OK) == 0 &&
+            kvtree_read_file(state_file, new) != KVTREE_SUCCESS) {
+            AXL_ERR("Couldn't read state file correctly");
+            return -1;
+        }
+
+        kvtree_util_set_str(new, AXL_KEY_STATE_FILE, state_file);
+    }
+
+    pthread_mutex_lock(&id_lock);
+    axl_kvtrees = realloc(axl_kvtrees, sizeof(struct kvtree *) * (axl_kvtrees_count + 1));
+    axl_kvtrees[axl_kvtrees_count] = new;
+    axl_kvtrees_count++;
+    pthread_mutex_unlock(&id_lock);
+    return axl_kvtrees_count - 1;
+}
+
+/* Remove the state file for an id, if one exists */
+static void axl_remove_state_file(int id)
+{
+    kvtree* file_list = axl_kvtrees[id];
+    char* state_file = NULL;
+
+    if (kvtree_util_get_str(file_list, AXL_KEY_STATE_FILE,
+        &state_file) == KVTREE_SUCCESS) {
+        axl_file_unlink(state_file);
+    }
+}
+
+/* Remove the ID, we don't need it anymore */
+static void axl_free_id(int id)
+{
+    axl_remove_state_file(id);
+
+    pthread_mutex_lock(&id_lock);
+
+    /* kvtree_delete() will set axl_kvtrees[id] = NULL */
+    kvtree_delete(&axl_kvtrees[id]);
+
+    pthread_mutex_unlock(&id_lock);
+}
+
+/*
+ * If the user specified a state_file then write our kvtree to it. If not, then
+ * do nothing.
+ */
+static void axl_write_state_file(int id)
+{
+    kvtree* file_list = axl_kvtrees[id];
+    char* state_file = NULL;
+    if (kvtree_util_get_str(file_list, AXL_KEY_STATE_FILE,
+        &state_file) == KVTREE_SUCCESS) {
+        kvtree_write_file(state_file, file_list);
+    }
+}
 
 /* track whether file metadata should also be copied */
 int axl_copy_metadata = 0;
@@ -79,7 +151,7 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
     *state = AXL_XFER_STATE_NULL;
 
     /* lookup transfer info for the given id */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
     if (file_list == NULL) {
         AXL_ERR("Could not find fileset for UID %d", id);
         return AXL_FAILURE;
@@ -162,7 +234,7 @@ API Functions
 
 /* Read configuration from non-AXL-specific file
   Also, start up vendor specific services */
-int AXL_Init (const char* state_file)
+int __AXL_Init (const char* state_file)
 {
     int rc = AXL_SUCCESS;
 
@@ -191,27 +263,9 @@ int AXL_Init (const char* state_file)
         axl_make_directories = atoi(val);
     }
 
-    /* make a copy of the path to file to record our state */
     if (state_file != NULL) {
-        axl_flush_file = strdup(state_file);
-    }
-
-    axl_next_handle_UID = 0;
-    axl_file_lists = kvtree_new();
-
-    /* initialize values from state file if we have one */
-    if (axl_flush_file != NULL) {
-        /* initialize axl_file_lists from file if we have one */
-        kvtree_read_file(axl_flush_file, axl_file_lists);
-
-        /* initialize handle id using highest id in file */
-        kvtree* ids = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
-        kvtree_sort_int(ids, KVTREE_SORT_DESCENDING);
-        kvtree_elem* elem = kvtree_elem_first(ids);
-        if (elem != NULL) {
-            int id = kvtree_elem_key_int(elem);
-            axl_next_handle_UID = id;
-        }
+        printf("WARNING: Passing a state_file to AXL_Init() is deprecated." \
+                "Pass it to AXL_Create(id, type, state_file) instead.\n");
     }
 
 #ifdef HAVE_BBAPI
@@ -244,12 +298,6 @@ int AXL_Finalize (void)
     }
 #endif
 
-    /* delete flush file if we have one */
-    if (axl_flush_file != NULL) {
-        axl_file_unlink(axl_flush_file);
-    }
-    axl_free(&axl_flush_file);
-
     return rc;
 }
 
@@ -257,15 +305,26 @@ int AXL_Finalize (void)
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int AXL_Create (axl_xfer_t xtype, const char* name)
+int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
 {
-    /* Generate next unique ID */
-    int id = ++axl_next_handle_UID;
+    int id;
+    int reload_from_state_file = 1;
+    kvtree* file_list = NULL;
+    axl_xfer_t old_xtype = AXL_XFER_NULL;
+    axl_xfer_state_t old_xstate = AXL_XFER_STATE_NULL;
 
-    if (xtype == AXL_XFER_DEFAULT) {
-        xtype = axl_detect_default_xfer();
-    } else if (xtype == AXL_XFER_NATIVE) {
-        xtype = axl_detect_native_xfer();
+    /* Generate next unique ID */
+    id = axl_alloc_id(state_file);
+    if (id < 0) {
+        return id;
+    }
+
+   /*
+     * If no state file is passed, or it doesn't exist yet, then we're starting
+     * from scratch.
+     */
+    if (!state_file || (state_file && access(state_file, F_OK) != 0)) {
+        reload_from_state_file = 0;
     }
 
     /* Create an entry for this transfer handle
@@ -280,11 +339,33 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
      *       SOURCE
      *     STATE
      *       CREATED */
-    kvtree* file_list = kvtree_set_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    if (reload_from_state_file) {
+        if (axl_get_info(id, &file_list, &old_xtype, &old_xstate) != AXL_SUCCESS) {
+            AXL_ERR("Couldn't get kvtree info");
+            return -1;
+        }
+
+        if (xtype != old_xtype) {
+            AXL_ERR("Transfer type %d doesn't match transfer type %d "
+                "in state_file", xtype, old_xtype);
+            return -1;
+        }
+    } else {
+        /* We're not loading from an existing state file */
+        if (xtype == AXL_XFER_DEFAULT) {
+            xtype = axl_detect_default_xfer();
+        } else if (xtype == AXL_XFER_NATIVE) {
+            xtype = axl_detect_native_xfer();
+        }
+
+        file_list = axl_kvtrees[id];
+        kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
+        kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
+    }
+
+    /* Allow caller to assign a new name */
     kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
-    kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
-    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
-    kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
 
     /* create a structure based on transfer type */
     int rc = AXL_SUCCESS;
@@ -296,7 +377,9 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
     case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        rc = axl_async_create_bbapi(id);
+        if (!reload_from_state_file) {
+            rc = axl_async_create_bbapi(id);
+        }
         break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -306,13 +389,11 @@ int AXL_Create (axl_xfer_t xtype, const char* name)
 
     /* clear entry from our list if something went wrong */
     if (rc != AXL_SUCCESS) {
-        kvtree_unset_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+        axl_free_id(id);
         id = -1;
-    }
-
-    /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
+    } else {
+        /* Success, write data to file if we have one */
+        axl_write_state_file(id);
     }
 
     return id;
@@ -444,9 +525,7 @@ __AXL_Add (int id, const char* src, const char* dest)
     }
 
     /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
-    }
+    axl_write_state_file(id);
 
     return rc;
 }
@@ -559,8 +638,14 @@ int AXL_Add (int id, const char *src, const char *dest)
     return rc;
 }
 
-/* Initiate a transfer for all files in handle ID */
-int AXL_Dispatch (int id)
+/*
+ * Initiate a transfer for all files in handle ID.  If resume is set to 1, then
+ * attempt to resume the transfers from the existing destination files.
+ *
+ * If resume is set, but some of the destination files don't exist, then do
+ * a normal transfer for them.
+ */
+int __AXL_Dispatch (int id, int resume)
 {
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
@@ -573,9 +658,29 @@ int AXL_Dispatch (int id)
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
+    if (resume) {
+        switch (xstate) {
+        case AXL_XFER_STATE_NULL:
+            AXL_ERR("Starting AXL_Resume() in state AXL_XFER_STATE_NULL");
+            return AXL_FAILURE;
+            break;
+        case AXL_XFER_STATE_COMPLETED:
+            /*
+             * We're trying to resume a transfer that's already completed, so
+             * we're done!
+             */
+            return AXL_SUCCESS;
+            break;
 
-    /* check that handle is in correct state to dispatch */
-    if (xstate != AXL_XFER_STATE_CREATED) {
+        case AXL_XFER_STATE_CREATED:
+        case AXL_XFER_STATE_DISPATCHED:
+        case AXL_XFER_STATE_WAITING:
+        case AXL_XFER_STATE_CANCELED:
+            /* Start or resume the transfer */
+            break;
+        }
+    } else if (xstate != AXL_XFER_STATE_CREATED) {
+        /* check that handle is in correct state to dispatch */
         AXL_ERR("Invalid state to dispatch UID %d", id);
         return AXL_FAILURE;
     }
@@ -605,7 +710,7 @@ int AXL_Dispatch (int id)
              kvtree_util_set_int(file_list, AXL_BBAPI_KEY_FALLBACK, 1);
         }
 
-        if (!axl_bbapi_in_fallback(id)) {
+        if (!axl_bbapi_in_fallback(id) && !resume) {
             char *src = NULL;
             int rc;
 
@@ -629,16 +734,33 @@ int AXL_Dispatch (int id)
     int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
-        rc = axl_sync_start(id);
+        if (resume) {
+            rc = axl_sync_resume(id);
+        } else {
+            rc = axl_sync_start(id);
+        }
         break;
     case AXL_XFER_PTHREAD:
-        rc = axl_pthread_start(id);
+        if (resume) {
+            rc = axl_pthread_resume(id);
+        } else {
+            rc = axl_pthread_start(id);
+        }
         break;
     case AXL_XFER_ASYNC_DW:
+        if (resume) {
+            AXL_ERR("AXL_Resume() isn't supported yet for DW");
+            rc = AXL_FAILURE;
+            break;
+        }
         rc = axl_async_start_datawarp(id);
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        rc = axl_async_start_bbapi(id);
+        if (resume) {
+            rc = axl_async_resume_bbapi(id);
+        } else {
+            rc = axl_async_start_bbapi(id);
+        }
         break;
     /* case AXL_XFER_ASYNC_CPPR:
         rc = axl_async_start_cppr(id); */
@@ -650,11 +772,19 @@ int AXL_Dispatch (int id)
     }
 
     /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
-    }
+    axl_write_state_file(id);
 
     return rc;
+}
+
+int AXL_Dispatch(int id)
+{
+    return __AXL_Dispatch(id, 0);
+}
+
+int AXL_Resume(int id)
+{
+    return __AXL_Dispatch(id, 1);
 }
 
 /*
@@ -861,9 +991,7 @@ end:
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
     /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
-    }
+    axl_write_state_file(id);
 
     return rc;
 }
@@ -884,7 +1012,7 @@ int AXL_Cancel (int id)
     /* check that handle is in correct state to cancel */
     if (xstate != AXL_XFER_STATE_DISPATCHED &&
         xstate != AXL_XFER_STATE_WAITING) {
-        AXL_ERR("Invalid state to cancel UID %d", id);
+        AXL_ERR("Invalid state to cancel UID %d, state = %d", id, xstate);
         return AXL_FAILURE;
     }
 
@@ -936,9 +1064,7 @@ int AXL_Cancel (int id)
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CANCELED);
 
     /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
-    }
+    axl_write_state_file(id);
 
     return rc;
 }
@@ -969,13 +1095,12 @@ int AXL_Free (int id)
         axl_pthread_free(id);
     }
 
-    /* forget anything we know about this id */
-    kvtree_unset_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
-
     /* write data to file if we have one */
-    if (axl_flush_file) {
-        kvtree_write_file(axl_flush_file, axl_file_lists);
-    }
+    axl_write_state_file(id);
+
+
+    /* forget anything we know about this id */
+    axl_free_id(id);
 
     return AXL_SUCCESS;
 }
@@ -984,41 +1109,39 @@ int AXL_Stop ()
 {
     int rc = AXL_SUCCESS;
 
-    /* get list of ids */
-    kvtree* ids_hash = kvtree_get(axl_file_lists, AXL_KEY_HANDLE_UID);
-
-    /* get list of ids */
-    int numids;
-    int* ids;
-    kvtree_list_int(ids_hash, &numids, &ids);
-
     /* cancel each active id */
-    int i;
-    for (i = 0; i < numids; i++) {
-        int id = ids[i];
+    int id;
+    for (id = 0; id < axl_kvtrees_count; id++) {
+        if (!axl_kvtrees[id]) {
+            continue;
+        }
+
         if (AXL_Cancel(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
     }
 
     /* wait */
-    for (i = 0; i < numids; i++) {
-        int id = ids[i];
+    for (id = 0; id < axl_kvtrees_count; id++) {
+        if (!axl_kvtrees[id]) {
+            continue;
+        }
+
         if (AXL_Wait(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
     }
 
     /* and free it */
-    for (i = 0; i < numids; i++) {
-        int id = ids[i];
+    for (id = 0; id < axl_kvtrees_count; id++) {
+        if (!axl_kvtrees[id]) {
+            continue;
+        }
+
         if (AXL_Free(id) != AXL_SUCCESS) {
             rc = AXL_FAILURE;
         }
     }
-
-    /* free the list of ids */
-    axl_free(&ids);
 
     return rc;
 }

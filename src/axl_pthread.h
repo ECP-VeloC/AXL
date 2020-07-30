@@ -8,6 +8,7 @@
 /** \name pthread */
 ///@{
 int axl_pthread_start(int id);
+int axl_pthread_resume(int id);
 int axl_pthread_test(int id);
 int axl_pthread_wait(int id);
 int axl_pthread_cancel(int id);

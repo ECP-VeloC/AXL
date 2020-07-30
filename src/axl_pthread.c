@@ -36,6 +36,9 @@ struct axl_pthread_data
     /* AXL ID associated with this data */
     int id;
 
+    /* If resume = 1, try to resume old transfers */
+    int resume;
+
     /* Number of threads */
     unsigned int threads;
 
@@ -204,7 +207,7 @@ axl_pthread_func(void *arg)
         src = kvtree_elem_key(elem);
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst);
 
-        rc = axl_file_copy(src, dst, axl_file_buf_size, NULL);
+        rc = axl_file_copy(src, dst, axl_file_buf_size, NULL, pdata->resume);
         AXL_DBG(2, "%s: Read and copied %s to %s, rc %d",
             __func__, src, dst, rc);
 
@@ -315,7 +318,11 @@ axl_pthread_run(struct axl_pthread_data *pdata)
     return final_rc;
 }
 
-int axl_pthread_start (int id)
+/*
+ * Start a tranfer.  If resume = 1, attempt to resume the old transfer (start
+ * the copy where the old destination file left off).
+ */
+static int __axl_pthread_start (int id, int resume)
 {
     /* assume we'll succeed */
     int rc = AXL_SUCCESS;
@@ -323,7 +330,7 @@ int axl_pthread_start (int id)
     unsigned int file_count, threads, cpu_threads;
 
     /* get pointer to file list for this dataset */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
 
     /* mark dataset as in progress */
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
@@ -341,6 +348,7 @@ int axl_pthread_start (int id)
     pdata = axl_pthread_create_thread_data(threads);
     if (!pdata)
         return AXL_FAILURE;
+    pdata->resume = resume;
 
     axl_pthread_data_add(id, pdata);
 
@@ -381,6 +389,16 @@ int axl_pthread_start (int id)
     return rc;
 }
 
+int axl_pthread_start (int id)
+{
+    return __axl_pthread_start (id, 0);
+}
+
+int axl_pthread_resume (int id)
+{
+    return __axl_pthread_start (id, 1);
+}
+
 int axl_pthread_test (int id)
 {
     struct axl_pthread_data *pdata;
@@ -400,7 +418,7 @@ int axl_pthread_test (int id)
 int axl_pthread_wait (int id)
 {
     /* get pointer to file list for this dataset */
-    kvtree* file_list = kvtree_get_kv_int(axl_file_lists, AXL_KEY_HANDLE_UID, id);
+    kvtree* file_list = axl_kvtrees[id];
     struct axl_pthread_data *pdata = NULL;
     int rc;
     int final_rc = AXL_SUCCESS;

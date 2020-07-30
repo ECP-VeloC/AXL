@@ -10,9 +10,11 @@ function usage
 echo "
  Usage: test_axl [-c sec [-k]] [-n num_files] [xfer_type]
 
-   -c sec:		Cancel transfer after 'sec' seconds (can be decimal number)
-   -n num_files:	Number of files to create (default 50)
-   xfer_type:		sync|pthread|bbapi|dw (defaults to sync if none specified)
+   -c sec:          Cancel transfer after 'sec' seconds (can be decimal number)
+   -n num_files:    Number of files to create (default 50)
+   -p bytes:        Pause the transfer after $bytes bytes
+   -U:              After starting the transfer, kill -9 it, and resume it
+   xfer_type:       sync|pthread|bbapi|dw (defaults to sync if none specified)
 "
 }
 
@@ -21,7 +23,7 @@ function isnum
 	[[ "$1" =~ ^[0-9.]+$ ]]
 }
 
-while getopts "c:kn:" opt; do
+while getopts "c:kn:p:U" opt; do
 	case "${opt}" in
 	c)
 		sec=${OPTARG}
@@ -39,7 +41,18 @@ while getopts "c:kn:" opt; do
 			exit
 		fi
 		;;
+	p)
+		pause_after=${OPTARG}
+		if ! isnum $pause_after ; then
+			echo "'$pause_after' is not a number"
+			usage
+			exit
+		fi
+		;;
 
+	U)
+		resume=1
+		;;
 	*)
 		usage
 		exit
@@ -49,7 +62,7 @@ shift $((OPTIND-1))
 
 xfer=$1
 if [ -z "$xfer" ] ; then
-    xfer=sync
+	xfer=sync
 fi
 
 case $xfer in
@@ -74,7 +87,7 @@ function cleanup
 }
 
 function ctrl_c() {
-        cleanup
+	cleanup
 }
 
 function create_files {
@@ -100,17 +113,42 @@ function create_files {
 
 # $1 Transfer type
 # $2 Timeout in seconds (optional).  This is needed for the AXL_Cancel tests.
+# $3 Pause transfer after copying at least $3 bytes.  This is used for resuming
+#    transfers testing.
+# $4 If $4=1 then attempt to resume the transfer after killing it.
 function run_test
 {
 	xfer=$1
 	s=$2
+	pause_after=$3
+	resume=$4
 
 	if [ -z "$s" ] ; then
 		# No timeout specified, just make it super long
 		s=9999
 	fi
 	rc=0;
-	out1="$(timeout --preserve-status $s ./axl_cp -X $xfer -r $src/* $dest)"
+
+	if [ -n "$pause_after" ] ; then
+		export AXL_DEBUG_PAUSE_AFTER=$pause_after
+	fi
+
+	if [ "$resume" == "1" ] ; then
+		# We want to kill the process so it doesn't call AXL_Cancel()
+		sig=SIGKILL
+	else
+		sig=SIGTERM
+	fi
+	rm -f /var/tmp/state_file
+	timeout --signal=$sig --preserve-status $s ./axl_cp -S /var/tmp/state_file -X $xfer -r $src/* $dest
+
+	oldpid=$!
+	unset AXL_DEBUG_PAUSE_AFTER
+
+	if [ "$resume" == "1" ] ; then
+		# Resume our old transfer
+		./axl_cp -S /var/tmp/state_file -U -X $xfer -r $src/* $dest
+	fi
 	rc=$?
 	if [ "$rc" != "0" ] ; then
 		echo "failed copy, rc=$rc"
@@ -140,7 +178,7 @@ fi
 # 2. A basic copy where we cancel it partway though to test AXL_Cancel
 #
 # First run our test, and optionally cancel it
-if ! run_test $xfer $sec ; then
+if ! run_test $xfer $sec $pause_after $resume ; then
 	# Our copy failed for some reason (independent of the cancellation)
 	cleanup
 	exit 1
@@ -162,7 +200,7 @@ else
 		fi
 
 	else
-		if [ -n "$sec" ] ; then
+		if [ -n "$sec" ] && [ -z "$pause_after" ] ; then
 			echo "failure.  Files were all copied before the cancel"
 			cleanup
 			exit 1
