@@ -1,6 +1,7 @@
 ###############
 # Build tests
 ###############
+INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR})
 
 LIST(APPEND axl_test_srcs
     axl_cp.c
@@ -10,8 +11,10 @@ LIST(APPEND axl_test_srcs
 # SET(CMAKE_BUILD_TYPE Debug)
 
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
+ADD_EXECUTABLE(test_config test_config.c)
 
 TARGET_LINK_LIBRARIES(axl_cp axl)
+TARGET_LINK_LIBRARIES(test_config axl)
 
 ################
 # Add tests to ctest
@@ -42,6 +45,8 @@ IF(BBAPI_FOUND)
     # Values found through experimentation.
     ADD_TEST(bbapi_resume_test test_axl.sh -n 300 -c 3 -U  bbapi)
 ENDIF(BBAPI_FOUND)
+
+ADD_TEST(test_config test_config)
 
 ####################
 # make a verbose "test" target named "check"
