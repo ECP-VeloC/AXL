@@ -58,6 +58,9 @@ Global Variables
  * before transferring files */
 int axl_make_directories;
 
+/* track whether file metadata should also be copied */
+int axl_copy_metadata;
+
 /*
  * Array for all the AXL_Create'd kvtree pointers.  It's indexed by the AXL id.
  *
@@ -77,26 +80,32 @@ static pthread_mutex_t id_lock = PTHREAD_MUTEX_INITIALIZER;
  */
 static int axl_alloc_id(const char* state_file)
 {
-    kvtree* new;
+    kvtree* new = kvtree_new();
 
-    new = kvtree_new();
+    /* initialize kvtree values from state_file if we have one */
     if (state_file) {
-         /* initialize kvtree values from state_file if we have one */
         if (access(state_file, F_OK) == 0 &&
-            kvtree_read_file(state_file, new) != KVTREE_SUCCESS) {
+            kvtree_read_file(state_file, new) != KVTREE_SUCCESS)
+        {
             AXL_ERR("Couldn't read state file correctly");
             return -1;
         }
 
+        /* record name of state file */
         kvtree_util_set_str(new, AXL_KEY_STATE_FILE, state_file);
     }
 
     pthread_mutex_lock(&id_lock);
-    axl_kvtrees = realloc(axl_kvtrees, sizeof(struct kvtree *) * (axl_kvtrees_count + 1));
-    axl_kvtrees[axl_kvtrees_count] = new;
+
+    int id = axl_kvtrees_count;
     axl_kvtrees_count++;
+
+    axl_kvtrees = realloc(axl_kvtrees, sizeof(struct kvtree*) * axl_kvtrees_count);
+    axl_kvtrees[id] = new;
+
     pthread_mutex_unlock(&id_lock);
-    return axl_kvtrees_count - 1;
+
+    return id;
 }
 
 /* Remove the state file for an id, if one exists */
@@ -104,9 +113,9 @@ static void axl_remove_state_file(int id)
 {
     kvtree* file_list = axl_kvtrees[id];
     char* state_file = NULL;
-
     if (kvtree_util_get_str(file_list, AXL_KEY_STATE_FILE,
-        &state_file) == KVTREE_SUCCESS) {
+        &state_file) == KVTREE_SUCCESS)
+    {
         axl_file_unlink(state_file);
     }
 }
@@ -133,13 +142,11 @@ static void axl_write_state_file(int id)
     kvtree* file_list = axl_kvtrees[id];
     char* state_file = NULL;
     if (kvtree_util_get_str(file_list, AXL_KEY_STATE_FILE,
-        &state_file) == KVTREE_SUCCESS) {
+        &state_file) == KVTREE_SUCCESS)
+    {
         kvtree_write_file(state_file, file_list);
     }
 }
-
-/* track whether file metadata should also be copied */
-int axl_copy_metadata = 0;
 
 /* given an id, lookup and return the file list and transfer type,
  * returns AXL_FAILURE if info could not be found */
@@ -186,8 +193,7 @@ static int axl_get_info(int id, kvtree** list, axl_xfer_t* type, axl_xfer_state_
  * running on an IBM node, use the BB API.  If you're running on a Cray, use
  * DataWarp.  Otherwise use sync.
  */
-static
-axl_xfer_t axl_detect_native_xfer(void)
+static axl_xfer_t axl_detect_native_xfer(void)
 {
     axl_xfer_t xtype = AXL_XFER_NULL;
 
@@ -205,6 +211,7 @@ axl_xfer_t axl_detect_native_xfer(void)
 #else
     xtype = AXL_XFER_SYNC;
 #endif
+
     return xtype;
 }
 
@@ -213,8 +220,7 @@ axl_xfer_t axl_detect_native_xfer(void)
  * need this since there may be some edge case transfers the native APIs don't
  * support.
  */
-static
-axl_xfer_t axl_detect_default_xfer(void)
+static axl_xfer_t axl_detect_default_xfer(void)
 {
     axl_xfer_t xtype = axl_detect_native_xfer();
 
@@ -265,7 +271,7 @@ int __AXL_Init (const char* state_file)
 
     if (state_file != NULL) {
         printf("WARNING: Passing a state_file to AXL_Init() is deprecated." \
-                "Pass it to AXL_Create(id, type, state_file) instead.\n");
+               "Pass it to AXL_Create(id, type, state_file) instead.\n");
     }
 
 #ifdef HAVE_BBAPI
@@ -273,6 +279,7 @@ int __AXL_Init (const char* state_file)
         rc = AXL_FAILURE;
     }
 #endif
+
 #ifdef HAVE_LIBCPPR
     if (axl_async_init_cppr() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -292,6 +299,7 @@ int AXL_Finalize (void)
         rc = AXL_FAILURE;
     }
 #endif
+
 #ifdef HAVE_LIBCPPR
     if (axl_async_finalize_cppr() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -305,24 +313,19 @@ int AXL_Finalize (void)
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
+int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
 {
-    int id;
-    int reload_from_state_file = 1;
-    kvtree* file_list = NULL;
-    axl_xfer_t old_xtype = AXL_XFER_NULL;
-    axl_xfer_state_t old_xstate = AXL_XFER_STATE_NULL;
-
     /* Generate next unique ID */
-    id = axl_alloc_id(state_file);
+    int id = axl_alloc_id(state_file);
     if (id < 0) {
         return id;
     }
 
-   /*
+    /*
      * If no state file is passed, or it doesn't exist yet, then we're starting
      * from scratch.
      */
+    int reload_from_state_file = 1;
     if (!state_file || (state_file && access(state_file, F_OK) != 0)) {
         reload_from_state_file = 0;
     }
@@ -340,6 +343,9 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
      *     STATE
      *       CREATED */
     if (reload_from_state_file) {
+        kvtree* file_list = NULL;
+        axl_xfer_t old_xtype = AXL_XFER_NULL;
+        axl_xfer_state_t old_xstate = AXL_XFER_STATE_NULL;
         if (axl_get_info(id, &file_list, &old_xtype, &old_xstate) != AXL_SUCCESS) {
             AXL_ERR("Couldn't get kvtree info");
             return -1;
@@ -350,6 +356,9 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
                 "in state_file", xtype, old_xtype);
             return -1;
         }
+
+        /* Allow caller to assign a new name */
+        kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
     } else {
         /* We're not loading from an existing state file */
         if (xtype == AXL_XFER_DEFAULT) {
@@ -358,14 +367,12 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
             xtype = axl_detect_native_xfer();
         }
 
-        file_list = axl_kvtrees[id];
+        kvtree* file_list = axl_kvtrees[id];
         kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
+        kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
         kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
     }
-
-    /* Allow caller to assign a new name */
-    kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
 
     /* create a structure based on transfer type */
     int rc = AXL_SUCCESS;
@@ -377,7 +384,7 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
     case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_BBAPI:
-        if (!reload_from_state_file) {
+        if (! reload_from_state_file) {
             rc = axl_async_create_bbapi(id);
         }
         break;
@@ -401,10 +408,12 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char *state_file)
 
 /* Is this path a file or a directory?  Return the type. */
 enum {PATH_UNKNOWN = 0, PATH_FILE, PATH_DIR};
-static int path_type(const char *path) {
+
+static int path_type(const char *path)
+{
     struct stat s;
     if (stat(path, &s) != 0) {
-        return 0;
+        return PATH_UNKNOWN;
     }
     if (S_ISREG(s.st_mode)) {
         return PATH_FILE;
@@ -424,13 +433,12 @@ static int path_type(const char *path) {
  * 'extra' can be optionally used to store additional information about the
  * transfer, such as the BB API transfer handle number, or it can be left NULL.
  */
-static char * axl_add_extension(const char *path, const char *extra)
+static char* axl_add_extension(const char* path, const char* extra)
 {
-    char *tmp = NULL;
+    char* tmp = NULL;
     asprintf(&tmp, "%s%s%s", path, AXL_EXTENSION, extra ? extra : "");
     return tmp;
 }
-
 
 /*
  * Add a file to an existing transfer handle.  No directories.
@@ -438,13 +446,11 @@ static char * axl_add_extension(const char *path, const char *extra)
  * If the file's destination path doesn't exist, then automatically create the
  * needed directories.
  */
-static int
-__AXL_Add (int id, const char* src, const char* dest)
+static int __AXL_Add (int id, const char* src, const char* dest)
 {
-    kvtree* file_list = NULL;
-    char *newdest = NULL;
-    char *extra = NULL;
+    int rc = AXL_SUCCESS;
 
+    kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
@@ -469,6 +475,8 @@ __AXL_Add (int id, const char* src, const char* dest)
      *           SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, src);
 
+    char *extra = NULL;
+
 #ifdef HAVE_BBAPI
     /*
      * Special case: For BB API we includes the transfer handle in the temporary
@@ -486,7 +494,7 @@ __AXL_Add (int id, const char* src, const char* dest)
     }
 #endif
 
-    newdest = axl_add_extension(dest, extra);
+    char* newdest = axl_add_extension(dest, extra);
 
 #ifdef HAVE_BBAPI
     free(extra);
@@ -494,10 +502,10 @@ __AXL_Add (int id, const char* src, const char* dest)
 
     kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, newdest);
     free(newdest);
+
     kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     /* add file to transfer data structure, depending on its type */
-    int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
     case AXL_XFER_PTHREAD:
@@ -535,39 +543,38 @@ __AXL_Add (int id, const char* src, const char* dest)
  * directory, recursively add all the files and directories in that
  * directory.
  */
-int AXL_Add (int id, const char *src, const char *dest)
+int AXL_Add (int id, const char* src, const char* dest)
 {
-    int rc;
-    DIR *dir;
-    struct dirent *de;
-    char *src_copy, *dest_copy;
-    char *src_basename;
-    unsigned int src_path_type, dest_path_type;
-    char *new_dest, *new_src, *final_dest;
+    int rc = AXL_SUCCESS;
 
-    new_dest = calloc(PATH_MAX, 1);
-    if (!new_dest) {
-        return ENOMEM;
+    char* new_dest = calloc(PATH_MAX, 1);
+    if (! new_dest) {
+        return AXL_FAILURE;
     }
-    new_src = calloc(PATH_MAX, 1);
-    if (!new_src) {
+
+    char* new_src = calloc(PATH_MAX, 1);
+    if (! new_src) {
         free(new_dest);
-        return ENOMEM;
+        return AXL_FAILURE;
     }
-    final_dest = calloc(PATH_MAX, 1);
-    if (!final_dest) {
+
+    char* final_dest = calloc(PATH_MAX, 1);
+    if (! final_dest) {
         free(new_dest);
         free(new_src);
-        return ENOMEM;
+        return AXL_FAILURE;
     }
 
-    src_copy = strdup(src);
-    dest_copy = strdup(dest);
+    char* src_copy  = strdup(src);
+    char* dest_copy = strdup(dest);
 
-    src_path_type = path_type(src);
-    dest_path_type = path_type(dest);
-    src_basename = basename(src_copy);
+    unsigned int src_path_type  = path_type(src);
+    unsigned int dest_path_type = path_type(dest);
 
+    char* src_basename = basename(src_copy);
+
+    DIR *dir;
+    struct dirent *de;
     switch (src_path_type) {
     case PATH_FILE:
         if (dest_path_type == PATH_DIR) {
@@ -594,7 +601,7 @@ int AXL_Add (int id, const char *src, const char *dest)
         /* Add the directory itself first... */
         if (dest_path_type == PATH_FILE) {
             /* We can't copy a directory onto a file */
-            rc = EINVAL;
+            rc = AXL_FAILURE;
             break;
        } else if (dest_path_type == PATH_DIR) {
             snprintf(new_dest, PATH_MAX, "%s/%s", dest, src_basename);
@@ -605,28 +612,30 @@ int AXL_Add (int id, const char *src, const char *dest)
 
         /* Traverse all files/dirs in the directory. */
         dir = opendir(src);
-        if (!dir) {
-            rc = ENOENT;
+        if (! dir) {
+            rc = AXL_FAILURE;
             break;
         }
+
         while ((de = readdir(dir)) != NULL) {
             /* Skip '.' and '..' directories */
             if ((strcmp(de->d_name, ".") == 0) || (strcmp(de->d_name, "..") == 0)) {
                 continue;
             }
+
             snprintf(new_src, PATH_MAX, "%s/%s", src, de->d_name);
             snprintf(final_dest, PATH_MAX, "%s/%s", new_dest, de->d_name);
 
             rc = AXL_Add(id, new_src, final_dest);
             if (rc != AXL_SUCCESS) {
-                rc = EINVAL;
+                rc = AXL_FAILURE;
                 break;
             }
         }
         break;
 
     default:
-        rc = EINVAL;
+        rc = AXL_FAILURE;
         break;
     }
 
@@ -635,6 +644,7 @@ int AXL_Add (int id, const char *src, const char *dest)
     free(final_dest);
     free(new_src);
     free(new_dest);
+
     return rc;
 }
 
@@ -647,17 +657,18 @@ int AXL_Add (int id, const char *src, const char *dest)
  */
 int __AXL_Dispatch (int id, int resume)
 {
+    kvtree_elem* elem = NULL;
+    char* dest;
+
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
-    kvtree_elem *elem = NULL;
-    char *dest;
-
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
     }
+
     if (resume) {
         switch (xstate) {
         case AXL_XFER_STATE_NULL:
@@ -671,7 +682,6 @@ int __AXL_Dispatch (int id, int resume)
              */
             return AXL_SUCCESS;
             break;
-
         case AXL_XFER_STATE_CREATED:
         case AXL_XFER_STATE_DISPATCHED:
         case AXL_XFER_STATE_WAITING:
@@ -684,6 +694,7 @@ int __AXL_Dispatch (int id, int resume)
         AXL_ERR("Invalid state to dispatch UID %d", id);
         return AXL_FAILURE;
     }
+
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_DISPATCHED);
 
     /* create destination directories for each file */
@@ -711,18 +722,16 @@ int __AXL_Dispatch (int id, int resume)
         }
 
         if (!axl_bbapi_in_fallback(id) && !resume) {
-            char *src = NULL;
-            int rc;
-
             /*
              * We're in regular BBAPI mode.  Add the paths before we transfer
              * them.
              */
             elem = NULL;
+            char* src = NULL;
             while ((elem = axl_get_next_path(id, elem, &src, &dest))) {
-                rc = axl_async_add_bbapi(id, src, dest);
-                if (rc != AXL_SUCCESS) {
-                    return rc;
+                int bb_rc = axl_async_add_bbapi(id, src, dest);
+                if (bb_rc != AXL_SUCCESS) {
+                    return bb_rc;
                 }
             }
         }
@@ -795,14 +804,13 @@ int AXL_Resume(int id)
  *
  * Returns the new allocated path string on success, or NULL on error.
  */
-static char * axl_remove_extension(char *path_with_extension, char **extra)
+static char* axl_remove_extension(char* path_with_extension, char** extra)
 {
-    int i;
-    size_t size = strlen(path_with_extension);
-    char *ext = AXL_EXTENSION;
+    char* ext = AXL_EXTENSION;
     size_t ext_len = sizeof(AXL_EXTENSION) - 1; /* -1 for '\0' */
 
     /* path should at the very least be a one char file name + extension */
+    size_t size = strlen(path_with_extension);
     if (size < 1 + ext_len) {
         return NULL;
     }
@@ -811,11 +819,13 @@ static char * axl_remove_extension(char *path_with_extension, char **extra)
      * Look backwards from the end of the string for the start of the
      * extension.
      */
+    int i;
     for (i = size - ext_len; i >= 0; i--) {
         if (memcmp(&path_with_extension[i], ext, strlen(AXL_EXTENSION)) == 0) {
             /* Match! */
-            if (extra)
+            if (extra) {
                 *extra = &path_with_extension[i] + ext_len;
+            }
             return strndup(path_with_extension, i);
         }
     }
@@ -835,18 +845,14 @@ static char * axl_remove_extension(char *path_with_extension, char **extra)
  */
 static void axl_rename_files_to_final_names(int id)
 {
-    char *dst;
-    kvtree_elem *elem = NULL;
-    char *newdst;
-    char *extra;
-
+    char* dst;
+    kvtree_elem* elem = NULL;
     while ((elem = axl_get_next_path(id, elem, NULL, &dst))) {
-        extra = NULL;
-        newdst = NULL;
-        newdst = axl_remove_extension(dst, &extra);
-        if (!newdst) {
-            AXL_ERR("Couldn't remove extension, this shouldn't happen");
+        char* extra = NULL;
+        char* newdst = axl_remove_extension(dst, &extra);
+        if (! newdst) {
             /* Nothing we can do... */
+            AXL_ERR("Couldn't remove extension, this shouldn't happen");
             free(newdst);
             continue;
         }
@@ -859,12 +865,12 @@ static void axl_rename_files_to_final_names(int id)
  * Returns AXL_SUCCESS if the transfer has completed */
 int AXL_Test (int id)
 {
+    int rc = AXL_SUCCESS;
+
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
-    int rc;
-
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -879,7 +885,6 @@ int AXL_Test (int id)
     int status;
     kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
     if (status == AXL_STATUS_DEST) {
-        rc = AXL_SUCCESS;
         goto end;
     } else if (status == AXL_STATUS_ERROR) {
         /* we return success since it's done, even on error,
@@ -890,7 +895,6 @@ int AXL_Test (int id)
         return AXL_FAILURE;
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
-    rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_test(id);
@@ -926,12 +930,12 @@ end:
  * Wait for a transfer to complete */
 int AXL_Wait (int id)
 {
+    int rc = AXL_SUCCESS;
+
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
-    int rc;
-
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -950,7 +954,6 @@ int AXL_Wait (int id)
 
     if (status == AXL_STATUS_DEST) {
         kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
-        rc = AXL_SUCCESS;
         goto end;
     } else if (status == AXL_STATUS_ERROR) {
         return AXL_FAILURE;
@@ -960,7 +963,6 @@ int AXL_Wait (int id)
     } /* else (status == AXL_STATUS_INPROG) send to XFER interfaces */
 
     /* if not done, call vendor API to wait */
-    rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
         rc = axl_sync_wait(id);
@@ -1000,6 +1002,8 @@ end:
 /* TODO: Does cancel call free? */
 int AXL_Cancel (int id)
 {
+    int rc = AXL_SUCCESS;
+
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
@@ -1011,7 +1015,8 @@ int AXL_Cancel (int id)
 
     /* check that handle is in correct state to cancel */
     if (xstate != AXL_XFER_STATE_DISPATCHED &&
-        xstate != AXL_XFER_STATE_WAITING) {
+        xstate != AXL_XFER_STATE_WAITING)
+    {
         AXL_ERR("Invalid state to cancel UID %d, state = %d", id, xstate);
         return AXL_FAILURE;
     }
@@ -1029,7 +1034,6 @@ int AXL_Cancel (int id)
     /* TODO: if it hasn't started, we don't want to call backend cancel */
 
     /* if not done, call vendor API to wait */
-    int rc = AXL_SUCCESS;
     switch (xtype) {
 /* TODO: add cancel to backends */
 #if 0
@@ -1076,7 +1080,6 @@ int AXL_Free (int id)
     kvtree* file_list = NULL;
     axl_xfer_t xtype = AXL_XFER_NULL;
     axl_xfer_state_t xstate = AXL_XFER_STATE_NULL;
-
     if (axl_get_info(id, &file_list, &xtype, &xstate) != AXL_SUCCESS) {
         AXL_ERR("Could not find transfer info for UID %d", id);
         return AXL_FAILURE;
@@ -1097,7 +1100,6 @@ int AXL_Free (int id)
 
     /* write data to file if we have one */
     axl_write_state_file(id);
-
 
     /* forget anything we know about this id */
     axl_free_id(id);

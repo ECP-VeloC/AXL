@@ -16,7 +16,10 @@ int __axl_sync_start (int id, int resume)
     /* transfer each of my files and fill in summary data structure */
     kvtree_elem* elem = NULL;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+    for (elem = kvtree_elem_first(files);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
         /* get the filename */
         char* source = kvtree_elem_key(elem);
 
@@ -42,8 +45,8 @@ int __axl_sync_start (int id, int resume)
             rc = AXL_FAILURE;
         }
         AXL_DBG(2, "axl_sync_start: Read and copied %s to %s with success code %d",
-                source, destination, tmp_rc
-                );
+            source, destination, tmp_rc
+        );
     }
 
     /* mark this id as either done or error */

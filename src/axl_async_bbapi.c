@@ -26,21 +26,18 @@
 
 /* These aren't always defined in linux/magic.h */
 #ifndef GPFS_SUPER_MAGIC
-#define GPFS_SUPER_MAGIC 0x47504653     /* "GPFS" in ASCII */
+#define GPFS_SUPER_MAGIC 0x47504653 /* "GPFS" in ASCII */
 #endif
 #ifndef XFS_SUPER_MAGIC
-#define XFS_SUPER_MAGIC 0x58465342      /* "XFSB" in ASCII */
+#define XFS_SUPER_MAGIC 0x58465342  /* "XFSB" in ASCII */
 #endif
 
 /* Return the filesystem magic value for a given file */
-static __fsword_t axl_get_fs_magic(char *path)
+static __fsword_t axl_get_fs_magic(char* path)
 {
-    struct statfs st;
-    int rc;
-    char *dir = NULL;
-
     /* Stat the path itself */
-    rc = statfs(path, &st);
+    struct statfs st;
+    int rc = statfs(path, &st);
     if (rc != 0) {
         /*
          * Couldn't statfs the path, which could be normal if the path is the
@@ -48,18 +45,22 @@ static __fsword_t axl_get_fs_magic(char *path)
          * (which should exist for both the source and destination), for the
          * FS type.
          */
-        dir = strdup(path);
-        if (!dir)
+        char* dir = strdup(path);
+        if (! dir) {
             return 0;
+        } 
+
         path = dirname(dir);
+
         rc = statfs(path, &st);
         if (rc != 0) {
             free(dir);
             return 0;
         }
+ 
+        free(dir);
     }
 
-    free(dir);
     return st.f_type;
 }
 
@@ -70,7 +71,7 @@ static __fsword_t axl_get_fs_magic(char *path)
  *
  * Returns 0 if BBAPI can not transfer from src to dst.
  */
-int bbapi_copy_is_compatible(char *src, char *dst)
+int bbapi_copy_is_compatible(char* src, char* dst)
 {
     /* List all filesystem types that are (somewhat) compatible with BBAPI */
     const __fsword_t whitelist[] = {
@@ -78,64 +79,65 @@ int bbapi_copy_is_compatible(char *src, char *dst)
         GPFS_SUPER_MAGIC,
         EXT4_SUPER_MAGIC,
     };
-    __fsword_t source, dest;
-    int found_source = 0, found_dest = 0;
-    int i;
 
-    source = axl_get_fs_magic(src);
-    dest = axl_get_fs_magic(dst);
+    __fsword_t source = axl_get_fs_magic(src);
+    __fsword_t dest   = axl_get_fs_magic(dst);
 
     /* Exception: EXT4 <-> GPFS transfers are not supported by BBAPI */
     if ((source == EXT4_SUPER_MAGIC && dest == GPFS_SUPER_MAGIC) ||
-        (source == GPFS_SUPER_MAGIC && dest == EXT4_SUPER_MAGIC)) {
-            return 0;
+        (source == GPFS_SUPER_MAGIC && dest == EXT4_SUPER_MAGIC))
+    {
+        return 0;
     }
 
+    int found_source = 0;
+    int found_dest   = 0;
+
+    int i;
     for (i = 0; i < sizeof(whitelist) / sizeof(whitelist[0]); i++) {
-        if (source == whitelist[i])
+        if (source == whitelist[i]) {
             found_source = 1;
+        }
 
-        if (dest == whitelist[i])
+        if (dest == whitelist[i]) {
             found_dest = 1;
+        }
     }
 
-    if (found_source && found_dest)
+    if (found_source && found_dest) {
         return 1;
+    }
 
     return 0;
 }
 
 static void getLastErrorDetails(BBERRORFORMAT pFormat, char** pBuffer)
 {
-    int rc;
-    size_t l_NumBytesAvailable;
-    if(pBuffer)
-    {
-        rc = BB_GetLastErrorDetails(pFormat, &l_NumBytesAvailable, 0, NULL);
-        if(rc == 0)
-        {
-            *pBuffer = (char*)malloc(l_NumBytesAvailable+1);
+    if (pBuffer) {
+        size_t l_NumBytesAvailable;
+        int rc = BB_GetLastErrorDetails(pFormat, &l_NumBytesAvailable, 0, NULL);
+        if (rc == 0) {
+            *pBuffer = (char*) malloc(l_NumBytesAvailable + 1);
             BB_GetLastErrorDetails(pFormat, NULL, l_NumBytesAvailable, *pBuffer);
-        }
-        else
-        {
+        } else {
             *pBuffer = NULL;
         }
     }
 }
 
 /* Check and print BBAPI Error messages */
-static int bb_check(int rc) {
+static int bb_check(int rc)
+{
   if (rc) {
-    char* errstring;
-    getLastErrorDetails(BBERRORJSON, &errstring);
-    AXL_ERR("AXL Error with BBAPI rc:       %d", rc);
-    AXL_ERR("AXL Error with BBAPI details:  %s", errstring);
-    free(errstring);
+      char* errstring;
+      getLastErrorDetails(BBERRORJSON, &errstring);
+      AXL_ERR("AXL Error with BBAPI rc:       %d", rc);
+      AXL_ERR("AXL Error with BBAPI details:  %s", errstring);
+      free(errstring);
 
-    //printf("Aborting due to failures\n");
-    //exit(-1);
-    return AXL_FAILURE;
+      //printf("Aborting due to failures\n");
+      //exit(-1);
+      return AXL_FAILURE;
   }
   return AXL_SUCCESS;
 }
@@ -153,24 +155,22 @@ static int bb_check(int rc) {
  *
  * This result is stored in id.  Returns 0 on success, nonzero otherwise.
  */
-static int axl_get_unique_node_id(int *id)
+static int axl_get_unique_node_id(int* id)
 {
     char hostname[256] = {0}; /* Max hostname + \0 */
-    int rc;
-    int i;
-    size_t len;
-    int sawnum = 0;
-
-    rc = gethostname(hostname, sizeof(hostname));
+    int rc = gethostname(hostname, sizeof(hostname));
     if (rc) {
         fprintf(stderr, "Hostname too long\n");
         return 1;
     }
 
-    len = strlen(hostname);
+    size_t len = strlen(hostname);
 
     rc = 1;
+
     /* Look from the back of the string to find the beginning of our number */
+    int i;
+    int sawnum = 0;
     for (i = len - 1; i >= 0; i--) {
         if (isdigit(hostname[i])) {
             sawnum = 1;
@@ -191,16 +191,15 @@ static int axl_get_unique_node_id(int *id)
 #endif
 
 /* Called from AXL_Init */
-int axl_async_init_bbapi(void) {
+int axl_async_init_bbapi(void)
+{
 #ifdef HAVE_BBAPI
     // TODO: BBAPI wants MPI rank information here?
     int rank;
-    int rc;
-
-    rc = axl_get_unique_node_id(&rank);
+    int rc = axl_get_unique_node_id(&rank);
     if (rc) {
-            fprintf(stderr, "Couldn't get unique node id\n");
-            return AXL_FAILURE;
+        AXL_ERR("Couldn't get unique node id");
+        return AXL_FAILURE;
     }
 
     rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
@@ -210,7 +209,8 @@ int axl_async_init_bbapi(void) {
 }
 
 /* Called from AXL_Finalize */
-int axl_async_finalize_bbapi(void) {
+int axl_async_finalize_bbapi(void)
+{
 #ifdef HAVE_BBAPI
     int rc = BB_TerminateLibrary();
     return bb_check(rc);
@@ -229,15 +229,11 @@ int axl_async_finalize_bbapi(void) {
 static BBTAG axl_get_unique_tag(void)
 {
     struct timespec now;
-    pid_t tid;
-    uint64_t timestamp;
-
     clock_gettime(CLOCK_MONOTONIC, &now);
-
-    timestamp = now.tv_sec;
+    uint64_t timestamp = now.tv_sec;
 
     /* Get thread ID.  This is non-portable, Linux only. */
-    tid = syscall(__NR_gettid);
+    pid_t tid = syscall(__NR_gettid);
 
     /*
      * This is somewhat of a hack.  Create a unique ID using the UNIX timestamp
@@ -252,35 +248,30 @@ static BBTAG axl_get_unique_tag(void)
 
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
-int axl_async_create_bbapi(int id) {
+int axl_async_create_bbapi(int id)
+{
 #ifdef HAVE_BBAPI
-    int rc;
-    kvtree* file_list = axl_kvtrees[id];
-
-    BBTAG bbtag;
-
     /* allocate a new transfer definition */
-    BBTransferDef_t *tdef;
-    rc = BB_CreateTransferDef(&tdef);
-
-    /* If failed to create definition then return error. There is no cleanup necessary. */
+    BBTransferDef_t* tdef;
+    int rc = BB_CreateTransferDef(&tdef);
     if (rc) {
+        /* If failed to create definition then return error. There is no cleanup necessary. */
         return bb_check(rc);
     }
 
     /* allocate a new transfer handle,
      * include AXL transfer id in IBM BB tag */
+    BBTAG bbtag = axl_get_unique_tag();
+
     BBTransferHandle_t thandle;
-    bbtag = axl_get_unique_tag();
-
     rc = BB_GetTransferHandle(bbtag, 1, NULL, &thandle);
-
-    /* If transfer handle call failed then return. Do not record anything. */
     if (rc) {
+        /* If transfer handle call failed then return. Do not record anything. */
         return bb_check(rc);
     }
 
     /* record transfer handle and definition */
+    kvtree* file_list = axl_kvtrees[id];
     kvtree_util_set_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long) thandle);
     kvtree_util_set_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
 
@@ -298,28 +289,30 @@ int axl_async_create_bbapi(int id) {
  * Returns 0 on success, 1 on error.  On success, thandle contains the transfer
  * handle value.
  */
-int axl_async_get_bbapi_handle(int id, uint64_t *thandle)
+int axl_async_get_bbapi_handle(int id, uint64_t* thandle)
 {
 #ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
-
     if (kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE,
         thandle) != KVTREE_SUCCESS)
-            return 1;
+    {
+        return AXL_FAILURE;
+    }
 
-    return 0;
+    return AXL_SUCCESS;
 #endif
     return AXL_FAILURE;
 }
 
 /* Called from AXL_Add
  * Adds file source/destination to BBTransferDef */
-int axl_async_add_bbapi (int id, const char* source, const char* dest) {
+int axl_async_add_bbapi (int id, const char* source, const char* dest)
+{
 #ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
 
     /* get transfer definition for this id */
-    BBTransferDef_t *tdef;
+    BBTransferDef_t* tdef;
     kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, (void**) &tdef);
 
     /* add file to transfer definition */
@@ -362,9 +355,10 @@ int __axl_async_start_bbapi (int id, int resume) {
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
     /* Pull BB-Def and BB-Handle out of global var */
-    BBTransferDef_t *tdef;
     BBTransferHandle_t thandle;
     kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
+
+    BBTransferDef_t* tdef;
     kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, (void**) &tdef);
 
 #if 0
@@ -388,7 +382,10 @@ int __axl_async_start_bbapi (int id, int resume) {
     /* Mark all files as INPROG */
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+    for (elem = kvtree_elem_first(files);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
         kvtree* elem_hash = kvtree_elem_hash(elem);
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
     }
@@ -446,7 +443,10 @@ int axl_async_test_bbapi (int id) {
     /* update status of each file */
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     kvtree_elem* elem;
-    for (elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+    for (elem = kvtree_elem_first(files);
+         elem != NULL;
+         elem = kvtree_elem_next(elem))
+    {
         kvtree* elem_hash = kvtree_elem_hash(elem);
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, status);
     }
@@ -487,16 +487,13 @@ int axl_async_wait_bbapi (int id) {
     }
     /* we're done now, either with error or success */
     if (status == AXL_STATUS_DEST) {
-
-        char *src;
-        char *dst;
-        kvtree_elem *elem = NULL;
-
         /* Look though all our list of files */
+        char* src;
+        char* dst;
+        kvtree_elem* elem = NULL;
         while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
             AXL_DBG(2, "Read and copied %s to %s sucessfully", src, dst);
         }
-
         return AXL_SUCCESS;
     } else {
         return AXL_FAILURE;
@@ -505,7 +502,8 @@ int axl_async_wait_bbapi (int id) {
     return AXL_FAILURE;
 }
 
-int axl_async_cancel_bbapi (int id) {
+int axl_async_cancel_bbapi (int id)
+{
 #ifdef HAVE_BBAPI
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_cancel(id);
@@ -535,27 +533,25 @@ int axl_async_cancel_bbapi (int id) {
  * support extents).  Return 0 if any of the source or destination paths do not
  * support extents.
  */
-int
-axl_all_paths_are_bbapi_compatible(int id)
+int axl_all_paths_are_bbapi_compatible(int id)
 {
 #ifdef HAVE_BBAPI
-    char *src;
-    char *dst;
-    kvtree_elem *elem = NULL;
-
     /* Look though all our list of files */
+    char* src;
+    char* dst;
+    kvtree_elem* elem = NULL;
     while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
-        if (!bbapi_copy_is_compatible(src, dst)) {
+        if (! bbapi_copy_is_compatible(src, dst)) {
             /* This file copy isn't compatible with BBAPI */
-            return (0);
+            return 0;
         }
     }
 
     /* All files copies are BBAPI compatible */
-    return (1);
+    return 1;
 
 #endif
-    return (0);
+    return 0;
 }
 
 /*
@@ -568,18 +564,19 @@ axl_all_paths_are_bbapi_compatible(int id)
  * Fallback mode is DISABLED by default.  You need to pass
  * -DENABLE_BBAPI_FALLBACK to cmake to enable it.
  */
-int
-axl_bbapi_in_fallback(int id)
+int axl_bbapi_in_fallback(int id)
 {
     int bbapi_fallback = 0;
+
 #ifdef HAVE_BBAPI_FALLBACK
     kvtree* file_list = axl_kvtrees[id];
-
     if (kvtree_util_get_int(file_list, AXL_BBAPI_KEY_FALLBACK, &bbapi_fallback) !=
-        KVTREE_SUCCESS) {
+        KVTREE_SUCCESS)
+    {
         /* Value isn't set, so we're not in fallback mode */
         return 0;
     }
 #endif
-    return (bbapi_fallback);
+
+    return bbapi_fallback;
 }

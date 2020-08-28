@@ -80,7 +80,7 @@ int AXL_Finalize (void);
  */
 #define AXL_Create(type, name, ...) \
         __AXL_Create(type, name, GET_ARG0(__VA_ARGS__))
-int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file);
+int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
 
 /** Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
@@ -103,7 +103,7 @@ int AXL_Resume (int id);
  * returns AXL_SUCCESS if the transfer has completed,
  * does not indicate whether transfer was successful,
  * only whether it's done */
-int AXL_Test(int id);
+int AXL_Test (int id);
 
 /** BLOCKING
  * Wait for a transfer to complete,
