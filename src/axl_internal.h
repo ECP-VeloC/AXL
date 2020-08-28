@@ -61,13 +61,13 @@ Note: these functions are taken directly from SCR
 */
 
 /* print message to stdout if axl_debug is set and it is >= level */
-void axl_dbg(int level, const char *fmt, ...);
+void axl_dbg(int level, const char* fmt, ...);
 
 /* print error message to stdout */
-void axl_err(const char *fmt, ...);
+void axl_err(const char* fmt, ...);
 
 /* print abort message and kill run */
-void axl_abort(int rc, const char *fmt, ...);
+void axl_abort(int rc, const char* fmt, ...);
 
 /*
 =========================================
@@ -84,7 +84,7 @@ Note: these functions are taken directly from SCR
  *
  * For example, tmpfs and ext4 support extents, NFS does not.
  */
-int axl_file_supports_fiemap(char *path);
+int axl_file_supports_fiemap(char* path);
 #endif
 
 /* returns user's current mode as determine by their umask */
@@ -112,8 +112,12 @@ ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size);
 ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size);
 
 /* copy a file from src to dst */
-int axl_file_copy(const char* src_file, const char* dst_file,
-    unsigned long buf_size, int resume);
+int axl_file_copy(
+    const char* src_file,
+    const char* dst_file,
+    unsigned long buf_size,
+    int resume
+);
 
 /* opens, reads, and computes the crc32 value for the given filename */
 int axl_crc32(const char* filename, uLong* crc);
@@ -133,8 +137,8 @@ double axl_seconds();
 extern size_t axl_file_buf_size;
 
 int axl_compare_files_or_dirs(char *path1, char *path2);
-void axl_free(void* p);
 
+void axl_free(void* p);
 
 /*
  * This is an helper function to iterate though a file list for a given
@@ -150,8 +154,12 @@ void axl_free(void* p);
  *
  *    src or dst can be set to NULL if you don't care about the value.
  */
-kvtree_elem * axl_get_next_path(int id, kvtree_elem *elem, char **src,
-    char **dst);
+kvtree_elem* axl_get_next_path(
+    int id,
+    kvtree_elem* elem,
+    char** src,
+    char** dst
+);
 
 /* Clone of apsrintf().  See the standard asprintf() man page for details */
 int asprintf(char** strp, const char* fmt, ...);
