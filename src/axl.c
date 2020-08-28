@@ -918,11 +918,6 @@ int AXL_Test (int id)
     }
 
 end:
-
-    if (rc == AXL_SUCCESS) {
-        axl_rename_files_to_final_names(id);
-    }
-
     return rc;
 }
 
