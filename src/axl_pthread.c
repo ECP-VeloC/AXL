@@ -207,7 +207,7 @@ axl_pthread_func(void *arg)
         src = kvtree_elem_key(elem);
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst);
 
-        rc = axl_file_copy(src, dst, axl_file_buf_size, NULL, pdata->resume);
+        rc = axl_file_copy(src, dst, axl_file_buf_size, pdata->resume);
         AXL_DBG(2, "%s: Read and copied %s to %s, rc %d",
             __func__, src, dst, rc);
 
