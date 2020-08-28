@@ -518,7 +518,7 @@ static unsigned long axl_debug_pause_after(void)
 /* TODO: could apply compression/decompression here */
 /* copy src_file (full path) to dest_path and return new full path in dest_file */
 int axl_file_copy(const char* src_file, const char* dst_file,
-    unsigned long buf_size, uLong* crc, int resume) {
+    unsigned long buf_size, int resume) {
     off_t start_offset;
     int flags;
     unsigned long total_copied = 0;
@@ -586,11 +586,6 @@ int axl_file_copy(const char* src_file, const char* dst_file,
         return AXL_FAILURE;
     }
 
-    /* initialize crc values */
-    if (crc != NULL) {
-        *crc = crc32(0L, Z_NULL, 0);
-    }
-
     /* Resume the transfer to our destination file where we left off */
     if (resume) {
         /* Seek to the end of our destination file, while recording offset */
@@ -615,11 +610,6 @@ int axl_file_copy(const char* src_file, const char* dst_file,
 
         /* if we read some bytes, write them out */
         if (nread > 0) {
-            /* optionally compute crc value as we go */
-            if (crc != NULL) {
-                *crc = crc32(*crc, (const Bytef*) buf, (uInt) nread);
-            }
-
             /* write our nread bytes out */
             int nwrite = axl_write_attempt(dst_file, dst_fd, buf, nread);
 

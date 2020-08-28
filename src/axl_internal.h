@@ -111,10 +111,9 @@ ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size);
 /* make a good attempt to write to file (retries, if necessary, return error if fail) */
 ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size);
 
-/* copy a file from src to dst and calculate CRC32 in the process
- * if crc == NULL, the CRC32 value is not computed */
+/* copy a file from src to dst */
 int axl_file_copy(const char* src_file, const char* dst_file,
-    unsigned long buf_size, uLong* crc, int resume);
+    unsigned long buf_size, int resume);
 
 /* opens, reads, and computes the crc32 value for the given filename */
 int axl_crc32(const char* filename, uLong* crc);
