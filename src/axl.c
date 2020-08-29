@@ -843,22 +843,35 @@ static char* axl_remove_extension(char* path_with_extension, char** extra)
  *
  * TODO: Make the file renames multithreaded
  */
-static void axl_rename_files_to_final_names(int id)
+static int axl_rename_files_to_final_names(int id)
 {
+    int rc = AXL_SUCCESS;
+
     char* dst;
     kvtree_elem* elem = NULL;
     while ((elem = axl_get_next_path(id, elem, NULL, &dst))) {
+        /* compute and allocate original name to store in newdst */
         char* extra = NULL;
         char* newdst = axl_remove_extension(dst, &extra);
         if (! newdst) {
             /* Nothing we can do... */
             AXL_ERR("Couldn't remove extension, this shouldn't happen");
-            free(newdst);
             continue;
         }
-        rename(dst, newdst);
+
+        /* rename from temporary to final name */
+        int tmp_rc = rename(dst, newdst);
+        if (tmp_rc != 0) {
+            AXL_ERR("Failed to rename file: `%s' to `%s' errno=%d %s",
+                dst, newdst, errno, strerror(errno)
+            );
+            rc = AXL_FAILURE;
+        }
+
         free(newdst);
     }
+
+    return rc;
 }
 
 /* Test if a transfer has completed
@@ -981,9 +994,17 @@ int AXL_Wait (int id)
     }
 
 end:
+    /* if we're successful, rename temporary files to final destination names */
     if (rc == AXL_SUCCESS) {
-        axl_rename_files_to_final_names(id);
+        rc = axl_rename_files_to_final_names(id);
     }
+
+    /* if anything failed, be sure to mark transfer status as being in error */
+    if (rc != AXL_SUCCESS) {
+        kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
+    }
+
+    /* TODO: if error, delete destination files including temporaries? */
 
     kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_COMPLETED);
 
