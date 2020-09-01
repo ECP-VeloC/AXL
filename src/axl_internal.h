@@ -17,7 +17,7 @@
 /*
  * A list of pointers to kvtrees, indexed by AXL ID.
  */
-kvtree** axl_kvtrees;
+extern kvtree** axl_kvtrees;
 
 /* current debug level for AXL library,
  * set in AXL_Init used in axl_dbg */
