@@ -91,9 +91,20 @@ int AXL_Finalize (void);
         __AXL_Create(type, name, GET_ARG0(__VA_ARGS__))
 int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
 
-/** Configure AXL options */
-typedef struct kvtree_t kvtree;
-int AXL_Config(
+/**
+ * Get/set AXL configuration values.
+ *
+ * config: The new configuration.  Global variables are in top level of
+ *              the tree, and per-ID values are subtrees.  If config=NULL,
+ *              then return a kvtree with all the configuration values (globals
+ *              and all per-ID trees).
+ *
+ * Return value: If config != NULL, then return config on success.  If
+ *                      config=NULL (you're querying the config) then return
+ *                      a new kvtree on success.  Return NULL on any failures.
+ */
+typedef struct kvtree_struct kvtree;
+kvtree* AXL_Config(
   const kvtree* config        /** [IN] - kvtree of options */
 );
 

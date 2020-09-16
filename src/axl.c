@@ -312,9 +312,9 @@ int AXL_Finalize (void)
 
 
 /** Set a AXL config parameters */
-int AXL_Config(const kvtree* config)
+kvtree* AXL_Config(const kvtree* config)
 {
-  int retval = AXL_SUCCESS;
+  kvtree* retval = (kvtree*)(config);
 
   static int configured = 0;
   static const char* known_options[] = {
@@ -327,6 +327,11 @@ int AXL_Config(const kvtree* config)
     AXL_KEY_CONFIG_COPY_METADATA,
     NULL
   };
+
+  /* TODO: implement getting configuration options back */
+  if (config == NULL) {
+    return NULL;
+  }
 
   if (! configured) {
     if (config != NULL) {
@@ -348,7 +353,7 @@ int AXL_Config(const kvtree* config)
           AXL_ERR("Value '%s' passed for %s exceeds int range",
             value, AXL_KEY_CONFIG_FLUSH_ASYNC_BW
           );
-          retval = AXL_FAILURE;
+          retval = NULL;
         }
       }
 
@@ -365,7 +370,7 @@ int AXL_Config(const kvtree* config)
           AXL_ERR("Value '%s' passed for %s exceeds int range",
             value, AXL_KEY_CONFIG_FILE_BUF_SIZE
           );
-          retval = AXL_FAILURE;
+          retval = NULL;
         }
       }
 
@@ -407,7 +412,7 @@ int AXL_Config(const kvtree* config)
             kvtree_elem_key(elem),
             kvtree_elem_key(kvtree_elem_first(kvtree_elem_hash(elem)))
           );
-          retval = AXL_FAILURE;
+          retval = NULL;
         }
       }
     }
@@ -416,7 +421,7 @@ int AXL_Config(const kvtree* config)
     configured = 1;
   } else {
     AXL_ERR("Already configured");
-    retval = AXL_FAILURE;
+    retval = NULL;
   }
 
   return retval;
