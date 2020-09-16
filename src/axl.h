@@ -1,8 +1,6 @@
 #ifndef AXL_H
 #define AXL_H
 
-#include "kvtree.h"
-
 /* enable C++ codes to include this header directly */
 #ifdef __cplusplus
 extern "C" {
@@ -94,6 +92,7 @@ int AXL_Finalize (void);
 int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
 
 /** Configure AXL options */
+typedef struct kvtree_t kvtree;
 int AXL_Config(
   const kvtree* config        /** [IN] - kvtree of options */
 );
