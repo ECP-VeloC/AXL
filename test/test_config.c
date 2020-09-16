@@ -51,17 +51,15 @@ main(void) {
     }
 
     printf("Configuring AXL...\n");
-    rc = AXL_Config(axl_config_values);
-    if (rc != AXL_SUCCESS) {
-        printf("AXL_Config() failed (error %d)\n", rc);
-        return rc;
+    if (AXL_Config(axl_config_values) == NULL) {
+        printf("AXL_Config() failed\n");
+        return EXIT_FAILURE;
     }
 
     printf("Configuring AXL a second time (this should fail)...\n");
-    rc = AXL_Config(axl_config_values);
-    if (rc == AXL_SUCCESS) {
-        printf("AXL_Config() succeeded unexpectedly (error %d)\n", rc);
-        return rc;
+    if (AXL_Config(axl_config_values) != NULL) {
+        printf("AXL_Config() succeeded unexpectedly\n");
+        return EXIT_FAILURE;
     }
 
     if (axl_file_buf_size != old_axl_file_buf_size + 1) {
