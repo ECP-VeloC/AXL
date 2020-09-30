@@ -20,7 +20,7 @@ main(void) {
     rc = AXL_Init(state_file);
     if (rc != AXL_SUCCESS) {
         printf("AXL_Init() failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
 
     /* check AXL configuration settings */
@@ -29,25 +29,25 @@ main(void) {
                                    old_axl_file_buf_size + 1);
     if (rc != KVTREE_SUCCESS) {
         printf("kvtree_util_set_bytecount failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
     rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_DEBUG,
                              !old_axl_debug);
     if (rc != KVTREE_SUCCESS) {
         printf("kvtree_util_set_int failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
     rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_MKDIR,
                              !old_axl_make_directories);
     if (rc != KVTREE_SUCCESS) {
         printf("kvtree_util_set_int failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
     rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_COPY_METADATA,
                              !old_axl_copy_metadata);
     if (rc != KVTREE_SUCCESS) {
         printf("kvtree_util_set_int failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
 
     printf("Configuring AXL...\n");
@@ -92,8 +92,8 @@ main(void) {
     rc = AXL_Finalize();
     if (rc != AXL_SUCCESS) {
         printf("AXL_Finalize() failed (error %d)\n", rc);
-        return rc;
+        return EXIT_FAILURE;
     }
 
-    return AXL_SUCCESS;
+    return EXIT_SUCCESS;
 }
