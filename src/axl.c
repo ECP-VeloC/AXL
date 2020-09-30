@@ -310,9 +310,8 @@ int AXL_Finalize (void)
     return rc;
 }
 
-
-/** Set a AXL config parameters */
-kvtree* AXL_Config(const kvtree* config)
+/** Actual function to set config parameters */
+static kvtree* AXL_Config_Set(const kvtree* config)
 {
   kvtree* retval = (kvtree*)(config);
 
@@ -425,6 +424,48 @@ kvtree* AXL_Config(const kvtree* config)
   }
 
   return retval;
+}
+
+/** Actual function to get config parameters */
+static kvtree* AXL_Config_Get(void)
+{
+    kvtree* config = kvtree_new();
+
+    if(config != NULL) {
+        int success = 1; /* all values could be set? */
+
+        /* dummy variables for options not actually supported (anymore):
+         * AXL_KEY_CONFIG_FLUSH_ASYNC_BW
+         * AXL_KEY_CONFIG_FLUSH_ASYNC_PERCENT
+         * AXL_KEY_CONFIG_CRC_ON_FLUSH
+         */
+        success &= kvtree_util_set_bytecount(config,
+                                             AXL_KEY_CONFIG_FILE_BUF_SIZE,
+                                             (unsigned long)axl_file_buf_size)
+                     == KVTREE_SUCCESS;
+        success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_DEBUG, axl_debug)
+                     == KVTREE_SUCCESS;
+        success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_MKDIR,
+                                       axl_make_directories) == KVTREE_SUCCESS;
+        success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_COPY_METADATA,
+                                       axl_copy_metadata) == KVTREE_SUCCESS;
+
+        if (!success) {
+            kvtree_delete(&config);
+        }
+    }
+
+    return config;
+}
+
+/** Set a AXL config parameters */
+kvtree* AXL_Config(const kvtree* config)
+{
+    if (config != NULL) {
+        return AXL_Config_Set(config);
+    } else {
+        return AXL_Config_Get();
+    }
 }
 
 
