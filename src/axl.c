@@ -362,7 +362,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
       if (kvtree_util_get_bytecount(config,
         AXL_KEY_CONFIG_FILE_BUF_SIZE, &ul) == KVTREE_SUCCESS)
       {
-        axl_file_buf_size = (int) ul;
+        axl_file_buf_size = (size_t) ul;
         if (axl_file_buf_size != ul) {
           char* value;
           kvtree_util_get_str(config, AXL_KEY_CONFIG_FILE_BUF_SIZE, &value);
