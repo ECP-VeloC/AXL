@@ -400,7 +400,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
         /* check against known options */
         const char** opt;
         int found = 0;
-        for (opt = known_options; opt; opt++) {
+        for (opt = known_options; *opt != NULL; opt++) {
           if (strcmp(*opt, kvtree_elem_key(elem)) == 0) {
             found = 1;
             break;
