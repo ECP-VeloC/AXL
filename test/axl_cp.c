@@ -36,6 +36,7 @@ axl_xfer_str_to_xfer(const char *xfer_str)
             {"bbapi", AXL_XFER_ASYNC_BBAPI},
             {"cppr", AXL_XFER_ASYNC_CPPR},
             {"pthread", AXL_XFER_PTHREAD},
+            {"state_file", AXL_XFER_STATE_FILE},
             {NULL, AXL_XFER_NULL},  /* must always be last element in array */
     };
     int i;
@@ -53,16 +54,16 @@ axl_xfer_str_to_xfer(const char *xfer_str)
 static void
 usage(void)
 {
-    printf("Usage: axl_cp [-apU] [-r|-R] [-S state_file] [-X xfer_type] SOURCE DEST\n");
-    printf("       axl_cp [-apU] [-r|-R] [-S state_file] [-X xfer_type] SOURCE... DIRECTORY\n");
+    printf("Usage: axl_cp [-ap] [-r|-R] [-S state_file [-U]] [-X xfer_type] SOURCE DEST\n");
+    printf("       axl_cp [-ap] [-r|-R] [-S state_file [-U]] [-X xfer_type] SOURCE... DIRECTORY\n");
     printf("\n");
     printf("-a:             Archive mode.  Preserve permissions + times + recursive.  Implies -pr\n");
     printf("-p:             Preserve permissions + times.\n");
     printf("-r|-R:          Copy directories recursively\n");
+    printf("-S state_file:  Reload state from state_file\n");
     printf("-U:             Resume copies to existing destination files if they exist\n");
-    printf("-X xfer_type:   AXL transfer type:  default native pthread sync dw bbapi cppr\n");
+    printf("-X xfer_type:   AXL transfer type: default native pthread sync dw bbapi cppr state_file.\n");
     printf("\n");
-
 }
 
 void sig_func(int signum)

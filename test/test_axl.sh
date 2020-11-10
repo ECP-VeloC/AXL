@@ -14,7 +14,7 @@ echo "
    -n num_files:    Number of files to create (default 50)
    -p bytes:        Pause the transfer after $bytes bytes
    -U:              After starting the transfer, kill -9 it, and resume it
-   xfer_type:       sync|pthread|bbapi|dw (defaults to sync if none specified)
+   xfer_type:       sync|pthread|bbapi|dw|state_file (defaults to sync if none specified)
 "
 }
 
@@ -146,8 +146,9 @@ function run_test
 	unset AXL_DEBUG_PAUSE_AFTER
 
 	if [ "$resume" == "1" ] ; then
-		# Resume our old transfer
-		./axl_cp -S /var/tmp/state_file -U -X $xfer -r $src/* $dest
+		# Resume our old transfer.  '-X state_file' tells axl_cp to use the
+		# transfer type we used previously in our state_file.
+		./axl_cp -S /var/tmp/state_file -U -X state_file -r $src/* $dest
 	fi
 	rc=$?
 	if [ "$rc" != "0" ] ; then
