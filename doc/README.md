@@ -62,6 +62,11 @@ DEBUG           |    Boolean |       0 |  No | Set to 1 to have AXL print debug 
 MKDIR           |    Boolean |       1 | Yes | Specifies whether the destination file system supports the creation of directories (1) or not (0).
 COPY\_METADATA  |    Boolean |       0 | Yes | Whether file metadata like timestamp and permission bits should also be copied.
 
+Thread safety: setting the DEBUG or any per-transfer configuration value after
+the transfer has been dispatched entails a race contion between the main thread
+and the worker threads. Changing configuration options after a transfer has
+been dispatched is not supported.
+
 # Transferring files
 Regardless of the transfer type, the basic control flow of a transfer is always:
 1. AXL\_Create - allocate a new transfer object, providing its type and a name

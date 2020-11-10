@@ -3,7 +3,6 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
-#include <pthread.h>
 
 /* PATH_MAX */
 #include <limits.h>
@@ -73,8 +72,6 @@ int axl_copy_metadata;
 kvtree** axl_kvtrees;
 static unsigned int axl_kvtrees_count = 0;
 
-static pthread_mutex_t id_lock = PTHREAD_MUTEX_INITIALIZER;
-
 #ifdef HAVE_BBAPI
 static int bbapi_is_loaded = 0;
 #endif
@@ -100,15 +97,11 @@ static int axl_alloc_id(const char* state_file)
         kvtree_util_set_str(new, AXL_KEY_STATE_FILE, state_file);
     }
 
-    pthread_mutex_lock(&id_lock);
-
     int id = axl_kvtrees_count;
     axl_kvtrees_count++;
 
     axl_kvtrees = realloc(axl_kvtrees, sizeof(struct kvtree*) * axl_kvtrees_count);
     axl_kvtrees[id] = new;
-
-    pthread_mutex_unlock(&id_lock);
 
     return id;
 }
@@ -130,12 +123,8 @@ static void axl_free_id(int id)
 {
     axl_remove_state_file(id);
 
-    pthread_mutex_lock(&id_lock);
-
     /* kvtree_delete() will set axl_kvtrees[id] = NULL */
     kvtree_delete(&axl_kvtrees[id]);
-
-    pthread_mutex_unlock(&id_lock);
 }
 
 /*
@@ -358,9 +347,6 @@ static kvtree* AXL_Config_Set(const kvtree* config)
                 break;
             }
 
-            /* this should be protected by a mutex_lock to prevent issues with
-             * realloc() moving memory when growing axl_kvtrees, but no one else
-             * does ... */
             kvtree* file_list = axl_kvtrees[id];
 
             const char** opt;
@@ -481,9 +467,6 @@ static kvtree* AXL_Config_Get()
                                    axl_copy_metadata) == KVTREE_SUCCESS;
 
     /* per transfer options */
-    /* this should be protected by a mutex_lock to prevent issues with
-     * realloc() moving memory when growing axl_kvtrees, but no one else
-     * does ... */
     int id;
     for (id = 0; id < axl_kvtrees_count; id++) {
         kvtree* file_list = axl_kvtrees[id];
