@@ -577,9 +577,14 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         kvtree* file_list = NULL;
         axl_xfer_t old_xtype = AXL_XFER_NULL;
         axl_xfer_state_t old_xstate = AXL_XFER_STATE_NULL;
+
         if (axl_get_info(id, &file_list, &old_xtype, &old_xstate) != AXL_SUCCESS) {
             AXL_ERR("Couldn't get kvtree info");
             return -1;
+        }
+
+        if (xtype == AXL_XFER_STATE_FILE) {
+            xtype = old_xtype;
         }
 
         if (xtype != old_xtype) {
@@ -587,20 +592,21 @@ int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
                 "in state_file", xtype, old_xtype);
             return -1;
         }
+    }
 
-        /* Allow caller to assign a new name */
-        kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
-    } else {
-        /* We're not loading from an existing state file */
-        if (xtype == AXL_XFER_DEFAULT) {
-            xtype = axl_detect_default_xfer();
-        } else if (xtype == AXL_XFER_NATIVE) {
-            xtype = axl_detect_native_xfer();
-        }
+    if (xtype == AXL_XFER_DEFAULT) {
+        xtype = axl_detect_default_xfer();
+    } else if (xtype == AXL_XFER_NATIVE) {
+        xtype = axl_detect_native_xfer();
+    } else if (xtype == AXL_XFER_STATE_FILE && !reload_from_state_file) {
+        AXL_ERR("Can't use AXL_XFER_STATE_FILE without a state_file");
+        return -1;
+    }
 
-        kvtree* file_list = axl_kvtrees[id];
-        kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
-        kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
+    kvtree* file_list = axl_kvtrees[id];
+    kvtree_util_set_int(file_list, AXL_KEY_XFER_TYPE, xtype);
+    kvtree_util_set_str(file_list, AXL_KEY_UNAME, name);
+    if (!reload_from_state_file) {
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
         kvtree_util_set_int(file_list, AXL_KEY_STATE, (int)AXL_XFER_STATE_CREATED);
 

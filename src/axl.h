@@ -49,6 +49,7 @@ typedef enum {
                              * to AXL_XFER_DEFAULT.
                              */
     AXL_XFER_PTHREAD,      /* parallel copy using pthreads */
+    AXL_XFER_STATE_FILE,    /* Use the xfer type specified in the state_file. */
 } axl_xfer_t;
 
 #define ARG0(dummy, a0, ...) a0
