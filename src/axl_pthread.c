@@ -37,6 +37,9 @@ struct axl_pthread_data
     /* AXL ID associated with this data */
     int id;
 
+    /* AXL transfer options from axl_kvtrees */
+    kvtree* file_list;
+
     /* If resume = 1, try to resume old transfers */
     int resume;
 
@@ -128,6 +131,7 @@ struct axl_pthread_data* axl_pthread_data_lookup(int id)
 void axl_pthread_data_add(int id, struct axl_pthread_data* pdata)
 {
     pdata->id = id;
+    pdata->file_list = axl_kvtrees[id];
 
     pthread_mutex_lock(&axl_all_pthread_data.lock);
 
@@ -206,13 +210,8 @@ static void* axl_pthread_func(void* arg)
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst);
 
         int success;
-        /* TODO: check bytecount conversion success, do not use global
-         * axl_kvtrees to get file_list */
         unsigned long file_buf_size;
-        /* this should be protected by a mutex_lock to prevent issues with
-         * realloc() moving memory when growing axl_kvtrees, but no one else
-         * does ... */
-        const kvtree* file_list = axl_kvtrees[pdata->id];
+        const kvtree* file_list = pdata->file_list;
         success = kvtree_util_get_bytecount(file_list,
                                             AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
         assert(success == KVTREE_SUCCESS);
@@ -422,15 +421,15 @@ int axl_pthread_wait (int id)
 {
     int rc = AXL_SUCCESS;
 
-    /* get pointer to file list for this dataset */
-    kvtree* file_list = axl_kvtrees[id];
-
     struct axl_pthread_data* pdata = axl_pthread_data_lookup(id);
     if (! pdata) {
         /* Did they call AXL_Cancel() and then AXL_Wait()? */
         AXL_ERR("No pthread data");
         return AXL_FAILURE;
     }
+
+    /* get pointer to file list for this dataset */
+    kvtree* file_list = pdata->file_list;
 
     /* All our threads are now started.  Wait for them to finish */
     int i;

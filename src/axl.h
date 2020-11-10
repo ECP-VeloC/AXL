@@ -72,6 +72,9 @@ int AXL_Finalize (void);
  */
 int AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
 
+/* needs to be above doxygen comment to get association right */
+typedef struct kvtree_struct kvtree;
+
 /**
  * Get/set AXL configuration values.
  *
@@ -80,11 +83,15 @@ int AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
  *              then return a kvtree with all the configuration values (globals
  *              and all per-ID trees).
  *
+ * Thread safety: setting the DEBUG or any per-transfer configuration value
+ * after the transfer has been dispatched entails a race contion between the
+ * main thread and the worker threads. Changing configuration options after a
+ * transfer has been dispatched is not supported.
+ *
  * Return value: If config != NULL, then return config on success.  If
  *                      config=NULL (you're querying the config) then return
  *                      a new kvtree on success.  Return NULL on any failures.
  */
-typedef struct kvtree_struct kvtree;
 kvtree* AXL_Config(
   const kvtree* config        /** [IN] - kvtree of options */
 );
