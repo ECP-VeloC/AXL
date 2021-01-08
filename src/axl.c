@@ -239,9 +239,8 @@ API Functions
 ========================================
 */
 
-/* Read configuration from non-AXL-specific file
-  Also, start up vendor specific services */
-int __AXL_Init (const char* state_file)
+/* Initialize library and start up vendor specific services */
+int AXL_Init (void)
 {
     int rc = AXL_SUCCESS;
 
@@ -268,11 +267,6 @@ int __AXL_Init (const char* state_file)
     val = getenv("AXL_MKDIR");
     if (val != NULL) {
         axl_make_directories = atoi(val);
-    }
-
-    if (state_file != NULL) {
-        printf("WARNING: Passing a state_file to AXL_Init() is deprecated." \
-               "Pass it to AXL_Create(id, type, state_file) instead.\n");
     }
 
 #ifdef HAVE_BBAPI
@@ -544,7 +538,7 @@ kvtree* AXL_Config(const kvtree* config)
  * Type specifies a particular method to use
  * Name is a user/application provided string
  * Returns an ID to the transfer handle */
-int __AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
+int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
 {
     /* Generate next unique ID */
     int id = axl_alloc_id(state_file);

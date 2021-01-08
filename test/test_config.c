@@ -369,7 +369,7 @@ main(void) {
     old_axl_copy_metadata = axl_copy_metadata;
 
     /* must pick up "old" defaults */
-    int id1 = AXL_Create(AXL_XFER_DEFAULT, __FILE__);
+    int id1 = AXL_Create(AXL_XFER_DEFAULT, __FILE__, NULL);
     if (id1 < 0) {
         printf("AXL_Create() failed (error %d)\n", id1);
         exit(EXIT_FAILURE);
@@ -379,7 +379,7 @@ main(void) {
     get_global_options();
 
     /* must pick up "new" defaults */
-    int id2 = AXL_Create(AXL_XFER_DEFAULT, __FILE__);
+    int id2 = AXL_Create(AXL_XFER_DEFAULT, __FILE__, NULL);
     if (id2 < 0) {
         printf("AXL_Create() failed (error %d)\n", id2);
         exit(EXIT_FAILURE);

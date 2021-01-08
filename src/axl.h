@@ -52,19 +52,10 @@ typedef enum {
     AXL_XFER_STATE_FILE,    /* Use the xfer type specified in the state_file. */
 } axl_xfer_t;
 
-#define ARG0(dummy, a0, ...) a0
-#define GET_ARG0(...) ARG0(dummy, ## __VA_ARGS__, 0)
-
 /*
  * int AXL_Init(void) - Initialize the library.
- *
- * NOTE: AXL_Init() used to take in a state_file argument, but this has
- * since been removed. We do some macro mangling to make sure both state_file
- * version and the no-arg version both work, but the state_file version is
- * deprecated and should not be used.
  */
-#define AXL_Init(...) __AXL_Init(GET_ARG0(__VA_ARGS__))
-int __AXL_Init (const char* state_file);
+int AXL_Init (void);
 
 /** Shutdown any vendor services */
 int AXL_Finalize (void);
@@ -78,16 +69,8 @@ int AXL_Finalize (void);
  *              resume transfers after a crash.
  *
  * Returns an AXL ID, or negative number on error.
- *
- * NOTE: AXL_Create() used to only take in type and name.  The state_file arg
- * was added later.  We do some macro mangling to make sure both 2-arg and
- * 3-arg versions of AXL_Create() work, but the 2-arg version is deprecated
- * and should not be used.  If you're loading from an existing state_file, then
- * type must be the same as the type in state_file.
  */
-#define AXL_Create(type, name, ...) \
-        __AXL_Create(type, name, GET_ARG0(__VA_ARGS__))
-int __AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
+int AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
 
 /**
  * Get/set AXL configuration values.
