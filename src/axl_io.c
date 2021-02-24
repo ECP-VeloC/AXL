@@ -408,6 +408,46 @@ int axl_meta_encode(const char* file, kvtree* meta)
     return AXL_FAILURE;
 }
 
+/*
+ * Check if a file is the size we expect it to be.  Do this by looking at the
+ * SIZE field in the file's metadata kvtree.
+ *
+ * Return AXL_SUCCESS if the file is the correct size, AXL_FAILURE otherwise.
+ * If there is no SIZE field in the metadata kvtree, return AXL_FAILURE.
+ */
+int axl_check_file_size(const char* file, const kvtree* meta)
+{
+    unsigned long size;
+    int rc = AXL_SUCCESS;
+    if (kvtree_util_get_unsigned_long(meta, "SIZE", &size) == KVTREE_SUCCESS) {
+        /* got a size field in the metadata, stat the file */
+        struct stat statbuf;
+        int stat_rc = lstat(file, &statbuf);
+        if (stat_rc == 0) {
+            /* stat succeeded, check that sizes match */
+            if (size != statbuf.st_size) {
+                /* file size is not correct */
+                AXL_ERR("file `%s' size is %lu expected %lu",
+                    file, (unsigned long) statbuf.st_size, size
+                );
+                rc = AXL_FAILURE;
+            }
+        } else {
+            /* failed to stat file */
+            AXL_ERR("stat(%s) failed: errno=%d %s",
+                file, errno, strerror(errno)
+            );
+            rc = AXL_FAILURE;
+        }
+    }
+
+    return rc;
+}
+
+/*
+ * For a given file, apply the metadata (like permission bits) that are set
+ * in the file's metadata kvtree.
+ */
 int axl_meta_apply(const char* file, const kvtree* meta)
 {
     int rc = AXL_SUCCESS;
@@ -441,30 +481,6 @@ int axl_meta_apply(const char* file, const kvtree* meta)
             /* failed to set uid and gid */
             AXL_ERR("chown(%s, %lu, %lu) failed: errno=%d %s",
                 file, uid_val, gid_val, errno, strerror(errno)
-            );
-            rc = AXL_FAILURE;
-        }
-    }
-  
-    /* can't set the size at this point, but we can check it */
-    unsigned long size;
-    if (kvtree_util_get_unsigned_long(meta, "SIZE", &size) == KVTREE_SUCCESS) {
-        /* got a size field in the metadata, stat the file */
-        struct stat statbuf;
-        int stat_rc = lstat(file, &statbuf);
-        if (stat_rc == 0) {
-            /* stat succeeded, check that sizes match */
-            if (size != statbuf.st_size) {
-                /* file size is not correct */
-                AXL_ERR("file `%s' size is %lu expected %lu",
-                    file, (unsigned long) statbuf.st_size, size
-                );
-                rc = AXL_FAILURE;
-            }
-        } else {
-            /* failed to stat file */
-            AXL_ERR("stat(%s) failed: errno=%d %s",
-                file, errno, strerror(errno)
             );
             rc = AXL_FAILURE;
         }
@@ -531,7 +547,6 @@ int axl_file_copy(
     const char* src_file,
     const char* dst_file,
     unsigned long buf_size,
-    int copy_metadata,
     int resume)
 {
     /* check that we got something for a source file */
@@ -664,16 +679,7 @@ int axl_file_copy(
         rc = AXL_FAILURE;
     }
 
-    if (rc == AXL_SUCCESS) {
-        /* succeeded in copying the file, now copy uid/gid,
-         * permissions, and timestamps */
-        if (copy_metadata) {
-            kvtree* meta = kvtree_new();
-            axl_meta_encode(src_file, meta);
-            axl_meta_apply(dst_file, meta);
-            kvtree_delete(&meta);
-        }
-    } else {
+    if (rc != AXL_SUCCESS) {
         /* unlink the file if the copy failed */
         axl_file_unlink(dst_file);
     }

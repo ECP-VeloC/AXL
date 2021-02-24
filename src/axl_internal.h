@@ -116,7 +116,6 @@ int axl_file_copy(
     const char* src_file,
     const char* dst_file,
     unsigned long buf_size,
-    int copy_metadata,
     int resume
 );
 
@@ -171,5 +170,8 @@ int axl_meta_encode(const char* file, kvtree* meta);
 
 /* copy metadata settings recorded in provided kvtree to specified file */
 int axl_meta_apply(const char* file, const kvtree* meta);
+
+/* Check if a file is the size we expect it to be */
+int axl_check_file_size(const char* file, const kvtree* meta);
 
 #endif /* AXL_INTERNAL_H */

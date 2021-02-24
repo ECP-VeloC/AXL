@@ -895,6 +895,82 @@ int AXL_Add (int id, const char* src, const char* dest)
 }
 
 /*
+ * Save metadata (size & mode bits) about each file to the file_list kvtree.
+ *
+ * TODO: Make this multithreaded.
+ */
+static int axl_save_metadata(int id)
+{
+    char* src;
+    kvtree_elem *elem = NULL;
+    kvtree *src_kvtree;
+    int rc;
+
+    /* For each source file ... */
+    while ((elem = axl_get_next_path(id, elem, &src, NULL))) {
+        /* Get the kvtree for the file */
+        src_kvtree = kvtree_elem_hash(elem);
+
+        /* stat() the file and record metadata to the file's kvtree */
+        rc = axl_meta_encode(src, src_kvtree);
+        if (rc != AXL_SUCCESS) {
+            return rc;
+        }
+    }
+    return AXL_SUCCESS;
+}
+
+/*
+ * Given an AXL id, check that all the file sizes are correct after a
+ * transfer.
+ *
+ * TODO: Make this multithreaded
+ */
+static int axl_check_file_sizes(int id)
+{
+    kvtree_elem *elem = NULL;
+    kvtree *src_kvtree;
+    char *dst;
+    int rc;
+
+    /* For each source file ... */
+    while ((elem = axl_get_next_path(id, elem, NULL, &dst))) {
+        /* Get the kvtree for the file */
+        src_kvtree = kvtree_elem_hash(elem);
+
+        rc = axl_check_file_size(dst, src_kvtree);
+        if (rc != AXL_SUCCESS) {
+            return rc;
+        }
+    }
+    return AXL_SUCCESS;
+}
+
+/*
+ * Set metadata mode bits
+ *
+ * TODO: Make this multithreaded.
+ */
+static int axl_set_metadata(int id)
+{
+    char* src, *dst;
+    kvtree_elem *elem = NULL;
+    kvtree *src_kvtree;
+    int rc;
+
+    /* For each destination file ... */
+    while ((elem = axl_get_next_path(id, elem, &src, &dst))) {
+        src_kvtree = kvtree_elem_hash(elem);
+
+        rc = axl_meta_apply(dst, src_kvtree);
+        if (rc != AXL_SUCCESS) {
+            return rc;
+        }
+    }
+    return AXL_SUCCESS;
+}
+
+/*
  * Initiate a transfer for all files in handle ID.  If resume is set to 1, then
  * attempt to resume the transfers from the existing destination files.
  *
@@ -986,6 +1062,14 @@ int __AXL_Dispatch (int id, int resume)
                 }
             }
         }
+    }
+
+    if (!resume) {
+        if (axl_save_metadata(id) != 0) {
+            AXL_ERR("Couldn't save metadata");
+            return AXL_FAILURE;
+        }
+        axl_write_state_file(id);
     }
 
     /* NOTE FOR XFER INTERFACES
@@ -1245,6 +1329,14 @@ int AXL_Wait (int id)
     }
 
 end:
+    /* Are all our destination files the correct size? */
+    rc = axl_check_file_sizes(id);
+
+    if (rc == AXL_SUCCESS && axl_copy_metadata) {
+        /* Set permissions and creation times on files */
+        rc = axl_set_metadata(id);
+    }
+
     /* if we're successful, rename temporary files to final destination names */
     if (rc == AXL_SUCCESS) {
         rc = axl_rename_files_to_final_names(id);
