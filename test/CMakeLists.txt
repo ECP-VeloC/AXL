@@ -21,9 +21,11 @@ TARGET_LINK_LIBRARIES(test_config axl)
 ################
 
 CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+CONFIGURE_FILE(test_axl_metadata.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
 ADD_TEST(sync_test test_axl.sh sync)
 ADD_TEST(pthreads_test test_axl.sh pthread)
+ADD_TEST(metadata_test test_axl_metadata.sh)
 IF(BBAPI_FOUND)
     ADD_TEST(bbapi_test test_axl.sh bbapi)
 
