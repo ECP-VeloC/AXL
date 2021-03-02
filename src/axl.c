@@ -75,6 +75,10 @@ static unsigned int axl_kvtrees_count = 0;
 
 static pthread_mutex_t id_lock = PTHREAD_MUTEX_INITIALIZER;
 
+#ifdef HAVE_BBAPI
+static int bbapi_is_loaded = 0;
+#endif
+
 /*
  * Allocate a new kvtree and return the AXL ID for it.  If state_file is
  * specified, then populate the kvtree with it's data.
@@ -269,12 +273,6 @@ int AXL_Init (void)
         axl_make_directories = atoi(val);
     }
 
-#ifdef HAVE_BBAPI
-    if (axl_async_init_bbapi() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
-
 #ifdef HAVE_LIBCPPR
     if (axl_async_init_cppr() != AXL_SUCCESS) {
         rc = AXL_FAILURE;
@@ -290,9 +288,11 @@ int AXL_Finalize (void)
     int rc = AXL_SUCCESS;
 
 #ifdef HAVE_BBAPI
-    if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
+    if (bbapi_is_loaded) {
+       if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
+          rc = AXL_FAILURE;
+       }
+   }
 #endif
 
 #ifdef HAVE_LIBCPPR
@@ -630,9 +630,27 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
     case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_BBAPI:
+#ifdef HAVE_BBAPI
+        /*
+         * Load the BB library on the very first call to
+         * AXL_Create(AXL_XFER_BBAPI, ...).  We have to do it here instead
+         * of in AXL_Init(), since this is the first point that we know
+         * we're doing an actual BB API transfer.
+         */
+        if (!bbapi_is_loaded) {
+           rc = axl_async_init_bbapi();
+           if (rc != AXL_SUCCESS) {
+              break;
+           }
+           bbapi_is_loaded = 1;
+        }
         if (! reload_from_state_file) {
             rc = axl_async_create_bbapi(id);
         }
+#else
+        /* User is requesting a BB transfer, but we didn't build with BBAPI */
+        rc = AXL_FAILURE;
+#endif
         break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
