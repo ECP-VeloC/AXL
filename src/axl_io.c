@@ -414,6 +414,9 @@ int axl_meta_encode(const char* file, kvtree* meta)
  *
  * Return AXL_SUCCESS if the file is the correct size, AXL_FAILURE otherwise.
  * If there is no SIZE field in the metadata kvtree, return AXL_FAILURE.
+ *
+ * Note: Don't print any errors here since this function can be called as a
+ * test, where failure is ok.
  */
 int axl_check_file_size(const char* file, const kvtree* meta)
 {
@@ -427,16 +430,10 @@ int axl_check_file_size(const char* file, const kvtree* meta)
             /* stat succeeded, check that sizes match */
             if (size != statbuf.st_size) {
                 /* file size is not correct */
-                AXL_ERR("file `%s' size is %lu expected %lu",
-                    file, (unsigned long) statbuf.st_size, size
-                );
                 rc = AXL_FAILURE;
             }
         } else {
             /* failed to stat file */
-            AXL_ERR("stat(%s) failed: errno=%d %s",
-                file, errno, strerror(errno)
-            );
             rc = AXL_FAILURE;
         }
     }

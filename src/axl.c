@@ -982,6 +982,7 @@ int __AXL_Dispatch (int id, int resume)
 {
     kvtree_elem* elem = NULL;
     char* dest;
+    int rc;
 
     /* lookup transfer info for the given id */
     kvtree* file_list = NULL;
@@ -1005,8 +1006,20 @@ int __AXL_Dispatch (int id, int resume)
              */
             return AXL_SUCCESS;
             break;
-        case AXL_XFER_STATE_CREATED:
         case AXL_XFER_STATE_DISPATCHED:
+            /*
+             * If we're resuming as part of a SCR post-stage, it's most likely
+             * the destination files are already transferred and the right size,
+             * and don't need to be copied.
+             */
+            rc = axl_check_file_sizes(id);
+            if (rc == AXL_SUCCESS) {
+               /* Destination files are already the correct size, we're done */
+               kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
+               goto end;
+            }
+            break;
+        case AXL_XFER_STATE_CREATED:
         case AXL_XFER_STATE_WAITING:
         case AXL_XFER_STATE_CANCELED:
             /* Start or resume the transfer */
@@ -1076,7 +1089,7 @@ int __AXL_Dispatch (int id, int resume)
     /* NOTE FOR XFER INTERFACES
      * each interface should update AXL_KEY_STATUS
      * all well as AXL_KEY_FILE_STATUS for each file */
-    int rc = AXL_SUCCESS;
+    rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
         if (resume) {
@@ -1116,6 +1129,7 @@ int __AXL_Dispatch (int id, int resume)
         break;
     }
 
+end:
     /* write data to file if we have one */
     axl_write_state_file(id);
 
