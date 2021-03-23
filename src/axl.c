@@ -131,7 +131,7 @@ static void axl_free_id(int id)
  * If the user specified a state_file then write our kvtree to it. If not, then
  * do nothing.
  */
-static void axl_write_state_file(int id)
+void axl_write_state_file(int id)
 {
     kvtree* file_list = axl_kvtrees[id];
     char* state_file = NULL;

@@ -152,11 +152,11 @@ main(int argc, char **argv) {
     args_left = argc - optind;
 
     /* Did they specify source(s) and destination? */
-    if (args_left == 0) {
+    if (!resume && args_left == 0) {
         printf("Missing source and destination\n");
         usage();
         exit(1);
-    } else if (args_left == 1) {
+    } else if (!resume && args_left == 1) {
         printf("Missing destination");
         usage();
         exit(1);
