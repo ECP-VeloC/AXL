@@ -75,6 +75,9 @@ void axl_err(const char* fmt, ...);
 /* print abort message and kill run */
 void axl_abort(int rc, const char* fmt, ...);
 
+/* Write the state file for an id */
+void axl_write_state_file(int id);
+
 /*
 =========================================
 axl_io.c functions

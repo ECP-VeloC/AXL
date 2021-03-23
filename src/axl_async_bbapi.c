@@ -32,6 +32,20 @@
 #define XFS_SUPER_MAGIC 0x58465342  /* "XFSB" in ASCII */
 #endif
 
+/*
+ * We're either running on a compute node with access to the BBAPI, or
+ * we're running on a post-stage job node where we have to spawn bbapi.
+ *
+ * Return 1 if we're a post-stage node, 0 otherwise.
+ */
+static int this_is_a_post_stage_node(void)
+{
+    if (getenv("LSF_STAGE_USER_STAGE_OUT") != NULL)
+        return 1;
+
+    return 0;
+}
+
 /* Return the filesystem magic value for a given file */
 static __fsword_t axl_get_fs_magic(char* path)
 {
@@ -48,7 +62,7 @@ static __fsword_t axl_get_fs_magic(char* path)
         char* dir = strdup(path);
         if (! dir) {
             return 0;
-        } 
+        }
 
         path = dirname(dir);
 
@@ -57,7 +71,7 @@ static __fsword_t axl_get_fs_magic(char* path)
             free(dir);
             return 0;
         }
- 
+
         free(dir);
     }
 
@@ -201,9 +215,16 @@ int axl_async_init_bbapi(void)
         AXL_ERR("Couldn't get unique node id");
         return AXL_FAILURE;
     }
-
     rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
-    return bb_check(rc);
+    if (rc && this_is_a_post_stage_node()) {
+        /*
+         * We're running a post-stage node that can't connect to the BB Server
+         * (which is to be expected).  Carry on.
+         */
+        return AXL_SUCCESS;
+    } else {
+        return bb_check(rc);
+    }
 #endif
     return AXL_FAILURE;
 }
@@ -212,8 +233,12 @@ int axl_async_init_bbapi(void)
 int axl_async_finalize_bbapi(void)
 {
 #ifdef HAVE_BBAPI
-    int rc = BB_TerminateLibrary();
-    return bb_check(rc);
+    if (!this_is_a_post_stage_node()) {
+        int rc = BB_TerminateLibrary();
+        return bb_check(rc);
+    } else {
+        return AXL_SUCCESS;
+    }
 #endif
     return AXL_FAILURE;
 }
@@ -251,7 +276,10 @@ static BBTAG axl_get_unique_tag(void)
 int axl_async_create_bbapi(int id)
 {
 #ifdef HAVE_BBAPI
-    /* allocate a new transfer definition */
+    if (this_is_a_post_stage_node()) {
+        return AXL_SUCCESS;
+    }
+
     BBTransferDef_t* tdef;
     int rc = BB_CreateTransferDef(&tdef);
     if (rc) {
@@ -312,7 +340,7 @@ int axl_async_add_bbapi (int id, const char* source, const char* dest)
     kvtree* file_list = axl_kvtrees[id];
 
     /* get transfer definition for this id */
-    BBTransferDef_t* tdef;
+    BBTransferDef_t* tdef = NULL;
     kvtree_util_get_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, (void**) &tdef);
 
     /* add file to transfer definition */
@@ -351,9 +379,6 @@ int __axl_async_start_bbapi (int id, int resume) {
         }
     }
 
-    /* mark this transfer as in progress */
-    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
-
     /* Pull BB-Def and BB-Handle out of global var */
     BBTransferHandle_t thandle;
     kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
@@ -371,13 +396,33 @@ int __axl_async_start_bbapi (int id, int resume) {
     }
 #endif
 
-    /* Launch the transfer */
+    /*
+     * Launch the transfer.  Note, while BB_StartTransfer() does launch an
+     * asynchronous transfer, that doesn't mean it returns immediately.  For
+     * example, when launched as a job, it can take the following amount of time
+     * for the function to return:
+     *
+     * Amount   Startup time
+     * ------   ------------
+     * 1GB      1 sec
+     * 10GB     5 sec
+     * 20GB     10 sec
+     * 100GB+   17 sec
+     *
+     * And for whatever reason, BB_StartTransfer() returns almost immediately
+     * on interactive nodes.  A 20GB BB_StartTransfer() returns instantly, while
+     * 100GB+ returns in 1-2 sec.
+     */
     int rc = BB_StartTransfer(tdef, thandle);
     if (bb_check(rc) != AXL_SUCCESS) {
         /* something went wrong, update transfer to error state */
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_ERROR);
-        return AXL_FAILURE;
+        rc = AXL_FAILURE;
+        goto end;
     }
+
+    /* mark this transfer as in progress */
+    kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
 
     /* Mark all files as INPROG */
     kvtree_elem* elem;
@@ -397,7 +442,11 @@ int __axl_async_start_bbapi (int id, int resume) {
     /* drop transfer definition from kvtree */
     kvtree_unset(file_list, AXL_BBAPI_KEY_TRANSFERDEF);
 
-    return AXL_SUCCESS;
+    rc = AXL_SUCCESS;
+
+end:
+    axl_write_state_file(id);
+    return rc;
 #endif
     return AXL_FAILURE;
 }
@@ -410,11 +459,55 @@ int axl_async_resume_bbapi (int id) {
     return __axl_async_start_bbapi(id, 1);
 }
 
-int axl_async_test_bbapi (int id) {
+/*
+ * Check if a transfer is completed by spawning off 'bbcmd' to check the
+ * transfer status.  This is the only way to check the transfer status
+ * in a 2nd post-stage environment.
+ *
+ * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.
+ */
 #ifdef HAVE_BBAPI
-    if (axl_bbapi_in_fallback(id)) {
-        return axl_pthread_test(id);
+static int transfer_is_complete_bbcmd(int id)
+{
+    kvtree* file_list = axl_kvtrees[id];
+    char* cmd = NULL;
+
+    /* Get the BB-Handle to query the status */
+    BBTransferHandle_t thandle;
+    kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
+
+    /*
+     * Query all transfers that were BBFULLSUCCESS, and see if our handle
+     * is one of them.
+     */
+    if (asprintf(&cmd,
+        "/opt/ibm/bb/bin/bbcmd --pretty getstatus --target=0- --handle=%lu | grep -q BBFULLSUCCESS",
+        (unsigned long) thandle) == -1)
+    {
+        AXL_ERR("Couldn't alloc memory for command\n");
+        return 0;
     }
+
+    int rc = system(cmd);
+    free(cmd);
+    if (rc != 0) {
+        printf("Couldn't run command, rc = %d, errno = %d\n", rc, errno);
+        return 0; /* failure */
+    }
+
+    return 1;
+}
+#endif
+
+/*
+ * Check if a transfer is completed by using the BB API.  This can be used
+ * from the compute node, but not the 2nd post-stage node.
+ *
+ * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.
+ */
+#ifdef HAVE_BBAPI
+static int transfer_is_complete_bbapi(int id)
+{
     kvtree* file_list = axl_kvtrees[id];
 
     /* Get the BB-Handle to query the status */
@@ -426,16 +519,51 @@ int axl_async_test_bbapi (int id) {
     int rc = BB_GetTransferInfo(thandle, &tinfo);
     bb_check(rc);
 
-    /* check its status */
-    int status = AXL_STATUS_INPROG;
-    if (tinfo.status == BBFULLSUCCESS) {
-        status = AXL_STATUS_DEST;
+    if (tinfo.status != BBFULLSUCCESS) {
+        /* failure */
+        return 0;
     }
+
+    return 1;
+}
+#endif
+
+int axl_async_test_bbapi (int id) {
+#ifdef HAVE_BBAPI
+    if (axl_bbapi_in_fallback(id)) {
+        return axl_pthread_test(id);
+    }
+
+    /*
+     * We need to check to see if the transfers are done.  This is done
+     * differently depending on if we're running on a compute node or on
+     * the job node (in post-stage).
+     */
+    int rc;
+    if (this_is_a_post_stage_node()) {
+        /* We're on a job node (post-stage node) */
+        rc = transfer_is_complete_bbcmd(id);
+    } else {
+        /* We're a compute node */
+        rc = transfer_is_complete_bbapi(id);
+    }
+
+    /* check its status */
+    int status;
+    if (rc == 1) {
+        /* Done transferring */
+        status = AXL_STATUS_DEST;
+    } else {
+        status = AXL_STATUS_INPROG;
+    }
+
     // TODO: add some finer-grain errror checking
     // BBSTATUS
     // - BBINPROGRESS
     // - BBCANCELED
     // - BBFAILED
+
+    kvtree* file_list = axl_kvtrees[id];
 
     /* update status of set */
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, status);
@@ -482,7 +610,16 @@ int axl_async_wait_bbapi (int id) {
         /* if we're not done yet, sleep for some time and try again */
         kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
         if (status == AXL_STATUS_INPROG) {
-            usleep(100 * 1000);   /* 100ms */
+            if (this_is_a_post_stage_node()) {
+                /*
+                 * Use a long sleep since we may be spawning off 'bbcmd' to
+                 * check the transfer status in axl_async_test_bbapi(), and
+                 * it's slow.
+                 */
+                sleep(2);
+            } else {
+                usleep(100 * 1000);   /* 100ms */
+            }
         }
     }
     /* we're done now, either with error or success */
