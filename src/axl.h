@@ -24,6 +24,12 @@ extern "C" {
  *  \ingroup axl
  *  \brief asynchronous transfer library */
 
+/** AXL configuration options */
+#define AXL_KEY_CONFIG_FILE_BUF_SIZE "FILE_BUF_SIZE"
+#define AXL_KEY_CONFIG_DEBUG "DEBUG"
+#define AXL_KEY_CONFIG_MKDIR "MKDIR"
+#define AXL_KEY_CONFIG_COPY_METADATA "COPY_METADATA"
+
 /** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
 typedef enum {
@@ -43,21 +49,52 @@ typedef enum {
                              * to AXL_XFER_DEFAULT.
                              */
     AXL_XFER_PTHREAD,      /* parallel copy using pthreads */
+    AXL_XFER_STATE_FILE,    /* Use the xfer type specified in the state_file. */
 } axl_xfer_t;
 
-/** Read configuration from non-AXL-specific file
- * Also, start up vendor specific services */
-int AXL_Init (const char* state_file);
+/*
+ * int AXL_Init(void) - Initialize the library.
+ */
+int AXL_Init (void);
 
 /** Shutdown any vendor services */
 int AXL_Finalize (void);
 
-/** Create a transfer handle (used for 0+ files)
- * Type specifies a particular method to use
- * Name is a user/application provided string
- * Returns an ID to the transfer handle,
- * Returns -1 on error */
-int AXL_Create (axl_xfer_t type, const char* name);
+/*
+ * int AXL_Create(type, name, state_file) - Create a transfer handle to copy files
+ *
+ * type:        Transfer type to use
+ * name:        A unique tag to give to this transfer handle
+ * state_file:  (optional) Path to store our transfer state.  This is needed to
+ *              resume transfers after a crash.
+ *
+ * Returns an AXL ID, or negative number on error.
+ */
+int AXL_Create (axl_xfer_t xtype, const char* name, const char* state_file);
+
+/* needs to be above doxygen comment to get association right */
+typedef struct kvtree_struct kvtree;
+
+/**
+ * Get/set AXL configuration values.
+ *
+ * config: The new configuration.  Global variables are in top level of
+ *              the tree, and per-ID values are subtrees.  If config=NULL,
+ *              then return a kvtree with all the configuration values (globals
+ *              and all per-ID trees).
+ *
+ * Thread safety: setting the DEBUG or any per-transfer configuration value
+ * after the transfer has been dispatched entails a race contion between the
+ * main thread and the worker threads. Changing configuration options after a
+ * transfer has been dispatched is not supported.
+ *
+ * Return value: If config != NULL, then return config on success.  If
+ *                      config=NULL (you're querying the config) then return
+ *                      a new kvtree on success.  Return NULL on any failures.
+ */
+kvtree* AXL_Config(
+  const kvtree* config        /** [IN] - kvtree of options */
+);
 
 /** Add a file to an existing transfer handle */
 int AXL_Add (int id, const char* source, const char* destination);
@@ -65,11 +102,22 @@ int AXL_Add (int id, const char* source, const char* destination);
 /** Initiate a transfer for all files in handle ID */
 int AXL_Dispatch (int id);
 
+/**
+ * AXL_Resume works the same as AXL_Dispatch(), but resumes any transfers where
+ * they left off.  In the case of a BB API transfer, it will leave ongoing
+ * transfers running.  If there are no ongoing or canceled transfers,
+ * AXL_Resume() behaves the same as an AXL_Dispatch().
+ *
+ * AXL_Resume() is typically used in conjunction with passing an existing
+ * state_file is passed to AXL_Create().
+ * */
+int AXL_Resume (int id);
+
 /** Non-blocking call to test if a transfer has completed,
  * returns AXL_SUCCESS if the transfer has completed,
  * does not indicate whether transfer was successful,
  * only whether it's done */
-int AXL_Test(int id);
+int AXL_Test (int id);
 
 /** BLOCKING
  * Wait for a transfer to complete,

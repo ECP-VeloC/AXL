@@ -10,5 +10,6 @@
 int axl_sync_start(int id);
 int axl_sync_test(int id);
 int axl_sync_wait(int id);
+int axl_sync_resume(int id);
 ///@}
 #endif //AXL_SYNC_H

@@ -5,19 +5,39 @@
 #include "config.h"
 
 #include <zlib.h>
+#include <stdarg.h>
+#include "axl.h"
+
 #include "kvtree.h"
 #include "kvtree_util.h"
 
 #define AXL_SUCCESS (0)
 #define AXL_FAILURE (-1)
 
-/* AXL internal data structure
- * this structure is accessed by the each transfer interface
- * any changes of the existing structure must be documented */
-extern kvtree* axl_file_lists;
+/* unless otherwise indicated all global variables defined in this file must
+ * only be accessed by the main thread */
+
+/*
+ * A list of pointers to kvtrees, indexed by AXL ID.
+ */
+extern kvtree** axl_kvtrees;
+
+/* current debug level for AXL library,
+ * set in AXL_Init and AXL_Config used in axl_dbg.
+ * There can be a race condition between the main thread setting this in
+ * AXL_Config and worker threads using it. Users are advised to be careful
+ * using debug options. */
+extern int axl_debug;
+
+/* flag to track whether file metadata should also be copied,
+ * which includes uid/gid, permission bits, and timestamps */
+extern int axl_copy_metadata;
+
+/* whether axl should first create parent directories
+ * before transferring files */
+extern int axl_make_directories;
 
 /* "KEYS" */
-#define AXL_KEY_HANDLE_UID    ("ID")
 #define AXL_KEY_UNAME         ("NAME")
 #define AXL_KEY_XFER_TYPE     ("TYPE")
 #define AXL_KEY_STATE         ("STATE")
@@ -26,6 +46,7 @@ extern kvtree* axl_file_lists;
 #define AXL_KEY_FILE_DEST     ("DEST")
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
+#define AXL_KEY_STATE_FILE    ("STATE_FILE")
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
@@ -46,13 +67,16 @@ Note: these functions are taken directly from SCR
 */
 
 /* print message to stdout if axl_debug is set and it is >= level */
-void axl_dbg(int level, const char *fmt, ...);
+void axl_dbg(int level, const char* fmt, ...);
 
 /* print error message to stdout */
-void axl_err(const char *fmt, ...);
+void axl_err(const char* fmt, ...);
 
 /* print abort message and kill run */
-void axl_abort(int rc, const char *fmt, ...);
+void axl_abort(int rc, const char* fmt, ...);
+
+/* Write the state file for an id */
+void axl_write_state_file(int id);
 
 /*
 =========================================
@@ -69,7 +93,7 @@ Note: these functions are taken directly from SCR
  *
  * For example, tmpfs and ext4 support extents, NFS does not.
  */
-int axl_file_supports_fiemap(char *path);
+int axl_file_supports_fiemap(char* path);
 #endif
 
 /* returns user's current mode as determine by their umask */
@@ -88,17 +112,21 @@ int axl_open(const char* file, int flags, ...);
 int axl_close(const char* file, int fd);
 
 /* reliable read from opened file descriptor (retries, if necessary, until hard error) */
-ssize_t axl_read(const char* file, int fd, void* buf, size_t size);
+ssize_t axl_read(const char* file, int fd, void* buf, unsigned long size);
 
 /* make a good attempt to read to file (retries, if necessary, return error if fail) */
-ssize_t axl_read_attempt(const char* file, int fd, void* buf, size_t size);
+ssize_t axl_read_attempt(const char* file, int fd, void* buf, unsigned long size);
 
 /* make a good attempt to write to file (retries, if necessary, return error if fail) */
-ssize_t axl_write_attempt(const char* file, int fd, const void* buf, size_t size);
+ssize_t axl_write_attempt(const char* file, int fd, const void* buf, unsigned long size);
 
-/* copy a file from src to dst and calculate CRC32 in the process
- * if crc == NULL, the CRC32 value is not computed */
-int axl_file_copy(const char* src_file, const char* dst_file, unsigned long buf_size, uLong* crc);
+/* copy a file from src to dst */
+int axl_file_copy(
+    const char* src_file,
+    const char* dst_file,
+    unsigned long buf_size,
+    int resume
+);
 
 /* opens, reads, and computes the crc32 value for the given filename */
 int axl_crc32(const char* filename, uLong* crc);
@@ -115,11 +143,11 @@ axl_util.c functions
 /* returns the current linux timestamp (secs + usecs since epoch) as a double */
 double axl_seconds();
 
-extern size_t axl_file_buf_size;
+extern unsigned long axl_file_buf_size;
 
 int axl_compare_files_or_dirs(char *path1, char *path2);
-void axl_free(void* p);
 
+void axl_free(void* p);
 
 /*
  * This is an helper function to iterate though a file list for a given
@@ -135,7 +163,24 @@ void axl_free(void* p);
  *
  *    src or dst can be set to NULL if you don't care about the value.
  */
-kvtree_elem * axl_get_next_path(int id, kvtree_elem *elem, char **src,
-    char **dst);
+kvtree_elem* axl_get_next_path(
+    int id,
+    kvtree_elem* elem,
+    char** src,
+    char** dst
+);
+
+/* Clone of apsrintf().  See the standard asprintf() man page for details */
+int asprintf(char** strp, const char* fmt, ...);
+
+/* given a source file, record its current uid/gid, permissions,
+ * and timestamps, record them in provided kvtree */
+int axl_meta_encode(const char* file, kvtree* meta);
+
+/* copy metadata settings recorded in provided kvtree to specified file */
+int axl_meta_apply(const char* file, const kvtree* meta);
+
+/* Check if a file is the size we expect it to be */
+int axl_check_file_size(const char* file, const kvtree* meta);
 
 #endif /* AXL_INTERNAL_H */

@@ -6,9 +6,11 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <stdlib.h>
 #include "axl.h"
 
 int id = -1;
+char *old_env = NULL;
 
 /* Return 1 if path is a directory */
 static int
@@ -34,6 +36,7 @@ axl_xfer_str_to_xfer(const char *xfer_str)
             {"bbapi", AXL_XFER_ASYNC_BBAPI},
             {"cppr", AXL_XFER_ASYNC_CPPR},
             {"pthread", AXL_XFER_PTHREAD},
+            {"state_file", AXL_XFER_STATE_FILE},
             {NULL, AXL_XFER_NULL},  /* must always be last element in array */
     };
     int i;
@@ -51,13 +54,16 @@ axl_xfer_str_to_xfer(const char *xfer_str)
 static void
 usage(void)
 {
-    printf("Usage: axl_cp [-r|-R] [-X xfer_type] SOURCE DEST\n");
-    printf("       axl_cp [-r|-R] [-X xfer_type] SOURCE... DIRECTORY\n");
+    printf("Usage: axl_cp [-ap] [-r|-R] [-S state_file [-U]] [-X xfer_type] SOURCE DEST\n");
+    printf("       axl_cp [-ap] [-r|-R] [-S state_file [-U]] [-X xfer_type] SOURCE... DIRECTORY\n");
     printf("\n");
+    printf("-a:             Archive mode.  Preserve permissions + times + recursive.  Implies -pr\n");
+    printf("-p:             Preserve permissions + times.\n");
     printf("-r|-R:          Copy directories recursively\n");
-    printf("-X xfer_type:   AXL transfer type:  default native pthread sync dw bbapi cppr\n");
+    printf("-S state_file:  Reload state from state_file\n");
+    printf("-U:             Resume copies to existing destination files if they exist\n");
+    printf("-X xfer_type:   AXL transfer type: default native pthread sync dw bbapi cppr state_file.\n");
     printf("\n");
-
 }
 
 void sig_func(int signum)
@@ -86,6 +92,9 @@ void sig_func(int signum)
         exit(rc);
     }
 
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
+
     exit(AXL_SUCCESS);
 }
 
@@ -100,39 +109,54 @@ main(int argc, char **argv) {
     axl_xfer_t xfer;
     unsigned int src_count;
     int i;
-    int recursive = 0;
+    int recursive = 0, resume = 0;
     struct sigaction action;
 
     memset(&action, 0, sizeof(action));
     action.sa_handler = sig_func;
     sigaction(SIGTERM, &action, NULL);
     char *state_file = NULL;
+    int preserve = 0;
 
-    while ((opt = getopt(argc, argv, "rRX:")) != -1) {
+    while ((opt = getopt(argc, argv, "aprRS:UX:")) != -1) {
         switch (opt) {
-            case 'X':
-                xfer_str = optarg;
+            case 'a':
+                preserve = 1;
+                recursive = 1;
                 break;
-            case 'S':
-                state_file = optarg;
+            case 'p':
+                preserve = 1;
                 break;
             case 'r':
             case 'R':
                 recursive = 1;
+                break;
+            case 'U':
+                resume = 1;
+                break;
+            case 'S':
+                state_file = optarg;
+                break;
+            case 'X':
+                xfer_str = optarg;
                 break;
             default: /* '?' */
                 usage();
                 exit(1);
         }
     }
+
+    if (preserve)
+       old_env = getenv("AXL_COPY_METADATA");
+
     args_left = argc - optind;
 
     /* Did they specify source(s) and destination? */
-    if (args_left == 0) {
+    if (!resume && args_left == 0) {
         printf("Missing source and destination\n");
         usage();
         exit(1);
-    } else if (args_left == 1) {
+    } else if (!resume && args_left == 1) {
         printf("Missing destination");
         usage();
         exit(1);
@@ -163,33 +187,42 @@ main(int argc, char **argv) {
         xfer = AXL_XFER_SYNC;
     }
 
-    rc = AXL_Init(state_file);
+    if (preserve)
+        setenv("AXL_COPY_METADATA", "1", 1);
+
+    rc = AXL_Init();
     if (rc != AXL_SUCCESS) {
         printf("AXL_Init() failed (error %d)\n", rc);
         return rc;
     }
 
-    id = AXL_Create(xfer, "axl_cp");
+    id = AXL_Create(xfer, "axl_cp", state_file);
     if (id == -1) {
         printf("AXL_Create() failed (error %d)\n", id);
         return id;
     }
 
-    for (i = 0; i < src_count; i++) {
-        if (!recursive && is_dir(src[i])) {
-            printf("axl_cp: omitting directory '%s'\n", src[i]);
-            continue;
+    if (resume) {
+        rc = AXL_Resume(id);
+    } else {
+        /* Starting a new file list */
+        for (i = 0; i < src_count; i++) {
+            if (!recursive && is_dir(src[i])) {
+                printf("axl_cp: omitting directory '%s'\n", src[i]);
+                continue;
+            }
+            rc = AXL_Add(id, src[i], dest);
+            if (rc != AXL_SUCCESS) {
+                printf("AXL_Add(..., %s, %s) failed (error %d)\n", src[i], dest, rc);
+                return rc;
+            }
         }
-        rc = AXL_Add(id, src[i], dest);
-        if (rc != AXL_SUCCESS) {
-            printf("AXL_Add(..., %s, %s) failed (error %d)\n", src[i], dest, rc);
-            return rc;
-        }
+
+        rc = AXL_Dispatch(id);
     }
 
-    rc = AXL_Dispatch(id);
     if (rc != AXL_SUCCESS) {
-        printf("AXL_Dispatch() failed (error %d)\n", rc);
+        printf("AXL_Dispatch()/AXL_Resume() failed (error %d)\n", rc);
         return rc;
     }
 
@@ -211,6 +244,9 @@ main(int argc, char **argv) {
         printf("AXL_Finalize() failed (error %d)\n", rc);
         return rc;
     }
+
+    if (old_env)
+        setenv("AXL_COPY_METADATA", old_env, 1);
 
     return AXL_SUCCESS;
 }
