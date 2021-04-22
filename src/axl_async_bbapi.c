@@ -23,6 +23,7 @@
 #include <sys/statfs.h>
 #include <linux/magic.h>
 #include <libgen.h>
+#include <unistd.h>
 
 /* These aren't always defined in linux/magic.h */
 #ifndef GPFS_SUPER_MAGIC
@@ -253,21 +254,34 @@ int axl_async_finalize_bbapi(void)
  */
 static BBTAG axl_get_unique_tag(void)
 {
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    uint64_t timestamp = now.tv_sec;
 
     /* Get thread ID.  This is non-portable, Linux only. */
     pid_t tid = syscall(__NR_gettid);
 
+    uint64_t timestamp = time(NULL);
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    uint64_t nsecs = now.tv_nsec;
+    uint64_t tag;
+
     /*
-     * This is somewhat of a hack.  Create a unique ID using the UNIX timestamp
-     * in the top 32-bits, and the thread ID in the lower 32.  This should be
-     * fine unless the user wraps the TID in the same second.  In order to do
-     * that they would have to spawn more than /proc/sys/kernel/pid_max
-     * processes (currently 180k+ on my development system) in the same second.
+     * This is somewhat of a hack.
+     *
+     * We need a 64-bit tag that will never be repeated on this node.  To do
+     * that we construct an ID of:
+     *
+     * 32-bit unix timestamp +
+     * 30-bit thread ID (30 bits according to https://github.com/torvalds/linux/blob/master/include/linux/threads.h#L31) +
+     * 2-bit quarter second
+     *
+     * We also wait for a quarter second to elapse so we know the next caller
+     * will not fall on the same quarter second and get the same tag.
      */
-    return (timestamp << 32 | (uint32_t) tid);
+    usleep(250000);  /* wait quarter second */
+
+    tag = ((timestamp << 32) | ((uint32_t) tid & 0x3FFFFFFF) | (nsecs / 250000000));
+
+    return tag;
 }
 #endif
 
