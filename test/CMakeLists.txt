@@ -10,11 +10,17 @@ LIST(APPEND axl_test_srcs
 # Build with debug symbols (-g)
 # SET(CMAKE_BUILD_TYPE Debug)
 
+IF(AXL_LINK_STATIC)
+   SET(axl_lib axl-static)
+ELSE()
+   SET(axl_lib axl)
+ENDIF()
+
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
 ADD_EXECUTABLE(test_config test_config.c)
 
-TARGET_LINK_LIBRARIES(axl_cp axl)
-TARGET_LINK_LIBRARIES(test_config axl)
+TARGET_LINK_LIBRARIES(axl_cp ${axl_lib})
+TARGET_LINK_LIBRARIES(test_config ${axl_lib})
 
 ################
 # Add tests to ctest
