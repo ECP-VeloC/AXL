@@ -17,11 +17,23 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 INCLUDE(GNUInstallDirs)
 
 # Configuration Options
-OPTION(AXL_LINK_STATIC "Default to static linking? (Needed for Cray)" OFF)
+OPTION(BUILD_SHARED_LIBS "Whether to build shared libraries" ON)
+MESSAGE(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
+
+if (BUILD_SHARED_LIBS)
+   OPTION(AXL_LINK_STATIC "Default to static linking? (Needed for Cray)" OFF)
+else()
+   OPTION(AXL_LINK_STATIC "Default to static linking? (Needed for Cray)" ON)
+endif()
+MESSAGE(STATUS "AXL_LINK_STATIC: ${AXL_LINK_STATIC}")
+
+OPTION(ENABLE_TESTS "Whether to build tests" ON)
+MESSAGE(STATUS "ENABLE_TESTS: ${ENABLE_TESTS}")
 
 # TODO: make these NOT mutually exclusive
 SET(AXL_ASYNC_API "NONE" CACHE STRING "Vendor-specific asynchronous file transfer (CRAY_DW INTEL_CPPR IBM_BBAPI NONE)")
 SET_PROPERTY(CACHE AXL_ASYNC_API PROPERTY STRINGS NONE CRAY_DW INTEL_CPPR IBM_BBAPI)
+MESSAGE(STATUS "AXL_ASYNC_API: ${AXL_ASYNC_API}")
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
@@ -119,8 +131,10 @@ ENDIF("${isSystemDir}" STREQUAL "-1")
 ADD_SUBDIRECTORY(src)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-INCLUDE(CTest)
-ADD_SUBDIRECTORY(test)
+IF(ENABLE_TESTS)
+    INCLUDE(CTest)
+    ADD_SUBDIRECTORY(test)
+ENDIF(ENABLE_TESTS)
 
 # Generate config.h with all our build #defs
 CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/cmake/config.h.in ${PROJECT_BINARY_DIR}/config.h)
