@@ -607,7 +607,6 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
     int rc = AXL_SUCCESS;
     switch (xtype) {
     case AXL_XFER_SYNC:
-    case AXL_XFER_ASYNC_DAEMON:
     case AXL_XFER_ASYNC_DW:
     case AXL_XFER_ASYNC_CPPR:
     case AXL_XFER_PTHREAD:
@@ -756,8 +755,6 @@ static int __AXL_Add (int id, const char* src, const char* dest)
     switch (xtype) {
     case AXL_XFER_SYNC:
     case AXL_XFER_PTHREAD:
-        break;
-    case AXL_XFER_ASYNC_DAEMON:
         break;
     case AXL_XFER_ASYNC_DW:
         break;
