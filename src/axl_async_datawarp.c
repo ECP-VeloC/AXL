@@ -17,7 +17,7 @@ int axl_async_start_datawarp(int id)
  
     /* iterate over files */
     kvtree_elem* elem;
-    kvtree* files = kvtree_get(file_list, AXL_KEY_FILE);
+    kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
     for (elem = kvtree_elem_first(files);
          elem != NULL;
          elem = kvtree_elem_next(elem))
@@ -61,7 +61,7 @@ int axl_async_stop_datawarp(int id)
 {
 #ifdef HAVE_DATAWARP
     kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
-    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILE);
+    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 
     /* iterate over files */
     kvtree_elem* elem;
@@ -98,7 +98,7 @@ int axl_async_test_datawarp(int id)
     int failed   = 0;
 
     kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
-    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILE);
+    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 
     /* iterate over files */
     kvtree_elem* elem;
@@ -179,7 +179,7 @@ int axl_async_wait_datawarp(int id)
     int dw_wait       = 0;
 
     kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
-    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILE);
+    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 
     /* iterate over files */
     kvtree_elem* elem = NULL;

@@ -38,7 +38,7 @@ typedef enum {
                              * type that supports all AXL transfers.
                              */
     AXL_XFER_SYNC,          /* synchronous copy */
-    AXL_XFER_ASYNC_DAEMON,  /* async daemon process */
+    AXL_XFER_ASYNC_DAEMON,  /* async daemon process (not used, but kept to maintain enum values) */
     AXL_XFER_ASYNC_DW,      /* Cray Datawarp */
     AXL_XFER_ASYNC_BBAPI,   /* IBM Burst Buffer API */
     AXL_XFER_ASYNC_CPPR,    /* Intel CPPR */
