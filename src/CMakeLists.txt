@@ -7,35 +7,35 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
 
 # Install header files
 LIST(APPEND libaxl_install_headers
-  axl.h
+    axl.h
 )
 INSTALL(FILES ${libaxl_install_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 LIST(APPEND libaxl_srcs
-  axl.c
-  axl_sync.c
-  axl_async_datawarp.c
-  axl_async_bbapi.c
-#  axl_async_cppr.c
-  axl_err.c
-  axl_io.c
-  axl_util.c
-  axl_pthread.c
+    axl.c
+    axl_sync.c
+    axl_async_datawarp.c
+    axl_async_bbapi.c
+#    axl_async_cppr.c
+    axl_err.c
+    axl_io.c
+    axl_util.c
+    axl_pthread.c
 )
 
 ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
 
 IF(BUILD_SHARED_LIBS)
-   ADD_LIBRARY(axl SHARED $<TARGET_OBJECTS:axl_o>)
-   TARGET_LINK_LIBRARIES(axl ${AXL_EXTERNAL_LIBS})
-   SET_TARGET_PROPERTIES(axl PROPERTIES OUTPUT_NAME axl CLEAN_DIRECT_OUTPUT 1)
-   INSTALL(TARGETS axl DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    ADD_LIBRARY(axl SHARED $<TARGET_OBJECTS:axl_o>)
+    TARGET_LINK_LIBRARIES(axl ${AXL_EXTERNAL_LIBS})
+    SET_TARGET_PROPERTIES(axl PROPERTIES OUTPUT_NAME axl CLEAN_DIRECT_OUTPUT 1)
+    INSTALL(TARGETS axl DESTINATION ${CMAKE_INSTALL_LIBDIR})
 ENDIF()
 
 ADD_LIBRARY(axl-static STATIC $<TARGET_OBJECTS:axl_o>)
 IF(AXL_LINK_STATIC)
-        SET_TARGET_PROPERTIES(axl-static PROPERTIES LINK_SEARCH_START_STATIC 1)
-        SET_TARGET_PROPERTIES(axl-static PROPERTIES LINK_SEARCH_END_STATIC 1)
+    SET_TARGET_PROPERTIES(axl-static PROPERTIES LINK_SEARCH_START_STATIC 1)
+    SET_TARGET_PROPERTIES(axl-static PROPERTIES LINK_SEARCH_END_STATIC 1)
 ENDIF(AXL_LINK_STATIC)
 TARGET_LINK_LIBRARIES(axl-static ${AXL_EXTERNAL_LIBS})
 
