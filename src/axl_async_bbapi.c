@@ -209,13 +209,19 @@ static int axl_get_unique_node_id(int* id)
 int axl_async_init_bbapi(void)
 {
 #ifdef HAVE_BBAPI
+    int rc;
+
     // TODO: BBAPI wants MPI rank information here?
-    int rank;
-    int rc = axl_get_unique_node_id(&rank);
-    if (rc) {
-        AXL_ERR("Couldn't get unique node id");
-        return AXL_FAILURE;
+    int rank = axl_rank;
+    if (rank == -1) {
+        /* axl_rank was not set, create rank value based on node id */
+        rc = axl_get_unique_node_id(&rank);
+        if (rc) {
+            AXL_ERR("Couldn't get unique node id");
+            return AXL_FAILURE;
+        }
     }
+
     rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
     if (rc && this_is_a_post_stage_node()) {
         /*
