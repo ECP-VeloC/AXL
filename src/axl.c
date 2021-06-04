@@ -61,6 +61,9 @@ int axl_make_directories;
 /* track whether file metadata should also be copied */
 int axl_copy_metadata;
 
+/* global rank of calling process, used for BBAPI */
+int axl_rank = -1;
+
 /*
  * Array for all the AXL_Create'd kvtree pointers.  It's indexed by the AXL id.
  *
@@ -305,6 +308,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
         AXL_KEY_CONFIG_DEBUG,
         AXL_KEY_CONFIG_MKDIR,
         AXL_KEY_CONFIG_COPY_METADATA,
+        AXL_KEY_CONFIG_RANK,
         NULL
     };
     static const char* known_transfer_options[] = {
@@ -316,7 +320,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
 
     /* global options */
     /* TODO: this could be turned into a list of structs */
-   kvtree_util_get_bytecount(config, AXL_KEY_CONFIG_FILE_BUF_SIZE,
+    kvtree_util_get_bytecount(config, AXL_KEY_CONFIG_FILE_BUF_SIZE,
                              &axl_file_buf_size);
 
     kvtree_util_get_int(config, AXL_KEY_CONFIG_DEBUG, &axl_debug);
@@ -325,6 +329,9 @@ static kvtree* AXL_Config_Set(const kvtree* config)
 
     kvtree_util_get_int(config, AXL_KEY_CONFIG_COPY_METADATA,
         &axl_copy_metadata);
+
+    kvtree_util_get_int(config, AXL_KEY_CONFIG_RANK,
+        &axl_rank);
 
     /* check for local options inside an "id" subkey */
     kvtree* ids = kvtree_get(config, "id");
@@ -465,6 +472,8 @@ static kvtree* AXL_Config_Get()
                                    axl_make_directories) == KVTREE_SUCCESS;
     success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_COPY_METADATA,
                                    axl_copy_metadata) == KVTREE_SUCCESS;
+    success &= kvtree_util_set_int(config, AXL_KEY_CONFIG_RANK,
+                                   axl_rank) == KVTREE_SUCCESS;
 
     /* per transfer options */
     int id;

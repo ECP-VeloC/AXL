@@ -37,6 +37,9 @@ extern int axl_copy_metadata;
  * before transferring files */
 extern int axl_make_directories;
 
+/* global rank of calling process, used for BBAPI */
+extern int axl_rank;
+
 /* "KEYS" */
 #define AXL_KEY_UNAME         ("NAME")
 #define AXL_KEY_XFER_TYPE     ("TYPE")

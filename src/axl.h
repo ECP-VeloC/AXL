@@ -29,6 +29,7 @@ extern "C" {
 #define AXL_KEY_CONFIG_DEBUG "DEBUG"
 #define AXL_KEY_CONFIG_MKDIR "MKDIR"
 #define AXL_KEY_CONFIG_COPY_METADATA "COPY_METADATA"
+#define AXL_KEY_CONFIG_RANK "RANK"
 
 /** Supported AXL transfer methods
  * Note that DW, BBAPI, and CPPR must be found at compile time */
