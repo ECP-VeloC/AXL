@@ -12,12 +12,11 @@
 #include "axl_async_bbapi.h"
 #include "axl_pthread.h"
 
-/*
- * This is the IBM Burst Buffer transfer implementation.  The BB API only
+/* This is the IBM Burst Buffer transfer implementation.  The BB API only
  * supports transferring files between filesystems that support extents.  If
  * the user tries to transfer to an unsupported filesystem, we fallback to
- * a pthread transfer for the entire transfer.
- */
+ * a pthread transfer for the entire transfer. */
+
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
 #include <sys/statfs.h>
@@ -33,16 +32,15 @@
 #define XFS_SUPER_MAGIC 0x58465342  /* "XFSB" in ASCII */
 #endif
 
-/*
- * We're either running on a compute node with access to the BBAPI, or
+/* We're either running on a compute node with access to the BBAPI, or
  * we're running on a post-stage job node where we have to spawn bbapi.
  *
- * Return 1 if we're a post-stage node, 0 otherwise.
- */
+ * Return 1 if we're a post-stage node, 0 otherwise. */
 static int this_is_a_post_stage_node(void)
 {
-    if (getenv("LSF_STAGE_USER_STAGE_OUT") != NULL)
+    if (getenv("LSF_STAGE_USER_STAGE_OUT") != NULL) {
         return 1;
+    }
 
     return 0;
 }
@@ -54,12 +52,10 @@ static __fsword_t axl_get_fs_magic(char* path)
     struct statfs st;
     int rc = statfs(path, &st);
     if (rc != 0) {
-        /*
-         * Couldn't statfs the path, which could be normal if the path is the
+        /* Couldn't statfs the path, which could be normal if the path is the
          * destination path.  Next, try stating the underlying path's directory
          * (which should exist for both the source and destination), for the
-         * FS type.
-         */
+         * FS type. */
         char* dir = strdup(path);
         if (! dir) {
             return 0;
@@ -79,13 +75,11 @@ static __fsword_t axl_get_fs_magic(char* path)
     return st.f_type;
 }
 
-/*
- * Returns 1 if its possible to transfer a file from the src to dst using the
+/* Returns 1 if its possible to transfer a file from the src to dst using the
  * BBAPI. In general (but not all cases) BBAPI can transfer between filesystems
  * if they both support extents.  EXT4 <-> gpfs is one exception.
  *
- * Returns 0 if BBAPI can not transfer from src to dst.
- */
+ * Returns 0 if BBAPI can not transfer from src to dst. */
 int bbapi_copy_is_compatible(char* src, char* dst)
 {
     /* List all filesystem types that are (somewhat) compatible with BBAPI */
@@ -157,8 +151,7 @@ static int bb_check(int rc)
   return AXL_SUCCESS;
 }
 
-/*
- * HACK
+/* HACK
  *
  * Return a unique ID number for this node (tied to the hostname).
  *
@@ -168,8 +161,7 @@ static int bb_check(int rc)
  * Therefore, we return the numbers at the end of our hostname:
  * "sierra123" would return 123.
  *
- * This result is stored in id.  Returns 0 on success, nonzero otherwise.
- */
+ * This result is stored in id.  Returns 0 on success, nonzero otherwise. */
 static int axl_get_unique_node_id(int* id)
 {
     char hostname[256] = {0}; /* Max hostname + \0 */
@@ -211,10 +203,12 @@ int axl_async_init_bbapi(void)
 #ifdef HAVE_BBAPI
     int rc;
 
-    // TODO: BBAPI wants MPI rank information here?
+    /* BBAPI uses the process MPI rank for its contributor id */
     int rank = axl_rank;
     if (rank == -1) {
-        /* axl_rank was not set, create rank value based on node id */
+        /* axl_rank was not set, create a rank value based on node id.
+         * We also encode the thread id into the BBAPI tag, so it's valid
+         * to have more than one process with the same rank here. */
         rc = axl_get_unique_node_id(&rank);
         if (rc) {
             AXL_ERR("Couldn't get unique node id");
@@ -224,10 +218,8 @@ int axl_async_init_bbapi(void)
 
     rc = BB_InitLibrary(rank, BBAPI_CLIENTVERSIONSTR);
     if (rc && this_is_a_post_stage_node()) {
-        /*
-         * We're running a post-stage node that can't connect to the BB Server
-         * (which is to be expected).  Carry on.
-         */
+        /* We're running a post-stage node that can't connect to the BB Server
+         * (which is to be expected).  Carry on. */
         return AXL_SUCCESS;
     } else {
         return bb_check(rc);
@@ -251,27 +243,14 @@ int axl_async_finalize_bbapi(void)
 }
 
 #ifdef HAVE_BBAPI
-/*
- * Returns a unique BBTAG into *tag.  The tag returned must be unique
+/* Returns a unique BBTAG into *tag.  The tag returned must be unique
  * such that no two callers on the node will ever get the same tag
  * within a job.
  *
- * Returns 0 on success, 1 otherwise.
- */
+ * Returns 0 on success, 1 otherwise. */
 static BBTAG axl_get_unique_tag(void)
 {
-
-    /* Get thread ID.  This is non-portable, Linux only. */
-    pid_t tid = syscall(__NR_gettid);
-
-    uint64_t timestamp = time(NULL);
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    uint64_t nsecs = now.tv_nsec;
-    uint64_t tag;
-
-    /*
-     * This is somewhat of a hack.
+    /* This is somewhat of a hack.
      *
      * We need a 64-bit tag that will never be repeated on this node.  To do
      * that we construct an ID of:
@@ -281,12 +260,23 @@ static BBTAG axl_get_unique_tag(void)
      * 2-bit quarter second
      *
      * We also wait for a quarter second to elapse so we know the next caller
-     * will not fall on the same quarter second and get the same tag.
-     */
-    usleep(250000);  /* wait quarter second */
+     * will not fall on the same quarter second and get the same tag. */
 
-    tag = ((timestamp << 32) | ((uint32_t) tid & 0x3FFFFFFF) | (nsecs / 250000000));
+    /* Get thread ID.  This is non-portable, Linux only. */
+    pid_t tid = syscall(__NR_gettid);
 
+    /* seconds since epoch */
+    uint64_t timestamp = time(NULL);
+
+    /* get nanoseconds */
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    uint64_t nsecs = now.tv_nsec;
+
+    /* wait quarter second */
+    usleep(250000);
+
+    uint64_t tag = ((timestamp << 32) | ((uint32_t) tid & 0x3FFFFFFF) | (nsecs / 250000000));
     return tag;
 }
 #endif
@@ -328,21 +318,19 @@ int axl_async_create_bbapi(int id)
     return AXL_FAILURE;
 }
 
-/*
- * Return the BBTransferHandle_t (which is just a uint64_t) for a given AXL id.
+/* Return the BBTransferHandle_t (which is just a uint64_t) for a given AXL id.
  *
  * You can only call this function after axl_async_create_bbapi(id) has been
  * called.
  *
  * Returns 0 on success, 1 on error.  On success, thandle contains the transfer
- * handle value.
- */
+ * handle value. */
 int axl_async_get_bbapi_handle(int id, uint64_t* thandle)
 {
 #ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
-    if (kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE,
-        thandle) != KVTREE_SUCCESS)
+    if (kvtree_util_get_unsigned_long(file_list,
+        AXL_BBAPI_KEY_TRANSFERHANDLE, thandle) != KVTREE_SUCCESS)
     {
         return AXL_FAILURE;
     }
@@ -379,11 +367,9 @@ int __axl_async_start_bbapi (int id, int resume) {
     kvtree* file_list = axl_kvtrees[id];
 
     if (axl_bbapi_in_fallback(id)) {
-        /*
-         * We're in fallback mode because some of the paths we want to
+        /* We're in fallback mode because some of the paths we want to
          * transfer from/to are not compatible with the BBAPI transfers (like
-         * if the underlying filesystem doesn't support extent).
-         */
+         * if the underlying filesystem doesn't support extent). */
         if (resume) {
             axl_pthread_resume(id);
         } else {
@@ -416,8 +402,7 @@ int __axl_async_start_bbapi (int id, int resume) {
     }
 #endif
 
-    /*
-     * Launch the transfer.  Note, while BB_StartTransfer() does launch an
+    /* Launch the transfer.  Note, while BB_StartTransfer() does launch an
      * asynchronous transfer, that doesn't mean it returns immediately.  For
      * example, when launched as a job, it can take the following amount of time
      * for the function to return:
@@ -431,8 +416,8 @@ int __axl_async_start_bbapi (int id, int resume) {
      *
      * And for whatever reason, BB_StartTransfer() returns almost immediately
      * on interactive nodes.  A 20GB BB_StartTransfer() returns instantly, while
-     * 100GB+ returns in 1-2 sec.
-     */
+     * 100GB+ returns in 1-2 sec. */
+
     int rc = BB_StartTransfer(tdef, thandle);
     if (bb_check(rc) != AXL_SUCCESS) {
         /* something went wrong, update transfer to error state */
@@ -479,27 +464,23 @@ int axl_async_resume_bbapi (int id) {
     return __axl_async_start_bbapi(id, 1);
 }
 
-/*
- * Check if a transfer is completed by spawning off 'bbcmd' to check the
+/* Check if a transfer is completed by spawning off 'bbcmd' to check the
  * transfer status.  This is the only way to check the transfer status
  * in a 2nd post-stage environment.
  *
- * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.
- */
+ * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise. */
 #ifdef HAVE_BBAPI
 static int transfer_is_complete_bbcmd(int id)
 {
     kvtree* file_list = axl_kvtrees[id];
-    char* cmd = NULL;
 
     /* Get the BB-Handle to query the status */
     BBTransferHandle_t thandle;
     kvtree_util_get_unsigned_long(file_list, AXL_BBAPI_KEY_TRANSFERHANDLE, (unsigned long*) &thandle);
 
-    /*
-     * Query all transfers that were BBFULLSUCCESS, and see if our handle
-     * is one of them.
-     */
+    /* Query all transfers that were BBFULLSUCCESS, and see if our handle
+     * is one of them. */
+    char* cmd = NULL;
     if (asprintf(&cmd,
         "/opt/ibm/bb/bin/bbcmd --pretty getstatus --target=0- --handle=%lu | grep -q BBFULLSUCCESS",
         (unsigned long) thandle) == -1)
@@ -519,12 +500,10 @@ static int transfer_is_complete_bbcmd(int id)
 }
 #endif
 
-/*
- * Check if a transfer is completed by using the BB API.  This can be used
+/* Check if a transfer is completed by using the BB API.  This can be used
  * from the compute node, but not the 2nd post-stage node.
  *
- * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.
- */
+ * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.  */
 #ifdef HAVE_BBAPI
 static int transfer_is_complete_bbapi(int id)
 {
@@ -554,11 +533,9 @@ int axl_async_test_bbapi (int id) {
         return axl_pthread_test(id);
     }
 
-    /*
-     * We need to check to see if the transfers are done.  This is done
+    /* We need to check to see if the transfers are done.  This is done
      * differently depending on if we're running on a compute node or on
-     * the job node (in post-stage).
-     */
+     * the job node (in post-stage). */
     int rc;
     if (this_is_a_post_stage_node()) {
         /* We're on a job node (post-stage node) */
@@ -631,17 +608,16 @@ int axl_async_wait_bbapi (int id) {
         kvtree_util_get_int(file_list, AXL_KEY_STATUS, &status);
         if (status == AXL_STATUS_INPROG) {
             if (this_is_a_post_stage_node()) {
-                /*
-                 * Use a long sleep since we may be spawning off 'bbcmd' to
+                /* Use a long sleep since we may be spawning off 'bbcmd' to
                  * check the transfer status in axl_async_test_bbapi(), and
-                 * it's slow.
-                 */
+                 * it's slow. */
                 sleep(2);
             } else {
                 usleep(100 * 1000);   /* 100ms */
             }
         }
     }
+
     /* we're done now, either with error or success */
     if (status == AXL_STATUS_DEST) {
         /* Look though all our list of files */
@@ -684,12 +660,10 @@ int axl_async_cancel_bbapi (int id)
     return AXL_FAILURE;
 }
 
-/*
- * Return 1 if all paths for a given id's filelist in the kvtree are compatible
+/* Return 1 if all paths for a given id's filelist in the kvtree are compatible
  * with the BBAPI (all source and destination paths are on filesystems that
  * support extents).  Return 0 if any of the source or destination paths do not
- * support extents.
- */
+ * support extents. */
 int axl_all_paths_are_bbapi_compatible(int id)
 {
 #ifdef HAVE_BBAPI
@@ -711,16 +685,14 @@ int axl_all_paths_are_bbapi_compatible(int id)
     return 0;
 }
 
-/*
- * If the BBAPI is in fallback mode return 1, else return 0.
+/* If the BBAPI is in fallback mode return 1, else return 0.
  *
  * Fallback mode happens when we can't transfer the files using the BBAPI due
  * to the source or destination nor supporting extents (which BBAPI requires).
  * If we're in fallback mode, we use a more compatible transfer method.
  *
  * Fallback mode is DISABLED by default.  You need to pass
- * -DENABLE_BBAPI_FALLBACK to cmake to enable it.
- */
+ * -DENABLE_BBAPI_FALLBACK to cmake to enable it. */
 int axl_bbapi_in_fallback(int id)
 {
     int bbapi_fallback = 0;
