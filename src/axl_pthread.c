@@ -15,14 +15,14 @@
 
 #define AXL_MIN(a,b) (a < b ? a : b)
 
-/*
- *  We default our number of threads to the lesser of:
+/*  We default our number of threads to the lesser of:
  *
  *  - The number of CPU threads
  *  - MAX_THREADS
- *  - The number of files being transferred
- */
-#define MAX_THREADS 16  /* We don't see much scaling past 16 threads */
+ *  - The number of files being transferred */
+
+/* We don't see much scaling past 16 threads */
+#define MAX_THREADS 16
 
 struct axl_work
 {
@@ -60,16 +60,14 @@ struct axl_pthread_data
     pthread_t* tid;
 };
 
-/*
- * This is a linked list that is used to lookup which axl_pthread_data is
+/* This is a linked list that is used to lookup which axl_pthread_data is
  * associated with each ID.  Why put it in a linked list instead of just
  * storing the pdata in the kvtree?  Because if we put it in a kvtree,
  * and the app dies, the pdata pointer becomes stale, and would get
  * erroneously freed as part of an AXL_Stop().  Instead we use
  * axl_pthread_data_lookup(), axl_pthread_data_add(), and
  * axl_pthread_data_remove() to access the data.  This makes it so the pdata
- * is ephemeral, only existing while the app is running.
- */
+ * is ephemeral, only existing while the app is running. */
 struct axl_all_pthread_data
 {
     struct axl_pthread_data* head;
@@ -125,9 +123,7 @@ struct axl_pthread_data* axl_pthread_data_lookup(int id)
     return ret;
 }
 
-/*
- * Add our new pdata to the list.
- */
+/* Add our new pdata to the list. */
 void axl_pthread_data_add(int id, struct axl_pthread_data* pdata)
 {
     pdata->id = id;
@@ -155,10 +151,8 @@ void axl_pthread_data_remove(int id)
     struct axl_pthread_data* pdata = axl_all_pthread_data.head;
     while (pdata) {
          if (pdata->id == id) {
-            /*
-             * Match, remove it from the list.  The user is still responsible
-             * for freeing pdata with axl_pthread_free_pdata().
-             */
+            /* Match, remove it from the list.  The user is still responsible
+             * for freeing pdata with axl_pthread_free_pdata(). */
             if (prev) {
                 prev->next = pdata->next;
             }
@@ -209,11 +203,11 @@ static void* axl_pthread_func(void* arg)
         char* dst = NULL;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst);
 
-        int success;
-        unsigned long file_buf_size;
         const kvtree* file_list = pdata->file_list;
-        success = kvtree_util_get_bytecount(file_list,
-                                            AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
+
+        unsigned long file_buf_size;
+        int success = kvtree_util_get_bytecount(file_list,
+            AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
         assert(success == KVTREE_SUCCESS);
 
         /* Copy the file from soruce to destination */
@@ -255,8 +249,10 @@ static struct axl_pthread_data* axl_pthread_create_thread_data(unsigned int thre
         free(pdata);
         return NULL;
     }
+
     pdata->threads = threads;
-    pdata->head = pdata->tail = NULL;
+    pdata->head    = NULL;
+    pdata->tail    = NULL;
 
     return pdata;
 }
@@ -264,10 +260,8 @@ static struct axl_pthread_data* axl_pthread_create_thread_data(unsigned int thre
 /* Free up our axl_pthread_data.  We assume no one is competing for the lock. */
 static void axl_pthread_free_pdata(struct axl_pthread_data* pdata)
 {
-    /*
-     * Free our workqueue item first (if any).  If our transfer completed
-     * successfully, all workqueue entries would have already been freed.
-     */
+    /* Free our workqueue item first (if any).  If our transfer completed
+     * successfully, all workqueue entries would have already been freed. */
     struct axl_work* work = pdata->head;
     while (pdata->head) {
         work = pdata->head->next;
@@ -302,10 +296,8 @@ static int axl_pthread_add_work(struct axl_pthread_data* pdata, kvtree_elem* ele
     return AXL_SUCCESS;
 }
 
-/*
- * Create and wakeup all our threads to start transferring the files in
- * the workqueue.
- */
+/* Create and wakeup all our threads to start transferring the files in
+ * the workqueue. */
 static int axl_pthread_run(struct axl_pthread_data* pdata)
 {
     int i;
@@ -319,10 +311,8 @@ static int axl_pthread_run(struct axl_pthread_data* pdata)
     return AXL_SUCCESS;
 }
 
-/*
- * Start a tranfer.  If resume = 1, attempt to resume the old transfer (start
- * the copy where the old destination file left off).
- */
+/* Start a tranfer.  If resume = 1, attempt to resume the old transfer (start
+ * the copy where the old destination file left off). */
 static int __axl_pthread_start (int id, int resume)
 {
     /* assume we'll succeed */
@@ -370,18 +360,14 @@ static int __axl_pthread_start (int id, int resume)
         rc = axl_pthread_add_work(pdata, elem);
         if (rc != AXL_SUCCESS) {
             printf("something bad happened\n");
-            /*
-             * Something bad happened.  Break here instead of returning so
-             * that pdata gets freed (at the end of this function).
-             */
+            /* Something bad happened.  Break here instead of returning so
+             * that pdata gets freed (at the end of this function). */
             break;
         }
     }
 
-    /*
-     * At this point, all our files are queued in the workqueue.  Start the
-     * transfers.
-     */
+    /* At this point, all our files are queued in the workqueue.  Start the
+     * transfers. */
     rc = axl_pthread_run(pdata);
     if (rc == AXL_SUCCESS) {
         kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
@@ -441,11 +427,9 @@ int axl_pthread_wait (int id)
             return AXL_FAILURE;
         }
 
-        /*
-         * Check the rc that the thread actually reported.  The thread
+        /* Check the rc that the thread actually reported.  The thread
          * returns a void * that we encode our rc value in.  If the
-         * thread was canceled, that totally valid and fine.
-         */
+         * thread was canceled, that totally valid and fine. */
         if (rc_ptr != PTHREAD_CANCELED) {
             tmp_rc = (int) ((unsigned long) rc_ptr);
             if (tmp_rc) {
@@ -505,11 +489,9 @@ int axl_pthread_cancel (int id)
 
 void axl_pthread_free (int id)
 {
-    /*
-     * pdata should have been freed in AXL_Wait(), but maybe they just did
+    /* pdata should have been freed in AXL_Wait(), but maybe they just did
      * an AXL_Cancel() and then an AXL_Free().  If so, pdata will be set
-     * and we should free it.
-     */
+     * and we should free it. */
     struct axl_pthread_data* pdata = axl_pthread_data_lookup(id);
     if (pdata) {
         axl_pthread_data_remove(id);

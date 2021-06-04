@@ -36,17 +36,17 @@ int __axl_sync_start (int id, int resume)
             continue;
         }
 
-        int success;
         /* TODO: check bytecount conversion success, do not use global
          * axl_kvtrees to get file_list */
         unsigned long file_buf_size;
-        success = kvtree_util_get_bytecount(file_list,
-                                            AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
+        int success = kvtree_util_get_bytecount(file_list,
+            AXL_KEY_CONFIG_FILE_BUF_SIZE, &file_buf_size);
         assert(success == KVTREE_SUCCESS);
 
-        /* Copy the file */
         char* destination;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &destination);
+
+        /* Copy the file */
         int tmp_rc = axl_file_copy(source, destination, file_buf_size, resume);
         if (tmp_rc == AXL_SUCCESS) {
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_DEST);
