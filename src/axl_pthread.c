@@ -56,6 +56,13 @@ struct axl_pthread_data
     struct axl_work* head;
     struct axl_work* tail;
 
+    /* Tracks count of work items still to be completed.
+     * The main thread increments this with each item it adds to the queue.
+     * Each thread decrements this counter when it completes an item.
+     * After starting the threads, the main thread tests whether
+     * this count has reached 0 to know that all work is done. */
+    unsigned int remain;
+
     /* Array of our thread IDs */
     pthread_t* tid;
 };
@@ -224,9 +231,10 @@ static void* axl_pthread_func(void* arg)
 
         free(work);
 
-        if (rc != AXL_SUCCESS) {
-            pthread_exit((void*) AXL_FAILURE);
-        }
+        /* record that one more work item is done (though perhaps with an error) */
+        pthread_mutex_lock(&pdata->lock);
+        pdata->remain -= 1;
+        pthread_mutex_unlock(&pdata->lock);
     }
 
     return AXL_SUCCESS;
@@ -253,6 +261,7 @@ static struct axl_pthread_data* axl_pthread_create_thread_data(unsigned int thre
     pdata->threads = threads;
     pdata->head    = NULL;
     pdata->tail    = NULL;
+    pdata->remain  = 0;
 
     return pdata;
 }
@@ -292,6 +301,9 @@ static int axl_pthread_add_work(struct axl_pthread_data* pdata, kvtree_elem* ele
         pdata->tail->next = work;
         pdata->tail = work;
     }
+
+    /* Increment our count of items to be completed */
+    pdata->remain += 1;
 
     return AXL_SUCCESS;
 }
@@ -391,16 +403,21 @@ int axl_pthread_resume (int id)
 
 int axl_pthread_test (int id)
 {
+    /* assume all items are done */
+    int rc = AXL_SUCCESS;
+
     struct axl_pthread_data* pdata = axl_pthread_data_lookup(id);
     assert(pdata);
 
-    /* Is there still work in the workqueue? */
-    if (pdata->head) {
-        /* Yes there is, we need to wait */
-        return AXL_FAILURE;
+    /* check whether all work items have been completed */
+    pthread_mutex_lock(&pdata->lock);
+    if (pdata->remain > 0) {
+        /* There is still work outstanding */
+        rc = AXL_FAILURE;
     }
+    pthread_mutex_unlock(&pdata->lock);
 
-    return AXL_SUCCESS;
+    return rc;
 }
 
 int axl_pthread_wait (int id)
