@@ -635,6 +635,7 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         }
 #else
         /* User is requesting a BB transfer, but we didn't build with BBAPI */
+        AXL_ERR("BBAPI requested but not enabled during build");
         rc = AXL_FAILURE;
 #endif
         break;
