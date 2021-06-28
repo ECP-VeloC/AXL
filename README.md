@@ -1,6 +1,6 @@
 # AXL: Asynchronous Transfer Library
 
-[![Build Status](https://api.travis-ci.org/ECP-VeloC/AXL.png?branch=master)](https://travis-ci.org/ECP-VeloC/AXL)
+[![Build Status](https://api.travis-ci.org/ECP-VeloC/AXL.png?branch=main)](https://travis-ci.org/ECP-VeloC/AXL)
 
 The Asynchronous Transfer Library provides a common C interface to transfer files
 between layers in an HPC storage hierarchy.
@@ -64,6 +64,6 @@ Produced at the Lawrence Livermore National Laboratory.
 Copyright (c) 2018, UChicago Argonne LLC, operator of Argonne National Laboratory.
 
 
-For release details and restrictions, please read the [LICENSE](https://github.com/LLNL/AXL/blob/master/LICENSE) and [NOTICE](https://github.com/LLNL/AXL/blob/master/NOTICE) files.
+For release details and restrictions, please read the [LICENSE](https://github.com/LLNL/AXL/blob/main/LICENSE) and [NOTICE](https://github.com/LLNL/AXL/blob/main/NOTICE) files.
 
 `LLNL-CODE-751725` `OCEC-18-060`
