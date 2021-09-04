@@ -34,7 +34,6 @@ axl_xfer_str_to_xfer(const char *xfer_str)
             {"sync", AXL_XFER_SYNC},
             {"dw", AXL_XFER_ASYNC_DW},
             {"bbapi", AXL_XFER_ASYNC_BBAPI},
-            {"cppr", AXL_XFER_ASYNC_CPPR},
             {"pthread", AXL_XFER_PTHREAD},
             {"state_file", AXL_XFER_STATE_FILE},
             {NULL, AXL_XFER_NULL},  /* must always be last element in array */
@@ -62,7 +61,7 @@ usage(void)
     printf("-r|-R:          Copy directories recursively\n");
     printf("-S state_file:  Reload state from state_file\n");
     printf("-U:             Resume copies to existing destination files if they exist\n");
-    printf("-X xfer_type:   AXL transfer type: default native pthread sync dw bbapi cppr state_file.\n");
+    printf("-X xfer_type:   AXL transfer type: default native pthread sync dw bbapi state_file.\n");
     printf("\n");
 }
 

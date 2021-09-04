@@ -30,7 +30,6 @@
 /* xfer methods */
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
-/*#include "axl_async_cppr.h" */
 #include "axl_async_datawarp.h"
 #include "axl_pthread.h"
 
@@ -253,12 +252,6 @@ int AXL_Init (void)
         axl_make_directories = atoi(val);
     }
 
-#ifdef HAVE_LIBCPPR
-    if (axl_async_init_cppr() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
-#endif
-
     return rc;
 }
 
@@ -273,12 +266,6 @@ int AXL_Finalize (void)
           rc = AXL_FAILURE;
        }
    }
-#endif
-
-#ifdef HAVE_LIBCPPR
-    if (axl_async_finalize_cppr() != AXL_SUCCESS) {
-        rc = AXL_FAILURE;
-    }
 #endif
 
     return rc;
@@ -614,7 +601,6 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
     switch (xtype) {
     case AXL_XFER_SYNC:
     case AXL_XFER_ASYNC_DW:
-    case AXL_XFER_ASYNC_CPPR:
     case AXL_XFER_PTHREAD:
         break;
     case AXL_XFER_ASYNC_BBAPI:
@@ -764,8 +750,6 @@ static int __AXL_Add (int id, const char* src, const char* dest)
          * since the destination paths get mkdir'd in AXL_Dispatch()
          * and thus aren't available yet.  That's why we hold off on
          * doing our BB_AddFiles() calls until AXL_Dispatch(). */
-        break;
-    case AXL_XFER_ASYNC_CPPR:
         break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1075,9 +1059,6 @@ int __AXL_Dispatch (int id, int resume)
             rc = axl_async_start_bbapi(id);
         }
         break;
-    /* case AXL_XFER_ASYNC_CPPR:
-        rc = axl_async_start_cppr(id); */
-        break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -1219,9 +1200,6 @@ int AXL_Test (int id)
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_test_bbapi(id);
         break;
-    /* case AXL_XFER_ASYNC_CPPR:
-        rc = axl_async_test_cppr(id); */
-        break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -1281,9 +1259,6 @@ int AXL_Wait (int id)
         break;
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_wait_bbapi(id);
-        break;
-    /* case AXL_XFER_ASYNC_CPPR:
-        rc = axl_async_wait_cppr(id); */
         break;
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1373,11 +1348,6 @@ int AXL_Cancel (int id)
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_cancel_bbapi(id);
         break;
-#if 0
-    /* case AXL_XFER_ASYNC_CPPR:
-        rc = axl_async_cancel_cppr(id); */
-        break;
-#endif
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_cancel(id);
         break;

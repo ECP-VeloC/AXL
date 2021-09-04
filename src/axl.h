@@ -32,7 +32,7 @@ extern "C" {
 #define AXL_KEY_CONFIG_RANK "RANK"
 
 /** Supported AXL transfer methods
- * Note that DW, BBAPI, and CPPR must be found at compile time */
+ * Note that DW, and BBAPI must be found at compile time */
 typedef enum {
     AXL_XFER_NULL = 0,      /* placeholder to represent invalid value */
     AXL_XFER_DEFAULT,       /* Autodetect and use the fastest API for this node
@@ -42,7 +42,6 @@ typedef enum {
     AXL_XFER_ASYNC_DAEMON,  /* async daemon process (not used, but kept to maintain enum values) */
     AXL_XFER_ASYNC_DW,      /* Cray Datawarp */
     AXL_XFER_ASYNC_BBAPI,   /* IBM Burst Buffer API */
-    AXL_XFER_ASYNC_CPPR,    /* Intel CPPR */
     AXL_XFER_NATIVE,        /* Autodetect and use the native API (BBAPI, DW,
                              * etc) for this node type.  It may or may not
                              * be compatible with all AXL transfers (like
