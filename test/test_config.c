@@ -13,12 +13,14 @@ size_t old_axl_file_buf_size;
 int old_axl_debug;
 int old_axl_make_directories;
 int old_axl_copy_metadata;
+int old_axl_rank;
 
-/* values that optiosn were set to */
+/* values that options were set to */
 size_t new_axl_file_buf_size;
 int new_axl_debug;
 int new_axl_make_directories;
 int new_axl_copy_metadata;
+int new_axl_rank;
 
 /* tests setting global options, error exits if failure are detected */
 void set_global_options(void)
@@ -84,6 +86,14 @@ void set_global_options(void)
         exit(EXIT_FAILURE);
     }
 
+    new_axl_rank = old_axl_rank + 1;
+    rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_RANK,
+                             new_axl_rank);
+    if (rc != KVTREE_SUCCESS) {
+        printf("kvtree_util_set_int failed (error %d)\n", rc);
+        exit(EXIT_FAILURE);
+    }
+
     printf("Configuring AXL (second set of options)...\n");
     if (AXL_Config(axl_config_values) == NULL) {
         printf("AXL_Config() failed\n");
@@ -117,6 +127,13 @@ void set_global_options(void)
         printf("AXL_Config() failed to set %s: %d != %d\n",
                AXL_KEY_CONFIG_COPY_METADATA, axl_copy_metadata,
                new_axl_copy_metadata);
+        exit(EXIT_FAILURE);
+    }
+
+    if (axl_rank != new_axl_rank) {
+        printf("AXL_Config() failed to set %s: %d != %d\n",
+               AXL_KEY_CONFIG_RANK, axl_rank,
+               new_axl_rank);
         exit(EXIT_FAILURE);
     }
 
@@ -176,13 +193,15 @@ void check_known_options(const kvtree* configured_values,
 /* helper function to compare given configuration values with a kvtree */
 void check_options(const kvtree* configured_values, int is_global,
                    size_t exp_file_buf_size, int exp_debug,
-                   int exp_make_directories, int exp_copy_metadata)
+                   int exp_make_directories, int exp_copy_metadata,
+                   int exp_rank)
 {
     static const char* known_global_options[] = {
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_DEBUG,
         AXL_KEY_CONFIG_MKDIR,
         AXL_KEY_CONFIG_COPY_METADATA,
+        AXL_KEY_CONFIG_RANK,
         NULL
     };
     static const char* known_transfer_options[] = {
@@ -234,6 +253,21 @@ void check_options(const kvtree* configured_values, int is_global,
                    cfg_debug, AXL_KEY_CONFIG_DEBUG, exp_debug);
             exit(EXIT_FAILURE);
         }
+
+        int cfg_rank;
+        if (kvtree_util_get_int(configured_values, AXL_KEY_CONFIG_RANK,
+                                &cfg_rank) != KVTREE_SUCCESS)
+        {
+            printf("Could not get %s from AXL_Config\n",
+                   AXL_KEY_CONFIG_RANK);
+            exit(EXIT_FAILURE);
+        }
+        if (cfg_rank != exp_rank) {
+            printf("AXL_Config returned unexpected value %d for %s. Expected %d.\n",
+                   cfg_rank, AXL_KEY_CONFIG_RANK,
+                   exp_rank);
+            exit(EXIT_FAILURE);
+        }
     }
 
     int cfg_make_directories;
@@ -279,7 +313,7 @@ void get_global_options(void)
 
     check_options(axl_configured_values, 1, new_axl_file_buf_size,
                   new_axl_debug, new_axl_make_directories,
-                  new_axl_copy_metadata);
+                  new_axl_copy_metadata, new_axl_rank);
 
     kvtree_delete(&axl_configured_values);
 }
@@ -348,7 +382,7 @@ void get_transfer_options(int id, size_t file_buf_size, int make_directories,
 
     /* check known option values */
     check_options(transfer_config, 0, file_buf_size, -1, make_directories,
-                  copy_metadata);
+                  copy_metadata, -1);
 
     kvtree_delete(&config);
 }
@@ -367,6 +401,7 @@ main(void) {
     old_axl_debug = axl_debug;
     old_axl_make_directories = axl_make_directories;
     old_axl_copy_metadata = axl_copy_metadata;
+    old_axl_rank = axl_rank;
 
     /* must pick up "old" defaults */
     int id1 = AXL_Create(AXL_XFER_DEFAULT, __FILE__, NULL);
