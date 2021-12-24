@@ -4,13 +4,10 @@
 // TODO: technically not needed
 #include "axl_async_datawarp.h"
 
-#ifdef HAVE_DATAWARP
 #include "datawarp.h"
-#endif
 
 int axl_async_start_datawarp(int id)
 {
-#ifdef HAVE_DATAWARP
     /* Record that we started transfer of this file list */
     kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
@@ -46,9 +43,6 @@ int axl_async_start_datawarp(int id)
     }
  
     return AXL_SUCCESS;
-#endif
-
-    return AXL_FAILURE;
 }
 
 int axl_async_complete_datawarp(int id)
@@ -59,7 +53,6 @@ int axl_async_complete_datawarp(int id)
 
 int axl_async_stop_datawarp(int id)
 {
-#ifdef HAVE_DATAWARP
     kvtree* file_list = kvtree_get_kv_int(axl_async_file_lists, AXL_KEY_HANDLE_UID, id);
     kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 
@@ -81,14 +74,10 @@ int axl_async_stop_datawarp(int id)
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
     return AXL_SUCCESS;
-#endif
-
-    return AXL_FAILURE;
 }
 
 int axl_async_test_datawarp(int id)
 {
-#ifdef HAVE_DATAWARP
     /* assume transfer is complete */
     int transfer_complete = 1;
 
@@ -167,14 +156,10 @@ int axl_async_test_datawarp(int id)
     if (transfer_complete) {
        return AXL_SUCCESS
     }
-#endif
-
-    return AXL_FAILURE;
 }
 
 int axl_async_wait_datawarp(int id)
 {
-#ifdef HAVE_DATAWARP
     /* Get the list of files */
     int dw_wait       = 0;
 
@@ -220,9 +205,6 @@ int axl_async_wait_datawarp(int id)
     /* record transfer complete */
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_DEST);
     return AXL_SUCCESS;
-#else
-    return AXL_FAILURE;
-#endif
 }
 
 int axl_async_init_datawarp()
