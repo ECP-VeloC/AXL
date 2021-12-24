@@ -20,7 +20,6 @@
  * the user tries to transfer to an unsupported filesystem, we fallback to
  * a pthread transfer for the entire transfer if available. */
 
-#ifdef HAVE_BBAPI
 #include <bbapi.h>
 #include <sys/statfs.h>
 #include <linux/magic.h>
@@ -198,12 +197,10 @@ static int axl_get_unique_node_id(int* id)
     }
     return rc;
 }
-#endif
 
 /* Called from AXL_Init */
 int axl_async_init_bbapi(void)
 {
-#ifdef HAVE_BBAPI
     int rc;
 
     /* BBAPI uses the process MPI rank for its contributor id */
@@ -227,25 +224,19 @@ int axl_async_init_bbapi(void)
     } else {
         return bb_check(rc);
     }
-#endif
-    return AXL_FAILURE;
 }
 
 /* Called from AXL_Finalize */
 int axl_async_finalize_bbapi(void)
 {
-#ifdef HAVE_BBAPI
     if (!this_is_a_post_stage_node()) {
         int rc = BB_TerminateLibrary();
         return bb_check(rc);
     } else {
         return AXL_SUCCESS;
     }
-#endif
-    return AXL_FAILURE;
 }
 
-#ifdef HAVE_BBAPI
 /* Returns a unique BBTAG into *tag.  The tag returned must be unique
  * such that no two callers on the node will ever get the same tag
  * within a job.
@@ -282,13 +273,11 @@ static BBTAG axl_get_unique_tag(void)
     uint64_t tag = ((timestamp << 32) | ((uint32_t) tid & 0x3FFFFFFF) | (nsecs / 250000000));
     return tag;
 }
-#endif
 
 /* Called from AXL_Create
  * BBTransferHandle and BBTransferDef are created and stored */
 int axl_async_create_bbapi(int id)
 {
-#ifdef HAVE_BBAPI
     if (this_is_a_post_stage_node()) {
         return AXL_SUCCESS;
     }
@@ -317,8 +306,6 @@ int axl_async_create_bbapi(int id)
     kvtree_util_set_ptr(file_list, AXL_BBAPI_KEY_TRANSFERDEF, tdef);
 
     return bb_check(rc);
-#endif
-    return AXL_FAILURE;
 }
 
 /* Return the BBTransferHandle_t (which is just a uint64_t) for a given AXL id.
@@ -330,7 +317,6 @@ int axl_async_create_bbapi(int id)
  * handle value. */
 int axl_async_get_bbapi_handle(int id, uint64_t* thandle)
 {
-#ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
     if (kvtree_util_get_unsigned_long(file_list,
         AXL_BBAPI_KEY_TRANSFERHANDLE, thandle) != KVTREE_SUCCESS)
@@ -339,15 +325,12 @@ int axl_async_get_bbapi_handle(int id, uint64_t* thandle)
     }
 
     return AXL_SUCCESS;
-#endif
-    return AXL_FAILURE;
 }
 
 /* Called from AXL_Add
  * Adds file source/destination to BBTransferDef */
 int axl_async_add_bbapi (int id, const char* source, const char* dest)
 {
-#ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
 
     /* get transfer definition for this id */
@@ -357,16 +340,13 @@ int axl_async_add_bbapi (int id, const char* source, const char* dest)
     /* add file to transfer definition */
     int rc = BB_AddFiles(tdef, source, dest, 0);
     return bb_check(rc);
-#endif
-    return AXL_FAILURE;
 }
 
 /* Called from AXL_Dispatch
  * Start the transfer, mark all files & set as INPROG
  * Assumes that mkdirs have already happened */
-int __axl_async_start_bbapi (int id, int resume) {
-#ifdef HAVE_BBAPI
-    int old_status;
+int __axl_async_start_bbapi (int id, int resume)
+{
     kvtree* file_list = axl_kvtrees[id];
 
 #ifdef HAVE_PTHREADS
@@ -383,6 +363,7 @@ int __axl_async_start_bbapi (int id, int resume) {
 #endif /* HAVE_PTHREADS */
 
     if (resume) {
+        int old_status;
         kvtree_util_get_int(file_list, AXL_KEY_STATUS, &old_status);
         if (old_status == AXL_STATUS_INPROG) {
             /* Our transfers are already going.  Nothing to do */
@@ -457,15 +438,15 @@ int __axl_async_start_bbapi (int id, int resume) {
 end:
     axl_write_state_file(id);
     return rc;
-#endif
-    return AXL_FAILURE;
 }
 
-int axl_async_start_bbapi (int id) {
+int axl_async_start_bbapi (int id)
+{
     return __axl_async_start_bbapi(id, 0);
 }
 
-int axl_async_resume_bbapi (int id) {
+int axl_async_resume_bbapi (int id)
+{
     return __axl_async_start_bbapi(id, 1);
 }
 
@@ -474,7 +455,6 @@ int axl_async_resume_bbapi (int id) {
  * in a 2nd post-stage environment.
  *
  * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise. */
-#ifdef HAVE_BBAPI
 static int transfer_is_complete_bbcmd(int id)
 {
     kvtree* file_list = axl_kvtrees[id];
@@ -503,13 +483,11 @@ static int transfer_is_complete_bbcmd(int id)
 
     return 1;
 }
-#endif
 
 /* Check if a transfer is completed by using the BB API.  This can be used
  * from the compute node, but not the 2nd post-stage node.
  *
  * Returns 1 if transfer status is BBFULLSUCCESS, 0 otherwise.  */
-#ifdef HAVE_BBAPI
 static int transfer_is_complete_bbapi(int id)
 {
     kvtree* file_list = axl_kvtrees[id];
@@ -530,10 +508,9 @@ static int transfer_is_complete_bbapi(int id)
 
     return 1;
 }
-#endif
 
-int axl_async_test_bbapi (int id) {
-#ifdef HAVE_BBAPI
+int axl_async_test_bbapi (int id)
+{
 #ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_test(id);
@@ -593,12 +570,10 @@ int axl_async_test_bbapi (int id) {
         /* AXL_Wait will not block, so return success */
         return AXL_SUCCESS;
     }
-#endif
-    return AXL_FAILURE;
 }
 
-int axl_async_wait_bbapi (int id) {
-#ifdef HAVE_BBAPI
+int axl_async_wait_bbapi (int id)
+{
     kvtree* file_list = axl_kvtrees[id];
 
 #ifdef HAVE_PTHREADS
@@ -640,13 +615,10 @@ int axl_async_wait_bbapi (int id) {
     } else {
         return AXL_FAILURE;
     }
-#endif
-    return AXL_FAILURE;
 }
 
 int axl_async_cancel_bbapi (int id)
 {
-#ifdef HAVE_BBAPI
 #ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_cancel(id);
@@ -667,8 +639,6 @@ int axl_async_cancel_bbapi (int id)
     /* TODO: can we update status of transfer at this point? */
 
     return ret;
-#endif
-    return AXL_FAILURE;
 }
 
 /* Return 1 if all paths for a given id's filelist in the kvtree are compatible
@@ -677,7 +647,6 @@ int axl_async_cancel_bbapi (int id)
  * support extents. */
 int axl_all_paths_are_bbapi_compatible(int id)
 {
-#ifdef HAVE_BBAPI
     /* Look though all our list of files */
     char* src;
     char* dst;
@@ -691,9 +660,6 @@ int axl_all_paths_are_bbapi_compatible(int id)
 
     /* All files copies are BBAPI compatible */
     return 1;
-
-#endif
-    return 0;
 }
 
 /* If the BBAPI is in fallback mode return 1, else return 0.

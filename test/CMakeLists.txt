@@ -30,10 +30,13 @@ CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 CONFIGURE_FILE(test_axl_metadata.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
 ADD_TEST(sync_test test_axl.sh sync)
+
 IF(HAVE_PTHREADS)
     ADD_TEST(pthreads_test test_axl.sh pthread)
 ENDIF(HAVE_PTHREADS)
+
 ADD_TEST(metadata_test test_axl_metadata.sh)
+
 IF(BBAPI_FOUND)
     ADD_TEST(bbapi_test test_axl.sh bbapi)
 
@@ -51,9 +54,11 @@ ENDIF(HAVE_PTHREADS)
 # have been written, cancel the transfer after 1 second, and resume
 # the transfer.
 ADD_TEST(sync_resume_test test_axl.sh -n 100 -p 1000 -c 1 -U sync)
+
 IF(HAVE_PTHREADS)
     ADD_TEST(pthread_resume_test test_axl.sh -n 100 -p 1000 -c 1 -U pthread)
 ENDIF(HAVE_PTHREADS)
+
 IF(BBAPI_FOUND)
     # Create 300 files, cancel transfer after 3 seconds, resume transfer.
     # Values found through experimentation.
