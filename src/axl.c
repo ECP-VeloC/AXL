@@ -32,7 +32,7 @@
 
 #ifdef HAVE_PTHREADS
 #include "axl_pthread.h"
-#endif
+#endif /* HAVE_PTHREAD */
 
 #ifdef HAVE_BBAPI
 #include "axl_async_bbapi.h"
