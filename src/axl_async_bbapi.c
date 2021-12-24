@@ -10,12 +10,15 @@
 #include <stdint.h>
 #include "axl_internal.h"
 #include "axl_async_bbapi.h"
+
+#ifdef HAVE_PTHREADS
 #include "axl_pthread.h"
+#endif
 
 /* This is the IBM Burst Buffer transfer implementation.  The BB API only
  * supports transferring files between filesystems that support extents.  If
  * the user tries to transfer to an unsupported filesystem, we fallback to
- * a pthread transfer for the entire transfer. */
+ * a pthread transfer for the entire transfer if available. */
 
 #ifdef HAVE_BBAPI
 #include <bbapi.h>
@@ -366,6 +369,7 @@ int __axl_async_start_bbapi (int id, int resume) {
     int old_status;
     kvtree* file_list = axl_kvtrees[id];
 
+#ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         /* We're in fallback mode because some of the paths we want to
          * transfer from/to are not compatible with the BBAPI transfers (like
@@ -376,6 +380,7 @@ int __axl_async_start_bbapi (int id, int resume) {
             axl_pthread_start(id);
         }
     }
+#endif /* HAVE_PTHREADS */
 
     if (resume) {
         kvtree_util_get_int(file_list, AXL_KEY_STATUS, &old_status);
@@ -529,9 +534,11 @@ static int transfer_is_complete_bbapi(int id)
 
 int axl_async_test_bbapi (int id) {
 #ifdef HAVE_BBAPI
+#ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_test(id);
     }
+#endif /* HAVE_PTHREADS */
 
     /* We need to check to see if the transfers are done.  This is done
      * differently depending on if we're running on a compute node or on
@@ -594,9 +601,11 @@ int axl_async_wait_bbapi (int id) {
 #ifdef HAVE_BBAPI
     kvtree* file_list = axl_kvtrees[id];
 
+#ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_wait(id);
     }
+#endif /* HAVE_PTHREADS */
 
     /* Sleep until test changes set status */
     int status = AXL_STATUS_INPROG;
@@ -638,9 +647,11 @@ int axl_async_wait_bbapi (int id) {
 int axl_async_cancel_bbapi (int id)
 {
 #ifdef HAVE_BBAPI
+#ifdef HAVE_PTHREADS
     if (axl_bbapi_in_fallback(id)) {
         return axl_pthread_cancel(id);
     }
+#endif /* HAVE_PTHREADS */
 
     kvtree* file_list = axl_kvtrees[id];
 
