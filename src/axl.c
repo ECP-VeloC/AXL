@@ -38,7 +38,9 @@
 #include "axl_async_bbapi.h"
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_DATAWARP
 #include "axl_async_datawarp.h"
+#endif /* HAVE_DATAWARP */
 
 /* define states for transfer handlesto help ensure
  * users call AXL functions in the correct order */
@@ -617,7 +619,7 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         AXL_ERR("pthreads requested but not enabled during build");
         rc = AXL_FAILURE;
         break;
-#endif
+#endif /* HAVE_PTHREADS */
 
     case AXL_XFER_ASYNC_BBAPI:
 #ifdef HAVE_BBAPI
@@ -639,10 +641,15 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         /* User is requesting a BB transfer, but we didn't build with BBAPI */
         AXL_ERR("BBAPI requested but not enabled during build");
         rc = AXL_FAILURE;
-#endif
+#endif /* HAVE_BBAPI */
         break;
 
     case AXL_XFER_ASYNC_DW:
+#ifndef HAVE_DATAWARP
+        /* User is requesting a datawarp transfer, but we didn't build with datawarp */
+        AXL_ERR("Datawarp requested but not enabled during build");
+        rc = AXL_FAILURE;
+#endif /* HAVE_DATAWARP */
         break;
 
     default:
@@ -777,8 +784,10 @@ static int __AXL_Add (int id, const char* src, const char* dest)
         break;
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_DATAWARP
     case AXL_XFER_ASYNC_DW:
         break;
+#endif /* HAVE_DATAWARP */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1089,6 +1098,7 @@ int __AXL_Dispatch (int id, int resume)
         break;
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_DATAWARP
     case AXL_XFER_ASYNC_DW:
         if (resume) {
             AXL_ERR("AXL_Resume() isn't supported yet for DW");
@@ -1097,6 +1107,7 @@ int __AXL_Dispatch (int id, int resume)
         }
         rc = axl_async_start_datawarp(id);
         break;
+#endif /* HAVE_DATAWARP */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1243,9 +1254,11 @@ int AXL_Test (int id)
         break;
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_DATAWARP
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
         break;
+#endif /* HAVE_DATAWARP */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1311,9 +1324,11 @@ int AXL_Wait (int id)
         break;
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_DATAWARP
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
         break;
+#endif /* HAVE_DATAWARP */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
