@@ -31,7 +31,10 @@
 #include "axl_sync.h"
 #include "axl_async_bbapi.h"
 #include "axl_async_datawarp.h"
+
+#ifdef HAVE_PTHREADS
 #include "axl_pthread.h"
+#endif
 
 /* define states for transfer handlesto help ensure
  * users call AXL functions in the correct order */
@@ -602,7 +605,13 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
     case AXL_XFER_SYNC:
     case AXL_XFER_ASYNC_DW:
     case AXL_XFER_PTHREAD:
+#ifdef HAVE_PTHREADS
         break;
+#else
+        /* User is requesting a pthreads transfer, but we didn't build with pthreads */
+        AXL_ERR("pthreads requested but not enabled during build");
+        rc = AXL_FAILURE;
+#endif
     case AXL_XFER_ASYNC_BBAPI:
 #ifdef HAVE_BBAPI
         /* Load the BB library on the very first call to
@@ -739,8 +748,11 @@ static int __AXL_Add (int id, const char* src, const char* dest)
     /* add file to transfer data structure, depending on its type */
     switch (xtype) {
     case AXL_XFER_SYNC:
+        break;
+#ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         break;
     case AXL_XFER_ASYNC_BBAPI:
@@ -1037,6 +1049,7 @@ int __AXL_Dispatch (int id, int resume)
             rc = axl_sync_start(id);
         }
         break;
+#ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         if (resume) {
             rc = axl_pthread_resume(id);
@@ -1044,6 +1057,7 @@ int __AXL_Dispatch (int id, int resume)
             rc = axl_pthread_start(id);
         }
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         if (resume) {
             AXL_ERR("AXL_Resume() isn't supported yet for DW");
@@ -1191,9 +1205,11 @@ int AXL_Test (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_test(id);
         break;
+#ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_test(id);
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_test_datawarp(id);
         break;
@@ -1251,9 +1267,11 @@ int AXL_Wait (int id)
     case AXL_XFER_SYNC:
         rc = axl_sync_wait(id);
         break;
+#ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_wait(id);
         break;
+#endif
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_wait_datawarp(id);
         break;
@@ -1348,9 +1366,11 @@ int AXL_Cancel (int id)
     case AXL_XFER_ASYNC_BBAPI:
         rc = axl_async_cancel_bbapi(id);
         break;
+#ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         rc = axl_pthread_cancel(id);
         break;
+#endif
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -1386,9 +1406,11 @@ int AXL_Free (int id)
         return AXL_FAILURE;
     }
 
+#ifdef HAVE_PTHREADS
     if (xtype == AXL_XFER_PTHREAD) {
         axl_pthread_free(id);
     }
+#endif
 
     /* write data to file if we have one */
     axl_write_state_file(id);

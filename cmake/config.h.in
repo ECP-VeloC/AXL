@@ -1,4 +1,5 @@
 // Machine Specific Libs
+#cmakedefine HAVE_PTHREADS
 #cmakedefine HAVE_DATAWARP
 #cmakedefine HAVE_BBAPI
 #cmakedefine HAVE_BBAPI_FALLBACK
