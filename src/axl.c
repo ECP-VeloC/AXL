@@ -72,6 +72,9 @@ int axl_copy_metadata;
 /* global rank of calling process, used for BBAPI */
 int axl_rank = -1;
 
+/* reference count for number of times AXL_Init has been called */
+static unsigned int axl_init_count = 0;
+
 /* Array for all the AXL_Create'd kvtree pointers.  It's indexed by the AXL id.
  *
  * Note: We only expand this array, we never shrink it.  This is fine since
@@ -261,6 +264,9 @@ int AXL_Init (void)
         axl_make_directories = atoi(val);
     }
 
+    /* keep a reference count to free memory on last AXL_Finalize */
+    axl_init_count++;
+
     return rc;
 }
 
@@ -274,8 +280,16 @@ int AXL_Finalize (void)
        if (axl_async_finalize_bbapi() != AXL_SUCCESS) {
           rc = AXL_FAILURE;
        }
-   }
+    }
 #endif
+
+    /* decrement reference count and free data structures on last call */
+    axl_init_count--;
+    if (axl_init_count == 0) {
+        /* TODO: are there cases where we also need to delete trees? */
+        axl_free(&axl_kvtrees);
+        axl_kvtrees_count = 0;
+    }
 
     return rc;
 }
