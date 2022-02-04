@@ -1,4 +1,4 @@
-name: axl build and test
+name: axl build
 
 permissions:
   actions: write
@@ -43,7 +43,7 @@ jobs:
 
 
       - name: build and test
-        uses: ecp-veloc/github-actions/cmake-build-test@main
+        uses: ecp-veloc/github-actions/cmake-build@main
         with:
           component: axl
           target: ${{ matrix.target }}
