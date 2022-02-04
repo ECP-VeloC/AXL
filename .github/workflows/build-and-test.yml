@@ -42,7 +42,7 @@ jobs:
           mpi: ${{ matrix.mpi }}
 
 
-      - name: build and test
+      - name: build only
         uses: ecp-veloc/github-actions/cmake-build@main
         with:
           component: axl
