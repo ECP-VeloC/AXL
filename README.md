@@ -1,6 +1,6 @@
 # AXL: Asynchronous Transfer Library
 
-[![Build Status](https://api.travis-ci.org/ECP-VeloC/AXL.png?branch=main)](https://travis-ci.org/ECP-VeloC/AXL)
+[![axl build](https://github.com/ECP-VeloC/AXL/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/ECP-VeloC/AXL/actions/workflows/build-and-test.yml)
 
 The Asynchronous Transfer Library provides a common C interface to transfer files
 between layers in an HPC storage hierarchy.
