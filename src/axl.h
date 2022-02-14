@@ -8,7 +8,7 @@ extern "C" {
 
 #define AXL_SUCCESS (0)
 
-#define AXL_VERSION "0.5.0"
+#define AXL_VERSION "0.6.0"
 
 /** \defgroup axl AXL
  *  \brief Asynchronous Transfer Library
