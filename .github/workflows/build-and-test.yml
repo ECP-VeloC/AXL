@@ -1,0 +1,50 @@
+name: axl build
+
+permissions:
+  actions: write
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        target: [Debug, Release]
+        mpi: [seq, par]
+
+    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          path: axl
+          fetch-depth: 0
+
+      - name: get deps
+        uses: ecp-veloc/github-actions/get-scr-os-deps@main
+        with:
+          os: ${{ matrix.os }}
+          mpi: ${{ matrix.mpi }}
+
+      - name: build kvtree
+        uses: ecp-veloc/github-actions/build-ecp-veloc-component@main
+        with:
+          component: kvtree
+          mpi: ${{ matrix.mpi }}
+
+
+      - name: build only
+        uses: ecp-veloc/github-actions/cmake-build@main
+        with:
+          component: axl
+          target: ${{ matrix.target }}
+          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }} -DWITH_KVTREE_PREFIX=../install -DBUILD_SHARED_LIBS=ON -DAXL_LINK_STATIC=ON"
