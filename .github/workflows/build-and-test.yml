@@ -41,10 +41,16 @@ jobs:
           component: kvtree
           mpi: ${{ matrix.mpi }}
 
-
-      - name: build only
-        uses: ecp-veloc/github-actions/cmake-build@main
+      - name: build static
+        uses: ecp-veloc/github-actions/cmake-build-static@main
         with:
           component: axl
           target: ${{ matrix.target }}
-          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }} -DWITH_KVTREE_PREFIX=../install -DBUILD_SHARED_LIBS=ON -DAXL_LINK_STATIC=ON"
+          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
+
+      - name: build only
+        uses: ecp-veloc/github-actions/cmake-build-only@main
+        with:
+          component: axl
+          target: ${{ matrix.target }}
+          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }} -DWITH_KVTREE_PREFIX=../install"
