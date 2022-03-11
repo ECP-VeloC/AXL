@@ -243,7 +243,7 @@ int AXL_Init (void)
     int rc = AXL_SUCCESS;
 
     /* TODO: set these by config file */
-    axl_file_buf_size = (unsigned long) 1048576;
+    axl_file_buf_size = (unsigned long) (32UL * 1024UL * 1024UL);
 
     /* initialize our debug level for filtering AXL_DBG messages */
     axl_debug = 0;
