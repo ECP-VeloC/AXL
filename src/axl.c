@@ -66,6 +66,9 @@ Global Variables
  * before transferring files */
 int axl_make_directories;
 
+/* whether to first copy files to temporary name with an extension */
+int axl_use_extension;
+
 /* track whether file metadata should also be copied */
 int axl_copy_metadata;
 
@@ -249,19 +252,26 @@ int AXL_Init (void)
         axl_debug = atoi(val);
     }
 
-    /* initialize our flag on whether to copy file metadata */
-    axl_copy_metadata = 0;
-    val = getenv("AXL_COPY_METADATA");
-    if (val != NULL) {
-        axl_copy_metadata = atoi(val);
-    }
-
     /* whether axl should first create parent directories
      * before transferring files */
     axl_make_directories = 1;
     val = getenv("AXL_MKDIR");
     if (val != NULL) {
         axl_make_directories = atoi(val);
+    }
+
+    /* initialize our flag on whether to first copy files to temporary names with extension */
+    axl_use_extension = 0;
+    val = getenv("AXL_USE_EXTENSION");
+    if (val != NULL) {
+        axl_use_extension = atoi(val);
+    }
+
+    /* initialize our flag on whether to copy file metadata */
+    axl_copy_metadata = 0;
+    val = getenv("AXL_COPY_METADATA");
+    if (val != NULL) {
+        axl_copy_metadata = atoi(val);
     }
 
     /* keep a reference count to free memory on last AXL_Finalize */
@@ -305,6 +315,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_DEBUG,
         AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_USE_EXTENSION,
         AXL_KEY_CONFIG_COPY_METADATA,
         AXL_KEY_CONFIG_RANK,
         NULL
@@ -312,6 +323,7 @@ static kvtree* AXL_Config_Set(const kvtree* config)
     static const char* known_transfer_options[] = {
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_USE_EXTENSION,
         AXL_KEY_CONFIG_COPY_METADATA,
         NULL
     };
@@ -326,6 +338,9 @@ static kvtree* AXL_Config_Set(const kvtree* config)
 
     kvtree_util_get_int(config,
         AXL_KEY_CONFIG_MKDIR, &axl_make_directories);
+
+    kvtree_util_get_int(config,
+        AXL_KEY_CONFIG_USE_EXTENSION, &axl_use_extension);
 
     kvtree_util_get_int(config,
         AXL_KEY_CONFIG_COPY_METADATA, &axl_copy_metadata);
@@ -459,6 +474,7 @@ static kvtree* AXL_Config_Get()
     static const char* known_options[] = {
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_USE_EXTENSION,
         AXL_KEY_CONFIG_COPY_METADATA,
         NULL
     };
@@ -474,6 +490,9 @@ static kvtree* AXL_Config_Get()
 
     success &= kvtree_util_set_int(config,
         AXL_KEY_CONFIG_MKDIR, axl_make_directories) == KVTREE_SUCCESS;
+
+    success &= kvtree_util_set_int(config,
+        AXL_KEY_CONFIG_USE_EXTENSION, axl_use_extension) == KVTREE_SUCCESS;
 
     success &= kvtree_util_set_int(config,
         AXL_KEY_CONFIG_COPY_METADATA, axl_copy_metadata) == KVTREE_SUCCESS;
@@ -616,6 +635,9 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
             AXL_KEY_CONFIG_MKDIR, axl_make_directories);
 
         kvtree_util_set_int(file_list,
+            AXL_KEY_CONFIG_USE_EXTENSION, axl_use_extension);
+
+        kvtree_util_set_int(file_list,
             AXL_KEY_CONFIG_COPY_METADATA, axl_copy_metadata);
     }
 
@@ -749,31 +771,32 @@ static int __AXL_Add (int id, const char* src, const char* dest)
      *           SOURCE */
     kvtree* src_hash = kvtree_set_kv(file_list, AXL_KEY_FILES, src);
 
-    char *extra = NULL;
+    if (axl_use_extension) {
+        char* extra = NULL;
 
 #ifdef HAVE_BBAPI
-    /* Special case: For BB API we includes the transfer handle in the temporary
-     * file extension.  That way, we can later use it to lookup the transfer
-     * handle for old transfers and cancel them. */
-    if (xtype == AXL_XFER_ASYNC_BBAPI) {
-        uint64_t thandle;
-        if (axl_async_get_bbapi_handle(id, &thandle) !=0 ) {
-            AXL_ERR("Couldn't get BB API transfer handle");
-            return AXL_FAILURE;
+        /* Special case: For BB API we includes the transfer handle in the temporary
+         * file extension.  That way, we can later use it to lookup the transfer
+         * handle for old transfers and cancel them. */
+        if (xtype == AXL_XFER_ASYNC_BBAPI) {
+            uint64_t thandle;
+            if (axl_async_get_bbapi_handle(id, &thandle) !=0 ) {
+                AXL_ERR("Couldn't get BB API transfer handle");
+                return AXL_FAILURE;
+            }
+
+            asprintf(&extra, "%lu", thandle);
         }
+#endif
 
-        asprintf(&extra, "%lu", thandle);
+        char* newdest = axl_add_extension(dest, extra);
+        kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, newdest);
+        axl_free(&newdest);
+
+        axl_free(&extra);
+    } else {
+        kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, dest);
     }
-#endif
-
-    char* newdest = axl_add_extension(dest, extra);
-
-#ifdef HAVE_BBAPI
-    free(extra);
-#endif
-
-    kvtree_util_set_str(src_hash, AXL_KEY_FILE_DEST, newdest);
-    free(newdest);
 
     kvtree_util_set_int(src_hash, AXL_KEY_STATUS, AXL_STATUS_SOURCE);
 
@@ -1354,13 +1377,13 @@ end:
     /* Are all our destination files the correct size? */
     rc = axl_check_file_sizes(id);
 
+    /* Set permissions and creation times on files */
     if (rc == AXL_SUCCESS && axl_copy_metadata) {
-        /* Set permissions and creation times on files */
         rc = axl_set_metadata(id);
     }
 
     /* if we're successful, rename temporary files to final destination names */
-    if (rc == AXL_SUCCESS) {
+    if (rc == AXL_SUCCESS && axl_use_extension) {
         rc = axl_rename_files_to_final_names(id);
     }
 

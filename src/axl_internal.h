@@ -29,6 +29,10 @@ extern kvtree** axl_kvtrees;
  * using debug options. */
 extern int axl_debug;
 
+/* flag to track whether to copy files to a temporary name
+ * with and extension and then rename to final name */
+extern int axl_use_extension;
+
 /* flag to track whether file metadata should also be copied,
  * which includes uid/gid, permission bits, and timestamps */
 extern int axl_copy_metadata;

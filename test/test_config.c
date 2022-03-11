@@ -12,6 +12,7 @@
 size_t old_axl_file_buf_size;
 int old_axl_debug;
 int old_axl_make_directories;
+int old_axl_use_extension;
 int old_axl_copy_metadata;
 int old_axl_rank;
 
@@ -19,6 +20,7 @@ int old_axl_rank;
 size_t new_axl_file_buf_size;
 int new_axl_debug;
 int new_axl_make_directories;
+int new_axl_use_extension;
 int new_axl_copy_metadata;
 int new_axl_rank;
 
@@ -78,6 +80,15 @@ void set_global_options(void)
         printf("kvtree_util_set_int failed (error %d)\n", rc);
         exit(EXIT_FAILURE);
     }
+
+    new_axl_use_extension = !old_axl_use_extension;
+    rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_USE_EXTENSION,
+                             new_axl_use_extension);
+    if (rc != KVTREE_SUCCESS) {
+        printf("kvtree_util_set_int failed (error %d)\n", rc);
+        exit(EXIT_FAILURE);
+    }
+
     new_axl_copy_metadata = !old_axl_copy_metadata;
     rc = kvtree_util_set_int(axl_config_values, AXL_KEY_CONFIG_COPY_METADATA,
                              new_axl_copy_metadata);
@@ -120,6 +131,13 @@ void set_global_options(void)
         printf("AXL_Config() failed to set %s: %d != %d\n",
                AXL_KEY_CONFIG_MKDIR, axl_make_directories,
                new_axl_make_directories);
+        exit(EXIT_FAILURE);
+    }
+
+    if (axl_use_extension != new_axl_use_extension) {
+        printf("AXL_Config() failed to set %s: %d != %d\n",
+               AXL_KEY_CONFIG_USE_EXTENSION, axl_use_extension,
+               new_axl_use_extension);
         exit(EXIT_FAILURE);
     }
 
@@ -193,13 +211,14 @@ void check_known_options(const kvtree* configured_values,
 /* helper function to compare given configuration values with a kvtree */
 void check_options(const kvtree* configured_values, int is_global,
                    size_t exp_file_buf_size, int exp_debug,
-                   int exp_make_directories, int exp_copy_metadata,
+                   int exp_make_directories, int exp_use_extension, int exp_copy_metadata,
                    int exp_rank)
 {
     static const char* known_global_options[] = {
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_DEBUG,
         AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_USE_EXTENSION,
         AXL_KEY_CONFIG_COPY_METADATA,
         AXL_KEY_CONFIG_RANK,
         NULL
@@ -207,6 +226,7 @@ void check_options(const kvtree* configured_values, int is_global,
     static const char* known_transfer_options[] = {
         AXL_KEY_CONFIG_FILE_BUF_SIZE,
         AXL_KEY_CONFIG_MKDIR,
+        AXL_KEY_CONFIG_USE_EXTENSION,
         AXL_KEY_CONFIG_COPY_METADATA,
         NULL
     };
@@ -285,6 +305,21 @@ void check_options(const kvtree* configured_values, int is_global,
         exit(EXIT_FAILURE);
     }
 
+    int cfg_use_extension;
+    if (kvtree_util_get_int(configured_values, AXL_KEY_CONFIG_USE_EXTENSION,
+                            &cfg_use_extension) != KVTREE_SUCCESS)
+    {
+        printf("Could not get %s from AXL_Config\n",
+               AXL_KEY_CONFIG_USE_EXTENSION);
+        exit(EXIT_FAILURE);
+    }
+    if (cfg_use_extension != exp_use_extension) {
+        printf("AXL_Config returned unexpected value %d for %s. Expected %d.\n",
+               cfg_use_extension, AXL_KEY_CONFIG_USE_EXTENSION,
+               exp_use_extension);
+        exit(EXIT_FAILURE);
+    }
+
     int cfg_copy_metadata;
     if (kvtree_util_get_int(configured_values, AXL_KEY_CONFIG_COPY_METADATA,
                             &cfg_copy_metadata) != KVTREE_SUCCESS)
@@ -313,13 +348,13 @@ void get_global_options(void)
 
     check_options(axl_configured_values, 1, new_axl_file_buf_size,
                   new_axl_debug, new_axl_make_directories,
-                  new_axl_copy_metadata, new_axl_rank);
+                  new_axl_use_extension, new_axl_copy_metadata, new_axl_rank);
 
     kvtree_delete(&axl_configured_values);
 }
 
 void set_transfer_options(int id, size_t file_buf_size, int make_directories,
-                          int copy_metadata)
+                          int use_extension, int copy_metadata)
 {
     int rc;
 
@@ -350,6 +385,13 @@ void set_transfer_options(int id, size_t file_buf_size, int make_directories,
         exit(EXIT_FAILURE);
     }
 
+    rc = kvtree_util_set_int(transfer_config, AXL_KEY_CONFIG_USE_EXTENSION,
+                             use_extension);
+    if (rc != KVTREE_SUCCESS) {
+        printf("kvtree_util_set_int failed (error %d)\n", rc);
+        exit(EXIT_FAILURE);
+    }
+
     rc = kvtree_util_set_int(transfer_config, AXL_KEY_CONFIG_COPY_METADATA,
                              copy_metadata);
     if (rc != KVTREE_SUCCESS) {
@@ -366,7 +408,7 @@ void set_transfer_options(int id, size_t file_buf_size, int make_directories,
 }
 
 void get_transfer_options(int id, size_t file_buf_size, int make_directories,
-                          int copy_metadata)
+                          int use_extension, int copy_metadata)
 {
     kvtree* config = AXL_Config(NULL);
     if (config == NULL) {
@@ -382,7 +424,7 @@ void get_transfer_options(int id, size_t file_buf_size, int make_directories,
 
     /* check known option values */
     check_options(transfer_config, 0, file_buf_size, -1, make_directories,
-                  copy_metadata, -1);
+                  use_extension, copy_metadata, -1);
 
     kvtree_delete(&config);
 }
@@ -397,11 +439,12 @@ main(void) {
         exit(EXIT_FAILURE);
     }
 
-    old_axl_file_buf_size = axl_file_buf_size;
-    old_axl_debug = axl_debug;
+    old_axl_file_buf_size    = axl_file_buf_size;
+    old_axl_debug            = axl_debug;
     old_axl_make_directories = axl_make_directories;
-    old_axl_copy_metadata = axl_copy_metadata;
-    old_axl_rank = axl_rank;
+    old_axl_use_extension    = axl_use_extension;
+    old_axl_copy_metadata    = axl_copy_metadata;
+    old_axl_rank             = axl_rank;
 
     /* must pick up "old" defaults */
     int id1 = AXL_Create(AXL_XFER_DEFAULT, __FILE__, NULL);
@@ -422,19 +465,19 @@ main(void) {
 
     /* check that global values are used by default */
     get_transfer_options(id1, old_axl_file_buf_size, old_axl_make_directories,
-                         old_axl_copy_metadata);
+        old_axl_use_extension, old_axl_copy_metadata);
     get_transfer_options(id2, new_axl_file_buf_size, new_axl_make_directories,
-                         new_axl_copy_metadata);
+        new_axl_use_extension, new_axl_copy_metadata);
 
     /* change values */
-    set_transfer_options(id1, new_axl_file_buf_size+1,
-                         new_axl_make_directories, new_axl_copy_metadata);
+    set_transfer_options(id1, new_axl_file_buf_size+1, new_axl_make_directories,
+        new_axl_use_extension, new_axl_copy_metadata);
     /* did they change? */
-    get_transfer_options(id1, new_axl_file_buf_size+1,
-                         new_axl_make_directories, new_axl_copy_metadata);
+    get_transfer_options(id1, new_axl_file_buf_size+1, new_axl_make_directories,
+        new_axl_use_extension, new_axl_copy_metadata);
     /* but only for the one I did change? */
     get_transfer_options(id2, new_axl_file_buf_size, new_axl_make_directories,
-                         new_axl_copy_metadata);
+        new_axl_use_extension, new_axl_copy_metadata);
 
     rc = AXL_Free(id2);
     if (rc != AXL_SUCCESS) {
