@@ -28,7 +28,7 @@ Some useful CMake command line options:
 
 - `-DCMAKE_INSTALL_PREFIX=[path]`: Place to install the AXL library
 - `-DCMAKE_BUILD_TYPE=[Debug/Release]`: Build with debugging or optimizations
-- `-DMPI`: Build with support for MPI movement of kvtree objects
+- `-DMPI`: Build support for MPI collective interface
 
 For building with IBM BB API (optional):
 
