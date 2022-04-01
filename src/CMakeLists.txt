@@ -6,9 +6,12 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
 ###########
 
 # Install header files
-LIST(APPEND libaxl_install_headers
-    axl.h
-)
+LIST(APPEND libaxl_install_headers axl.h)
+
+IF(MPI_FOUND)
+    LIST(APPEND libaxl_install_headers axl_mpi.h)
+ENDIF(MPI_FOUND)
+
 INSTALL(FILES ${libaxl_install_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 LIST(APPEND libaxl_srcs
@@ -18,6 +21,10 @@ LIST(APPEND libaxl_srcs
     axl_io.c
     axl_util.c
 )
+
+IF(MPI_FOUND)
+    LIST(APPEND libaxl_srcs axl_mpi.c)
+ENDIF(MPI_FOUND)
 
 IF(HAVE_PTHREADS)
   LIST(APPEND libaxl_srcs axl_pthread.c)

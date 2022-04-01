@@ -1,3 +1,6 @@
+#
+# TODO: Add MPI for CI
+#
 slurm-job:
   tags:
     - quartz
