@@ -17,6 +17,9 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 INCLUDE(GNUInstallDirs)
 
 # Configuration Options
+OPTION(MPI "Enable MPI operations for AXL" OFF)
+MESSAGE(STATUS "MPI: ${MPI}")
+
 OPTION(BUILD_SHARED_LIBS "Whether to build shared libraries" ON)
 MESSAGE(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 
@@ -44,6 +47,21 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 # Find Packages & Files
 
 LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
+## MPI
+IF(MPI)
+    INCLUDE(SetupMPI)
+    IF(MPI_C_FOUND)
+        INCLUDE_DIRECTORIES(${MPI_C_INCLUDE_PATH})
+        LIST(APPEND AXL_EXTERNAL_LIBS ${MPI_C_LIBRARIES})
+    ELSE(MPI_C_FOUND)
+        MESSAGE(FATAL_ERROR
+            "Could not find MPI! "
+            "Either add an MPI compiler to your path "
+            "or force CMake to build using the correct compiler (`export CC=mpicc`). "
+            "To disable MPI, set -DMPI=OFF")
+    ENDIF(MPI_C_FOUND)
+ENDIF(MPI)
 
 ## KVTREE
 FIND_PACKAGE(KVTREE REQUIRED)
