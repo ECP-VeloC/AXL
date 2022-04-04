@@ -22,22 +22,19 @@ LIST(APPEND libaxl_srcs
     axl_util.c
 )
 
-IF(MPI_FOUND)
-    LIST(APPEND libaxl_srcs axl_mpi.c)
-ENDIF(MPI_FOUND)
-
 IF(HAVE_PTHREADS)
-  LIST(APPEND libaxl_srcs axl_pthread.c)
+    LIST(APPEND libaxl_srcs axl_pthread.c)
 ENDIF(HAVE_PTHREADS)
 
 IF(BBAPI_FOUND)
-  LIST(APPEND libaxl_srcs axl_async_bbapi.c)
+    LIST(APPEND libaxl_srcs axl_async_bbapi.c)
 ENDIF(BBAPI_FOUND)
 
 IF(HAVE_DATAWARP)
-  LIST(APPEND libaxl_srcs axl_async_datawarp.c)
+    LIST(APPEND libaxl_srcs axl_async_datawarp.c)
 ENDIF(HAVE_DATAWARP)
 
+# Default AXL library is withOUT MPI
 ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
 
 IF(BUILD_SHARED_LIBS)
@@ -56,3 +53,29 @@ TARGET_LINK_LIBRARIES(axl-static ${AXL_EXTERNAL_LIBS})
 
 SET_TARGET_PROPERTIES(axl-static PROPERTIES OUTPUT_NAME axl CLEAN_DIRECT_OUTPUT 1)
 INSTALL(TARGETS axl-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+# AXL library with MPI
+LIST(APPEND libaxl_mpi_srcs ${libaxl_srcs})
+
+IF(MPI_FOUND)
+    LIST(APPEND libaxl_mpi_srcs axl_mpi.c)
+ENDIF(MPI_FOUND)
+
+ADD_LIBRARY(axl_mpi_o OBJECT ${libaxl_mpi_srcs})
+
+IF(BUILD_SHARED_LIBS)
+    ADD_LIBRARY(axl_mpi SHARED $<TARGET_OBJECTS:axl_mpi_o>)
+    TARGET_LINK_LIBRARIES(axl_mpi ${AXL_EXTERNAL_LIBS})
+    SET_TARGET_PROPERTIES(axl_mpi PROPERTIES OUTPUT_NAME axl_mpi CLEAN_DIRECT_OUTPUT 1)
+    INSTALL(TARGETS axl_mpi DESTINATION ${CMAKE_INSTALL_LIBDIR})
+ENDIF()
+
+ADD_LIBRARY(axl_mpi-static STATIC $<TARGET_OBJECTS:axl_mpi_o>)
+IF(AXL_LINK_STATIC)
+    SET_TARGET_PROPERTIES(axl_mpi-static PROPERTIES LINK_SEARCH_START_STATIC 1)
+    SET_TARGET_PROPERTIES(axl_mpi-static PROPERTIES LINK_SEARCH_END_STATIC 1)
+ENDIF(AXL_LINK_STATIC)
+TARGET_LINK_LIBRARIES(axl_mpi-static ${AXL_EXTERNAL_LIBS})
+
+SET_TARGET_PROPERTIES(axl_mpi-static PROPERTIES OUTPUT_NAME axl_mpi CLEAN_DIRECT_OUTPUT 1)
+INSTALL(TARGETS axl_mpi-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
