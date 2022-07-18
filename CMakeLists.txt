@@ -61,6 +61,15 @@ IF(MPI)
             "or force CMake to build using the correct compiler (`export CC=mpicc`). "
             "To disable MPI, set -DMPI=OFF")
     ENDIF(MPI_C_FOUND)
+
+    ## DTCMP
+    FIND_PACKAGE(DTCMP REQUIRED)
+    IF(DTCMP_FOUND)
+        INCLUDE_DIRECTORIES(${DTCMP_INCLUDE_DIRS})
+        LIST(APPEND AXL_EXTERNAL_LIBS ${DTCMP_LIBRARIES})
+        LIST(APPEND AXL_LINK_LINE "-ldtcmp")
+    ENDIF(DTCMP_FOUND)
+
 ENDIF(MPI)
 
 ## KVTREE

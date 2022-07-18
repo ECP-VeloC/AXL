@@ -45,15 +45,16 @@ extern int axl_make_directories;
 extern int axl_rank;
 
 /* "KEYS" */
-#define AXL_KEY_UNAME         ("NAME")
-#define AXL_KEY_XFER_TYPE     ("TYPE")
-#define AXL_KEY_STATE         ("STATE")
-#define AXL_KEY_STATUS        ("STATUS")
-#define AXL_KEY_FILES         ("FILE")
-#define AXL_KEY_FILE_DEST     ("DEST")
-#define AXL_KEY_FILE_STATUS   ("STATUS")
-#define AXL_KEY_FILE_CRC      ("CRC")
-#define AXL_KEY_STATE_FILE    ("STATE_FILE")
+#define AXL_KEY_UNAME               ("NAME")
+#define AXL_KEY_XFER_TYPE           ("TYPE")
+#define AXL_KEY_STATE               ("STATE")
+#define AXL_KEY_STATUS              ("STATUS")
+#define AXL_KEY_FILES               ("FILE")
+#define AXL_KEY_FILE_DEST           ("DEST")
+#define AXL_KEY_FILE_STATUS         ("STATUS")
+#define AXL_KEY_FILE_CRC            ("CRC")
+#define AXL_KEY_STATE_FILE          ("STATE_FILE")
+#define AXL_KEY_FILE_GROUP_RANK     ("GROUP_RANK")
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
