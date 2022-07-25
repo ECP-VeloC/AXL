@@ -1,6 +1,8 @@
 #include "axl_internal.h"
 #include "kvtree_util.h"
 
+#include "axl_sync.h"
+
 #include <assert.h>
 
 /* synchonous transfer of files */
@@ -69,7 +71,7 @@ int __axl_sync_start (int id, int resume)
     return rc;
 }
 
-int axl_sync_start (int id, int resume)
+int axl_sync_start (int id)
 {
     return __axl_sync_start(id, 0);
 }
