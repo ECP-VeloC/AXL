@@ -42,6 +42,7 @@ typedef enum {
     AXL_XFER_SYNC,          /* synchronous copy */
     AXL_XFER_ASYNC_DAEMON,  /* async daemon process (not used, but kept to maintain enum values) */
     AXL_XFER_ASYNC_DW,      /* Cray Datawarp */
+    AXL_XFER_ASYNC_NNFDM,   /* HPE DataMover */
     AXL_XFER_ASYNC_BBAPI,   /* IBM Burst Buffer API */
     AXL_XFER_NATIVE,        /* Autodetect and use the native API (BBAPI, DW,
                              * etc) for this node type.  It may or may not
