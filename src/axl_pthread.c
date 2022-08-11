@@ -5,7 +5,7 @@
 #include "axl_internal.h"
 #include "kvtree_util.h"
 #include "axl_pthread.h"
-#include "axl_synch.h"
+#include "axl_sync.h"
 
 /* get_nprocs() */
 #if defined(__APPLE__)
