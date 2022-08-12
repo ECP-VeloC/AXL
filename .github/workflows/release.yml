@@ -19,3 +19,4 @@ jobs:
         uses: ecp-veloc/github-actions/spack-release@main
         with:
           component: axl
+          spack-token: ${{ secrets.SPACK_RELEASE_TOKEN }}
