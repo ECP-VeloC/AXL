@@ -35,7 +35,7 @@ IF(HAVE_DATAWARP)
 ENDIF(HAVE_DATAWARP)
 
 IF(HAVE_NNFDM)
-    LIST(APPEND libaxl_srcs axl_async_nnfdm.c)
+    LIST(APPEND libaxl_srcs nnfdm.cpp)
 ENDIF(HAVE_NNFDM)
 
 # Default AXL library is withOUT MPI

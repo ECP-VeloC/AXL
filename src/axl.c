@@ -39,7 +39,7 @@
 #endif /* HAVE_BBAPI */
 
 #ifdef HAVE_NNFDM
-#include "axl_async_nnfdm.h"
+#include "nnfdm.h"
 #endif /* HAVE_NNFDM */
 
 #ifdef HAVE_DATAWARP
@@ -301,7 +301,7 @@ int AXL_Finalize (void)
 #endif
 
 #ifdef HAVE_NNFDM
-    axl_async_finalize_nnfdm();
+    nnfdm_finalize();
 #endif
 
 
@@ -705,7 +705,7 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         AXL_ERR("NNFDM requested but not enabled during build");
         rc = AXL_FAILURE;
 #else
-        axl_async_init_nnfdm();
+        nnfdm_init("socketname", "workflowname", "namespace");
 #endif /* HAVE_NNFDM */
         break;
 
@@ -1179,7 +1179,7 @@ int __AXL_Dispatch (int id, int resume)
             rc = AXL_FAILURE;
             break;
         }
-        rc = axl_async_start_nnfdm(id);
+        rc = nnfdm_start(id);
         break;
 #endif /* HAVE_NNFDM */
 
@@ -1336,7 +1336,7 @@ int AXL_Test (int id)
 
 #ifdef HAVE_NNFDM
     case AXL_XFER_ASYNC_NNFDM:
-        rc = axl_async_test_nnfdm(id);
+        rc = nnfdm_test(id);
         break;
 #endif /* HAVE_NNFDM */
 
@@ -1412,7 +1412,7 @@ int AXL_Wait (int id)
 
 #ifdef HAVE_NNFDM
     case AXL_XFER_ASYNC_NNFDM:
-        rc = axl_async_wait_nnfdm(id);
+        rc = nnfdm_wait(id);
         break;
 #endif /* HAVE_NNDFM */
 
