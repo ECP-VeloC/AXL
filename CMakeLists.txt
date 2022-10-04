@@ -39,7 +39,7 @@ MESSAGE(STATUS "ENABLE_IBM_BBAPI: ${ENABLE_IBM_BBAPI}")
 OPTION(ENABLE_CRAY_DW "Whether to enable Cray Datawarp support" OFF)
 MESSAGE(STATUS "ENABLE_CRAY_DW: ${ENABLE_CRAY_DW}")
 
-OPTION(ENABLE_HPE_NNFDM "Whether to enable HPE Data Mover support" ON)
+OPTION(ENABLE_HPE_NNFDM "Whether to enable HPE Data Mover support" OFF)
 MESSAGE(STATUS "ENABLE_HPE_NNFDM: ${ENABLE_HPE_NNFDM}")
 
 OPTION(ENABLE_TESTS "Whether to build tests" ON)
