@@ -6,71 +6,87 @@ extern "C" {
 #include "kvtree.h"
 }
 
-near_node_flash::data_movement::DataMoverClient* nnfdm_client{nullptr};
-near_node_flash::data_movement::Workflow* nnfdm_workflow{nullptr};
+namespace nnfdm = near_node_flash::data_movement;
+
+namespace {
+    nnfdm::DataMoverClient* nnfdm_client{nullptr};
+    nnfdm::Workflow* nnfdm_workflow{nullptr};
+
+    int nnfdm_stat(const char* uid, int64_t max_seconds_to_wait)
+    {
+        int rval = 0;
+        nnfdm::StatusRequest status_request{std::string{uid},
+                                            max_seconds_to_wait};
+        nnfdm::StatusResponse status_response;
+        nnfdm::RPCStatus rpc_status = nnfdm_client->Status(   *nnfdm_workflow
+                                                            ,  status_request
+                                                            , &status_response);
+        if (!rpc_status.ok()) {
+            axl_abort(    -1
+                        , "NNFDM Status RPC FAILED %d: %s @ %s:%d"
+                        , rpc_status.error_code()
+                        , rpc_status.error_message().c_str()
+                        , __FILE__
+                        , __LINE__);
+            /*NOTREACHED*/
+        }
+
+        switch (status_response.state()) {
+            case nnfdm::StatusResponse::STATE_PENDING:
+            case nnfdm::StatusResponse::STATE_STARTING:
+            case nnfdm::StatusResponse::STATE_RUNNING:
+                rval = AXL_STATUS_INPROG;
+                break;
+            case nnfdm::StatusResponse::STATE_COMPLETED:
+                switch (status_response.status()) {
+                    case nnfdm::StatusResponse::STATUS_SUCCESS:
+                        rval = AXL_STATUS_DEST;
+                        break;
+                    default:
+                        rval = AXL_STATUS_ERROR;
+                        axl_err(  "NNFDM Offload Status UNSUCCESSFUL: %d %s"
+                                , status_response.status()
+                                , status_response.message().c_str());
+                        break;
+                }
+            default:
+                axl_abort(   -1
+                           , "NNFDM Offload State STATE UNKNOWN: %d %s"
+                           , status_response.status()
+                           , status_response.message().c_str());
+                /*NOTREACHED*/
+                break;
+        }
+
+        return rval;
+    }
+}   // End of empty namepace
 
 extern "C" {
-
-// TODO: Need to move this where other keys are stored
-#define AXL_KEY_FILE_SESSION_UID "NNFDM_Session_ID"
-
-static int nnfdm_stat(const char* uid, int64_t max_seconds_to_wait)
-{
-    int rval = 0;
-    near_node_flash::data_movement::StatusRequest request{std::string{uid}, max_seconds_to_wait};
-    near_node_flash::data_movement::StatusResponse response;
-
-    near_node_flash::data_movement::RPCStatus status = nnfdm_client->Status(*nnfdm_workflow, request, &response);
-    if (!status.ok()) {
-        axl_abort(-1,
-            "NNFDM Status RPC FAILED %d: %s @ %s:%d",
-            status.error_code(), status.error_message().c_str(), __FILE__, __LINE__
-        );
-        /*NOTREACHED*/
-    }
-
-    switch (response.state()) {
-        case near_node_flash::data_movement::StatusResponse::STATE_PENDING:
-        case near_node_flash::data_movement::StatusResponse::STATE_STARTING:
-        case near_node_flash::data_movement::StatusResponse::STATE_RUNNING:
-            rval = AXL_STATUS_INPROG;
-            break;
-        case near_node_flash::data_movement::StatusResponse::STATE_COMPLETED:
-            switch (response.status()) {
-                case near_node_flash::data_movement::StatusResponse::STATUS_SUCCESS:
-                    rval = AXL_STATUS_DEST;
-                    break;
-                default:
-                    rval = AXL_STATUS_ERROR;
-                    axl_err("NNFDM Offload Status UNSUCCESSFUL: %d %s", response.status(), response.message().c_str());
-                    break;
-            }
-        default:
-            axl_abort(-1, "NNFDM Offload State STATE UNKNOWN: %d %s", response.status(), response.message().c_str());
-            /*NOTREACHED*/
-            break;
-    }
-
-    return rval;
-}
 
 void nnfdm_init(const char* sname, const char* workflow, const char* name_space)
 {
     if (nnfdm_client == nullptr) {
-        nnfdm_client = new near_node_flash::data_movement::DataMoverClient{std::string{sname}};
+        nnfdm_client = new nnfdm::DataMoverClient{std::string{sname}};
         if (nnfdm_client == nullptr) {
-            axl_abort(-1,
-                "NNFDM init: Failed to create data movement client instance for %s@ %s:%d",
-                sname, __FILE__, __LINE__
-            );
+            axl_abort(-1
+                      , "NNFDM init: Failed to create data movement client "
+                        "instance for %s@ %s:%d"
+                      , sname
+                      , __FILE__
+                      , __LINE__);
         }
 
-        nnfdm_workflow = new near_node_flash::data_movement::Workflow{std::string{workflow}, std::string{name_space}};
+        nnfdm_workflow = new nnfdm::Workflow{  std::string{workflow}
+                                             , std::string{name_space}};
         if (nnfdm_workflow == nullptr) {
-            axl_abort(-1,
-                "nnfdm_init: Failed to create data movement workflow instance for %s/%s@ %s:%d",
-                workflow, name_space, __FILE__, __LINE__
-            );
+            axl_abort(  -1
+                      , "nnfdm_init: Failed to create data movement workflow "
+                        "instance for %s/%s@ %s:%d"
+                      , workflow
+                      , name_space
+                      , __FILE__
+                      , __LINE__);
         }
     }
 }
@@ -92,45 +108,53 @@ int nnfdm_start(int id)
     kvtree* file_list = axl_kvtrees[id];
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
  
-    /* iterate over files */
     kvtree_elem* elem;
     kvtree* files = kvtree_get(file_list, AXL_KEY_FILES);
-    for (kvtree_elem* elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
-        /* get the filename */
-        char* file = kvtree_elem_key(elem);
- 
-        /* get the hash for this file */
+    for (  kvtree_elem* elem = kvtree_elem_first(files);
+           elem != NULL;
+           elem = kvtree_elem_next(elem))
+    {
+        char* src_filename = kvtree_elem_key(elem);
         kvtree* elem_hash = kvtree_elem_hash(elem);
  
         /* get the destination for this file */
-        char* dest_file;
-        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dest_file);
+        char* dst_filename;
+        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst_filename);
 
-        near_node_flash::data_movement::CreateRequest createRequest(std::string{file}, std::string{dest_file});
-        near_node_flash::data_movement::CreateResponse createResponse;
-
-        near_node_flash::data_movement::RPCStatus status = nnfdm_client->Create(*nnfdm_workflow, createRequest, &createResponse);
-        if (!status.ok()) {
-            axl_abort(-1,
-                "NNFDM Create(%s, %s) failed with error %d (%s) @ %s:%d",
-                file, dest_file, status.error_code(), status.error_message().c_str(), __FILE__, __LINE__
-            );
+        nnfdm::CreateRequest create_request(  std::string{src_filename}  
+                                            , std::string{dst_filename});
+        nnfdm::CreateResponse create_response;
+        nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow
+                                                           , create_request
+                                                           , &create_response);
+        if (!rpc_status.ok()) {
+            axl_abort(  -1
+                      , "NNFDM Create(%s, %s) failed with error %d (%s) @ %s:%d"
+                      , src_filename
+                      , dst_filename
+                      , rpc_status.error_code()
+                      , rpc_status.error_message().c_str()
+                      , __FILE__
+                      , __LINE__);
             /*NOTREACHED*/
         }
 
-        switch (createResponse.status()) {
-            case near_node_flash::data_movement::CreateResponse::Status::STATUS_SUCCESS:
+        switch (create_response.status()) {
+            case nnfdm::CreateResponse::Status::STATUS_SUCCESS:
                 /* record that the file is in progress */
-                kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
-
-                /* record the session Id for this file */
-                kvtree_util_set_str(elem_hash, AXL_KEY_FILE_SESSION_UID, createResponse.uid().c_str());
+                kvtree_util_set_int(  elem_hash
+                                    , AXL_KEY_FILE_STATUS
+                                    , AXL_STATUS_INPROG);
+                kvtree_util_set_str(  elem_hash
+                                    , AXL_KEY_FILE_SESSION_UID
+                                    , create_response.uid().c_str());
                 break;
             default:
-                axl_abort(-1,
-                    "NNFDM Offload Create FAILED for %s: error %d (%s) ",
-                    file, createResponse.status(), createResponse.message().c_str()
-                 );
+                axl_abort(  -1
+                          , "NNFDM Offload Create FAILED for %s: error %d (%s) "
+                          , src_filename
+                          , create_response.status()
+                          , create_response.message().c_str());
                  /*NOTREACHED*/
                  break;
         } 
@@ -156,7 +180,7 @@ int nnfdm_test(int id) {
         }
 
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_SESSION_UID, &uid);
-        status = nnfdm_stat(uid, 0);
+        status = nnfdm_stat(uid, -1);   // -1 means to wait forever
 
         if (status != AXL_STATUS_DEST) {
             return AXL_FAILURE;   /* At least one file is not done */
@@ -168,9 +192,120 @@ int nnfdm_test(int id) {
     return AXL_SUCCESS;
 }
 
+int nnfdm_cancel(int id) {
+    kvtree* file_list = axl_kvtrees[id];
+    kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
+
+    /* iterate/wait over in-progress files */
+    for (  kvtree_elem* elem = kvtree_elem_first(files);
+           elem != NULL;
+           elem = kvtree_elem_next(elem))
+    {
+        int status;
+        char* uid;
+        char* src_filename = kvtree_elem_key(elem);
+        kvtree* elem_hash = kvtree_elem_hash(elem);
+        kvtree_util_get_int(elem_hash, AXL_KEY_FILE_STATUS, &status);
+
+        if (status == AXL_STATUS_DEST) {
+            continue;   /* This one is done */
+        }
+
+        kvtree_util_get_str(elem_hash, AXL_KEY_FILE_SESSION_UID, &uid);
+
+        nnfdm::CancelRequest cancel_request(uid);
+        nnfdm::CancelResponse cancel_response;
+        nnfdm::RPCStatus rpc_status = nnfdm_client->Cancel(  *nnfdm_workflow
+                                                           ,  cancel_request
+                                                           , &cancel_response);
+        if (!rpc_status.ok()) {
+            axl_abort(-1,
+                "NNFDM Cancel(uid=%s, file=%s) failed with error %d (%s) @ %s:%d"
+                , uid
+                , src_filename
+                , rpc_status.error_code()
+                , rpc_status.error_message().c_str()
+                , __FILE__
+                , __LINE__
+            );
+            /*NOTREACHED*/
+        }
+
+        switch (cancel_response.status()) {
+            case nnfdm::CancelResponse::STATUS_NOT_FOUND:
+                //
+                // Assume that unfound uids simply completed previously
+                //
+                axl_dbg(  0
+                        , "NNFDM Cancel(uid=%s, file=%s) NOTFOUND - "
+                          "IGNORING @ %s:%d"
+                        , uid
+                        , src_filename
+                        , __FILE__
+                        , __LINE__);
+                continue;
+            case nnfdm::CancelResponse::STATUS_SUCCESS:
+                axl_dbg(  0
+                        , "NNFDM Cancel(uid=%s, file=%s) Canceled @ %s:%d"
+                        , uid
+                        , src_filename
+                        , __FILE__
+                        , __LINE__);
+                break;
+            default:
+                axl_abort(    -1
+                            , "NNFDM Cancel(uid=%s, file=%s) "
+                              "Failed with error %d - IGNORING @ %s:%d"
+                            , uid
+                            , src_filename
+                            , cancel_response.status()
+                            , __FILE__
+                            , __LINE__);
+                /*NOTEACHED*/
+                return 1;
+        }
+
+        // Now delete the associated uid
+        nnfdm::DeleteRequest delete_request(std::string{uid});
+        nnfdm::DeleteResponse deleteResponse;
+        rpc_status = nnfdm_client->Delete(   *nnfdm_workflow
+                                           ,  delete_request
+                                           , &deleteResponse);
+
+        if (!rpc_status.ok()) {
+            axl_abort(   -1
+                       , "NNFDM Delete(uid=%s, file=%s) RPC FAILED: "
+                         "%d (%s) @ %s:%d"
+                       , uid
+                       , src_filename
+                       , rpc_status.error_code()
+                       , rpc_status.error_message().c_str()
+                       , __FILE__
+                       , __LINE__);
+            /*NOTEACHED*/
+        }
+
+        /* Delete the request */
+        switch (deleteResponse.status()) {
+            case nnfdm::DeleteResponse::STATUS_SUCCESS:
+                break;
+            default:
+                axl_abort(-1,
+                    "NNFDM Offload Delete(%s) UNSUCCESSFUL: %d (%s) @ %s:%d",
+                    src_filename, deleteResponse.status(), deleteResponse.message().c_str(),
+                    __FILE__, __LINE__);
+                return 1;
+        }
+
+        kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_DEST);
+    }
+
+    return AXL_SUCCESS;
+}
+
 int nnfdm_wait(int id)
 {
-    const int64_t max_seconds_to_wait{1};
+    const int64_t max_seconds_to_wait{-1};  // Wait forever
     kvtree* file_list = axl_kvtrees[id];
     kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 
@@ -186,24 +321,24 @@ int nnfdm_wait(int id)
             status = nnfdm_stat(uid, max_seconds_to_wait);
         } while (status == AXL_STATUS_INPROG);
 
-        near_node_flash::data_movement::DeleteRequest deleteRequest(std::string{uid});
-        near_node_flash::data_movement::DeleteResponse deleteResponse;
+        nnfdm::DeleteRequest delete_request(std::string{uid});
+        nnfdm::DeleteResponse deleteResponse;
 
-        near_node_flash::data_movement::RPCStatus delete_status = nnfdm_client->Delete(*nnfdm_workflow, deleteRequest, &deleteResponse);
-        if (!delete_status.ok()) {
-            axl_abort(-1, "NNFDM Delete RPC FAILED: %d (%s)", delete_status.error_code(), delete_status.error_message().c_str());
+        nnfdm::RPCStatus rpc_status = nnfdm_client->Delete(*nnfdm_workflow, delete_request, &deleteResponse);
+        if (!rpc_status.ok()) {
+            axl_abort(-1, "NNFDM Delete RPC FAILED: %d (%s)", rpc_status.error_code(), rpc_status.error_message().c_str());
             /*NOTEACHED*/
         }
 
         /* Delete the request */
         switch (deleteResponse.status()) {
-            case near_node_flash::data_movement::DeleteResponse::STATUS_SUCCESS:
+            case nnfdm::DeleteResponse::STATUS_SUCCESS:
                 break;
             default:
-                char* file = kvtree_elem_key(elem);
+                char* src_filename = kvtree_elem_key(elem);
                 axl_abort(-1,
                     "NNFDM Offload Delete(%s) UNSUCCESSFUL: %d (%s)",
-                    file, deleteResponse.status(), deleteResponse.message().c_str());
+                    src_filename, deleteResponse.status(), deleteResponse.message().c_str());
                 return 1;
         }
 

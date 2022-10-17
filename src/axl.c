@@ -826,6 +826,16 @@ static int __AXL_Add (int id, const char* src, const char* dest)
     case AXL_XFER_SYNC:
         break;
 
+#ifdef HAVE_DATAWARP
+    case AXL_XFER_ASYNC_DW:
+        break;
+#endif /* HAVE_DATAWARP */
+
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        break;
+#endif /* HAVE_NNFDM */
+
 #ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         break;
@@ -841,16 +851,6 @@ static int __AXL_Add (int id, const char* src, const char* dest)
          * doing our BB_AddFiles() calls until AXL_Dispatch(). */
         break;
 #endif /* HAVE_BBAPI */
-
-#ifdef HAVE_DATAWARP
-    case AXL_XFER_ASYNC_DW:
-        break;
-#endif /* HAVE_DATAWARP */
-
-#ifdef HAVE_NNFDM
-    case AXL_XFER_ASYNC_NNFDM:
-        break;
-#endif /* HAVE_NNFDM */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1514,9 +1514,9 @@ int AXL_Cancel (int id)
         break;
 #endif
 
-#if 0
+#ifdef HAVE_NNFDM
     case AXL_XFER_ASYNC_NNFDM:
-        rc = axl_async_cancel_nnfdm(id);
+        rc = nnfdm_cancel(id);
         break;
 #endif
 

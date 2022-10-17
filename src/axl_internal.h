@@ -54,6 +54,8 @@ extern int axl_rank;
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
 #define AXL_KEY_STATE_FILE    ("STATE_FILE")
+#define AXL_KEY_FILE_SESSION_UID ("NNFDM_Session_ID")
+
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)

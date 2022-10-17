@@ -10,6 +10,7 @@ void nnfdm_finalize();
 int nnfdm_start(int id);
 int nnfdm_test(int id);
 int nnfdm_wait(int id);
+int nnfdm_cancel(int id);
 
 #ifdef __cplusplus
 };
