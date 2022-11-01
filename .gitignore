@@ -4,4 +4,11 @@
 
 ## Out of source builds and installs
 build/*
+cmake-build-*/
 install/*
+
+# QT Creator
+CMakeLists.txt.user
+
+# CMake
+CMakeUserPresets.json
