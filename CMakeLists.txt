@@ -51,15 +51,13 @@ LIST(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 ## MPI
 IF(MPI)
     INCLUDE(SetupMPI)
-    IF(MPI_C_FOUND)
-        LIST(APPEND AXL_EXTERNAL_LIBS MPI::MPI_C)
-    ELSE(MPI_C_FOUND)
+    IF(NOT MPI_C_FOUND)
         MESSAGE(FATAL_ERROR
             "Could not find MPI! "
             "Either add an MPI compiler to your path "
             "or force CMake to build using the correct compiler (`export CC=mpicc`). "
             "To disable MPI, set -DMPI=OFF")
-    ENDIF(MPI_C_FOUND)
+    ENDIF(NOT MPI_C_FOUND)
 ENDIF(MPI)
 
 ## KVTREE

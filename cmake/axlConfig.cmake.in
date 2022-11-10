@@ -12,6 +12,10 @@ if (@HAVE_BBAPI@)
   find_dependency(BBAPI REQUIRED)
 endif()
 
+if (@MPI@)
+  find_dependency(MPI REQUIRED)
+endif()
+
 find_dependency(ZLIB REQUIRED)
 
 if (@HAVE_PTHREADS@)
