@@ -1,0 +1,25 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(kvtree REQUIRED)
+
+if (@HAVE_DATAWARP@)
+  find_dependency(DataWarp REQUIRED)
+endif()
+
+if (@HAVE_BBAPI@)
+  find_dependency(BBAPI REQUIRED)
+endif()
+
+if (@MPI@)
+  find_dependency(MPI REQUIRED)
+endif()
+
+find_dependency(ZLIB REQUIRED)
+
+if (@HAVE_PTHREADS@)
+  find_dependency(Threads REQUIRED)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/axlTargets.cmake")

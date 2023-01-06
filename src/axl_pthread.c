@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "axl_internal.h"
 #include "kvtree_util.h"
+#include "axl_pthread.h"
 #include "axl_sync.h"
 
 /* get_nprocs() */

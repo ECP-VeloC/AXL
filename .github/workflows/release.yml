@@ -1,0 +1,22 @@
+name: axl release
+
+permissions:
+  actions: write
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  spack-release:
+    name: spack-release
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: spack release
+        uses: ecp-veloc/github-actions/spack-release@main
+        with:
+          component: axl
+          spack_token: ${{ secrets.SPACK_RELEASE_TOKEN }}
