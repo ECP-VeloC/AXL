@@ -11,9 +11,9 @@ LIST(APPEND axl_test_srcs
 # SET(CMAKE_BUILD_TYPE Debug)
 
 IF(AXL_LINK_STATIC)
-    SET(axl_lib axl-static)
+    SET(axl_lib axl::axl-static)
 ELSE()
-    SET(axl_lib axl)
+    SET(axl_lib axl::axl)
 ENDIF()
 
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
