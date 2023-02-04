@@ -16,8 +16,10 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         target: [Debug, Release]
         mpi: [seq, par]
+        shared: [true, false]
+        static: [true, false]
 
-    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}
+    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}-${{ matrix.shared }}-${{ matrix.static }}
 
     runs-on: ${{ matrix.os }}
 
@@ -40,12 +42,14 @@ jobs:
         with:
           component: kvtree
           mpi: ${{ matrix.mpi }}
+          shared: ${{ matrix.shared }}
 
       - name: build static
         uses: ecp-veloc/github-actions/cmake-build-static@main
         with:
           component: axl
           target: ${{ matrix.target }}
+          shared: ${{ matrix.shared }}
           cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
 
       - name: build only
@@ -53,4 +57,6 @@ jobs:
         with:
           component: axl
           target: ${{ matrix.target }}
+          shared: ${{ matrix.shared }}
+          static: ${{ matrix.static }}
           cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
