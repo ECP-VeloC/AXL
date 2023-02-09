@@ -162,6 +162,8 @@ WRITE_BASIC_PACKAGE_VERSION_FILE(${CMAKE_CURRENT_BINARY_DIR}/axlConfigVersion.cm
 
 # Install package config
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/axlConfig.cmake ${CMAKE_CURRENT_BINARY_DIR}/axlConfigVersion.cmake DESTINATION share/axl/cmake)
+INSTALL(FILES cmake/FindBBAPI.cmake    DESTINATION share/axl/cmake)
+INSTALL(FILES cmake/FindDataWarp.cmake DESTINATION share/axl/cmake)
 
 # Package
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Asynchronous Transfer Library")
