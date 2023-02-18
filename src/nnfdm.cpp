@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <inttypes.h>
+
 #include "nnfdm/client.h"
 
 extern "C" {
@@ -14,13 +17,12 @@ namespace {
 
     int nnfdm_stat(const char* uid, int64_t max_seconds_to_wait)
     {
+        AXL_DBG(0, "Status(uid=%s, max_seconds_to_wait=%" PRId64 ")", uid, max_seconds_to_wait);
         int rval = 0;
-        nnfdm::StatusRequest status_request{std::string{uid},
-                                            max_seconds_to_wait};
+        nnfdm::StatusRequest status_request{std::string{uid}, max_seconds_to_wait};
         nnfdm::StatusResponse status_response;
-        nnfdm::RPCStatus rpc_status = nnfdm_client->Status(   *nnfdm_workflow
-                                                            ,  status_request
-                                                            , &status_response);
+        nnfdm::RPCStatus rpc_status{ nnfdm_client->Status(*nnfdm_workflow,  status_request, &status_response) };
+
         if (!rpc_status.ok()) {
             axl_abort(    -1
                         , "NNFDM Status RPC FAILED %d: %s @ %s:%d"
@@ -33,11 +35,19 @@ namespace {
 
         switch (status_response.state()) {
             case nnfdm::StatusResponse::STATE_PENDING:
+                AXL_DBG(0, "nnfdm::StatusResponse::STATE_PENDING");
+                rval = AXL_STATUS_INPROG;
+                break;
             case nnfdm::StatusResponse::STATE_STARTING:
+                AXL_DBG(0, "nnfdm::StatusResponse::STATE_STARTING");
+                rval = AXL_STATUS_INPROG;
+                break;
             case nnfdm::StatusResponse::STATE_RUNNING:
+                AXL_DBG(0, "nnfdm::StatusResponse::STATE_RUNNING");
                 rval = AXL_STATUS_INPROG;
                 break;
             case nnfdm::StatusResponse::STATE_COMPLETED:
+                AXL_DBG(0, "nnfdm::StatusResponse::STATE_COMPLETED");
                 switch (status_response.status()) {
                     case nnfdm::StatusResponse::STATUS_SUCCESS:
                         rval = AXL_STATUS_DEST;
@@ -64,27 +74,30 @@ namespace {
 
 extern "C" {
 
-void nnfdm_init(const char* sname, const char* workflow, const char* name_space)
+void nnfdm_init()
 {
     if (nnfdm_client == nullptr) {
-        nnfdm_client = new nnfdm::DataMoverClient{std::string{sname}};
+        const std::string socket_name{"unix:///var/run/nnf-dm.sock"};
+        const std::string workflow_name{getenv("DW_WORKFLOW_NAME")};
+        const std::string workflow_namespace{getenv("DW_WORKFLOW_NAMESPACE")};
+
+        nnfdm_client = new nnfdm::DataMoverClient{std::string{socket_name}};
         if (nnfdm_client == nullptr) {
             axl_abort(-1
                       , "NNFDM init: Failed to create data movement client "
                         "instance for %s@ %s:%d"
-                      , sname
+                      , socket_name.c_str()
                       , __FILE__
                       , __LINE__);
         }
 
-        nnfdm_workflow = new nnfdm::Workflow{  std::string{workflow}
-                                             , std::string{name_space}};
+        nnfdm_workflow = new nnfdm::Workflow{workflow_name, workflow_namespace};
         if (nnfdm_workflow == nullptr) {
             axl_abort(  -1
                       , "nnfdm_init: Failed to create data movement workflow "
                         "instance for %s/%s@ %s:%d"
-                      , workflow
-                      , name_space
+                      , workflow_name.c_str()
+                      , workflow_namespace.c_str()
                       , __FILE__
                       , __LINE__);
         }
@@ -104,6 +117,8 @@ void nnfdm_finalize()
 
 int nnfdm_start(int id)
 {
+    int rc = AXL_SUCCESS;
+
     /* Record that we started transfer of this file list */
     kvtree* file_list = axl_kvtrees[id];
     kvtree_util_set_int(file_list, AXL_KEY_STATUS, AXL_STATUS_INPROG);
@@ -139,28 +154,23 @@ int nnfdm_start(int id)
             /*NOTREACHED*/
         }
 
-        switch (create_response.status()) {
-            case nnfdm::CreateResponse::Status::STATUS_SUCCESS:
-                /* record that the file is in progress */
-                kvtree_util_set_int(  elem_hash
-                                    , AXL_KEY_FILE_STATUS
-                                    , AXL_STATUS_INPROG);
-                kvtree_util_set_str(  elem_hash
-                                    , AXL_KEY_FILE_SESSION_UID
-                                    , create_response.uid().c_str());
-                break;
-            default:
-                axl_abort(  -1
-                          , "NNFDM Offload Create FAILED for %s: error %d (%s) "
-                          , src_filename
-                          , create_response.status()
-                          , create_response.message().c_str());
-                 /*NOTREACHED*/
-                 break;
+        if (create_response.status() == nnfdm::CreateResponse::Status::STATUS_SUCCESS) {
+            /* record that the file is in progress */
+            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_INPROG);
+            kvtree_util_set_str(elem_hash, AXL_KEY_FILE_SESSION_UID, create_response.uid().c_str());
+        }
+        else {
+            AXL_DBG(0, "Create(%s, %s) FAILED:\n    error=%d (%s)"
+                    , src_filename
+                    , dst_filename
+                    , create_response.status()
+                    , create_response.message().c_str());
+            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_ERROR);
+            rc = AXL_FAILURE;
         } 
     }
 
-    return AXL_SUCCESS;
+    return rc;
 }
 
 int nnfdm_test(int id) {
@@ -180,7 +190,7 @@ int nnfdm_test(int id) {
         }
 
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_SESSION_UID, &uid);
-        status = nnfdm_stat(uid, -1);   // -1 means to wait forever
+        status = nnfdm_stat(uid, 1);
 
         if (status != AXL_STATUS_DEST) {
             return AXL_FAILURE;   /* At least one file is not done */
@@ -305,7 +315,7 @@ int nnfdm_cancel(int id) {
 
 int nnfdm_wait(int id)
 {
-    const int64_t max_seconds_to_wait{-1};  // Wait forever
+    const int64_t max_seconds_to_wait{1}; // wait 1 second
     kvtree* file_list = axl_kvtrees[id];
     kvtree* files     = kvtree_get(file_list, AXL_KEY_FILES);
 

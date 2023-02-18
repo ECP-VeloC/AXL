@@ -705,7 +705,7 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
         AXL_ERR("NNFDM requested but not enabled during build");
         rc = AXL_FAILURE;
 #else
-        nnfdm_init("socketname", "workflowname", "namespace");
+        nnfdm_init();
 #endif /* HAVE_NNFDM */
         break;
 
