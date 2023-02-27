@@ -1,3 +1,6 @@
+#include <string>
+#include <sstream>
+
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -15,13 +18,42 @@ namespace {
     nnfdm::DataMoverClient* nnfdm_client{nullptr};
     nnfdm::Workflow* nnfdm_workflow{nullptr};
 
-    int nnfdm_stat(const char* uid, int64_t max_seconds_to_wait)
+    std::string print_status(nnfdm::StatusResponse& status_response)
     {
-        AXL_DBG(0, "Status(uid=%s, max_seconds_to_wait=%" PRId64 ")", uid, max_seconds_to_wait);
+        std::stringstream ss;
+
+        ss << "    stat_response->state()= " << status_response.state();
+        switch (status_response.state()) {
+            case nnfdm::StatusResponse::State::STATE_PENDING: ss << " {STATE_PENDING}"; break;
+            case nnfdm::StatusResponse::State::STATE_STARTING: ss << " {STATE_STARTING}"; break;
+            case nnfdm::StatusResponse::State::STATE_RUNNING: ss << " {STATE_RUNNING}"; break;
+            case nnfdm::StatusResponse::State::STATE_COMPLETED: ss << " {STATE_COMPLETED}"; break;
+            case nnfdm::StatusResponse::State::STATE_CANCELLING: ss << " {STATE_CANCELLING}"; break;
+            case nnfdm::StatusResponse::State::STATE_UNKNOWN: ss << " {STATE_UNKNOWN}"; break;
+            default: ss << " {STATE_???}"; break;
+        }
+
+        ss << std::endl << "    stat_response->status() = " << status_response.status();
+        switch (status_response.status()) {
+            case nnfdm::StatusResponse::Status::STATUS_INVALID: ss << " {STATUS_INVALID}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_NOT_FOUND: ss << " {STATUS_NOT_FOUND}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_SUCCESS: ss << " {STATUS_SUCCESS}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_FAILED: ss << " {STATUS_FAILED}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_CANCELLED: ss << " {STATUS_CANCELLED}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_UNKNOWN: ss << " {STATUS_UNKNOWN}"; break;
+            default: ss << " {STATE_???}"; break;
+        }
+
+        ss << std::endl << "    stat_response->message() = " << status_response.message() << std::endl;
+
+        return ss.str();
+    }
+
+    int nnfdm_stat(const char* fname, const char* uid, int64_t max_seconds_to_wait)
+    {
         int rval = 0;
-        nnfdm::StatusRequest status_request{std::string{uid}, max_seconds_to_wait};
         nnfdm::StatusResponse status_response;
-        nnfdm::RPCStatus rpc_status{ nnfdm_client->Status(*nnfdm_workflow,  status_request, &status_response) };
+        nnfdm::RPCStatus rpc_status{ nnfdm_client->Status(*nnfdm_workflow,  nnfdm::StatusRequest{std::string{uid}, max_seconds_to_wait}, &status_response) };
 
         if (!rpc_status.ok()) {
             axl_abort(    -1
@@ -33,38 +65,34 @@ namespace {
             /*NOTREACHED*/
         }
 
+        AXL_DBG(1, "Status of offload(filename=%s, uid=%s) is:\n%s", fname, uid, print_status(status_response).c_str());
+        
         switch (status_response.state()) {
-            case nnfdm::StatusResponse::STATE_PENDING:
-                AXL_DBG(0, "nnfdm::StatusResponse::STATE_PENDING");
+            case nnfdm::StatusResponse::State::STATE_PENDING:
                 rval = AXL_STATUS_INPROG;
                 break;
-            case nnfdm::StatusResponse::STATE_STARTING:
-                AXL_DBG(0, "nnfdm::StatusResponse::STATE_STARTING");
+            case nnfdm::StatusResponse::State::STATE_STARTING:
                 rval = AXL_STATUS_INPROG;
                 break;
-            case nnfdm::StatusResponse::STATE_RUNNING:
-                AXL_DBG(0, "nnfdm::StatusResponse::STATE_RUNNING");
+            case nnfdm::StatusResponse::State::STATE_RUNNING:
                 rval = AXL_STATUS_INPROG;
                 break;
-            case nnfdm::StatusResponse::STATE_COMPLETED:
-                AXL_DBG(0, "nnfdm::StatusResponse::STATE_COMPLETED");
-                switch (status_response.status()) {
-                    case nnfdm::StatusResponse::STATUS_SUCCESS:
-                        rval = AXL_STATUS_DEST;
-                        break;
-                    default:
-                        rval = AXL_STATUS_ERROR;
-                        axl_err(  "NNFDM Offload Status UNSUCCESSFUL: %d %s"
-                                , status_response.status()
-                                , status_response.message().c_str());
-                        break;
+            case nnfdm::StatusResponse::State::STATE_COMPLETED:
+                if (status_response.status() == nnfdm::StatusResponse::Status::STATUS_SUCCESS) {
+                    rval = AXL_STATUS_DEST;
                 }
+                else {
+                    rval = AXL_STATUS_ERROR;
+                    axl_err(  "NNFDM Offload Status UNSUCCESSFUL: %d %s"
+                            , status_response.status()
+                            , status_response.message().c_str());
+                }
+                break;
             default:
                 axl_abort(   -1
                            , "NNFDM Offload State STATE UNKNOWN: %d %s"
                            , status_response.status()
                            , status_response.message().c_str());
-                /*NOTREACHED*/
                 break;
         }
 
@@ -81,7 +109,7 @@ void nnfdm_init()
         const std::string workflow_name{getenv("DW_WORKFLOW_NAME")};
         const std::string workflow_namespace{getenv("DW_WORKFLOW_NAMESPACE")};
 
-        nnfdm_client = new nnfdm::DataMoverClient{std::string{socket_name}};
+        nnfdm_client = new nnfdm::DataMoverClient{ socket_name };
         if (nnfdm_client == nullptr) {
             axl_abort(-1
                       , "NNFDM init: Failed to create data movement client "
@@ -160,7 +188,7 @@ int nnfdm_start(int id)
             kvtree_util_set_str(elem_hash, AXL_KEY_FILE_SESSION_UID, create_response.uid().c_str());
         }
         else {
-            AXL_DBG(0, "Create(%s, %s) FAILED:\n    error=%d (%s)"
+            AXL_DBG(1, "Create(%s, %s) FAILED:\n    error=%d (%s)"
                     , src_filename
                     , dst_filename
                     , create_response.status()
@@ -179,6 +207,7 @@ int nnfdm_test(int id) {
 
     /* iterate/wait over in-progress files */
     for (kvtree_elem* elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+        char* src_filename = kvtree_elem_key(elem);
         int status;
         char* uid;
 
@@ -190,7 +219,7 @@ int nnfdm_test(int id) {
         }
 
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_SESSION_UID, &uid);
-        status = nnfdm_stat(uid, 1);
+        status = nnfdm_stat(src_filename, uid, 1);
 
         if (status != AXL_STATUS_DEST) {
             return AXL_FAILURE;   /* At least one file is not done */
@@ -321,6 +350,7 @@ int nnfdm_wait(int id)
 
     /* iterate/wait over in-progress files */
     for (kvtree_elem* elem = kvtree_elem_first(files); elem != NULL; elem = kvtree_elem_next(elem)) {
+        char* src_filename = kvtree_elem_key(elem);
         int status;
         char* uid;
 
@@ -328,7 +358,7 @@ int nnfdm_wait(int id)
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_SESSION_UID, &uid);
 
         do {
-            status = nnfdm_stat(uid, max_seconds_to_wait);
+            status = nnfdm_stat(src_filename, uid, max_seconds_to_wait);
         } while (status == AXL_STATUS_INPROG);
 
         nnfdm::DeleteRequest delete_request(std::string{uid});
@@ -345,7 +375,6 @@ int nnfdm_wait(int id)
             case nnfdm::DeleteResponse::STATUS_SUCCESS:
                 break;
             default:
-                char* src_filename = kvtree_elem_key(elem);
                 axl_abort(-1,
                     "NNFDM Offload Delete(%s) UNSUCCESSFUL: %d (%s)",
                     src_filename, deleteResponse.status(), deleteResponse.message().c_str());
