@@ -49,14 +49,6 @@ jobs:
           mpi: ${{ matrix.mpi }}
           shared: ${{ matrix.shared }}
 
-      - name: build static
-        uses: ecp-veloc/github-actions/cmake-build-static@main
-        with:
-          component: axl
-          target: ${{ matrix.target }}
-          shared: ${{ matrix.shared }}
-          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
-
       - name: build only
         uses: ecp-veloc/github-actions/cmake-build-only@main
         with:
