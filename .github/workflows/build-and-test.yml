@@ -16,8 +16,13 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         target: [Debug, Release]
         mpi: [seq, par]
-        shared: [true, false]
-        static: [true, false]
+        shared: [build-shared, build-static]
+        static: [link-shared, link-static]
+        exclude:
+          # don't try to link to the shared
+          # library when it's not built
+          - shared: build-static
+            static: link-shared
 
     name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}-${{ matrix.shared }}-${{ matrix.static }}
 
