@@ -38,7 +38,7 @@ jobs:
 
       ## needed for gtimeout
       - name: mac-only-dep
-        if: startsWith(inputs.os, 'macos')
+        if: startsWith(matrix.os, 'macos')
         shell: bash
         run: |
           brew install coreutils
