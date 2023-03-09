@@ -144,7 +144,7 @@ function run_test
         if [ "$(uname)" == "Darwin" ] ; then
             TIMEOUT_CMD=gtimeout
         else
-            TIMOUT_CMD=timeout
+            TIMEOUT_CMD=timeout
         fi
 	$TIMEOUT_CMD --signal=$sig --preserve-status $s ./axl_cp -S /var/tmp/state_file -X $xfer -r $src/* $dest
 

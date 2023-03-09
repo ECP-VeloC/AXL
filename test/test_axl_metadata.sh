@@ -25,8 +25,14 @@ dd if=/dev/zero of=$src/file2 bs=1 count=5
 
 chmod 444 $src/file1
 chmod 777 $src/file2
-touch -d "1 hour ago" $src/file1
-touch -d "1 day ago" $src/file2
+
+if [ "$(uname)" == "Darwin" ] ; then
+    TOUCH_CMD=gtouch
+else
+    TOUCH_CMD=touch
+fi
+$TOUCH_CMD -d "1 hour ago" $src/file1
+$TOUCH_CMD -d "1 day ago" $src/file2
 
 # Do a simple transfer and verify the result
 ./axl_cp -a $src/* $dest
