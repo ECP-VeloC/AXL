@@ -36,6 +36,13 @@ jobs:
           os: ${{ matrix.os }}
           mpi: ${{ matrix.mpi }}
 
+      ## needed for gtimeout
+      - name: mac-only-dep
+        if: startsWith(inputs.os, 'macos')
+        shell: bash
+        run: |
+          brew install coreutils
+
       - name: build kvtree
         uses: ecp-veloc/github-actions/build-ecp-veloc-component@main
         with:

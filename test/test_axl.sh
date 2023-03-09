@@ -140,7 +140,14 @@ function run_test
 		sig=SIGTERM
 	fi
 	rm -f /var/tmp/state_file
-	timeout --signal=$sig --preserve-status $s ./axl_cp -S /var/tmp/state_file -X $xfer -r $src/* $dest
+
+        if [ "$(uname)" == "Darwin" ] ; then
+            TIMEOUT_CMD=gtimeout
+        else
+            TIMOUT_CMD=timeout
+        fi
+	$TIMEOUT_CMD --signal=$sig --preserve-status $s ./axl_cp -S /var/tmp/state_file -X $xfer -r $src/* $dest
+
 
 	oldpid=$!
 	unset AXL_DEBUG_PAUSE_AFTER
