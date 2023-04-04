@@ -38,7 +38,7 @@ For building with IBM BB API (optional):
 ### Dependencies
 
 - C
-- CMake, Version 2.8+
+- CMake, Version 3.14+
 - [KVTree](https://github.com/LLNL/KVTree)
 - MPI (optional)
 
