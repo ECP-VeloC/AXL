@@ -1,7 +1,7 @@
 #include <string>
+#include <iostream>
 #include <sstream>
 
-#include <stdio.h>
 #include <inttypes.h>
 
 #include "nnfdm/client.h"
@@ -22,29 +22,29 @@ namespace {
     {
         std::stringstream ss;
 
-        ss << "    stat_response->state()= " << status_response.state();
+        ss << "{" << status_response.state() << "/";
         switch (status_response.state()) {
-            case nnfdm::StatusResponse::State::STATE_PENDING: ss << " {STATE_PENDING}"; break;
-            case nnfdm::StatusResponse::State::STATE_STARTING: ss << " {STATE_STARTING}"; break;
-            case nnfdm::StatusResponse::State::STATE_RUNNING: ss << " {STATE_RUNNING}"; break;
-            case nnfdm::StatusResponse::State::STATE_COMPLETED: ss << " {STATE_COMPLETED}"; break;
-            case nnfdm::StatusResponse::State::STATE_CANCELLING: ss << " {STATE_CANCELLING}"; break;
-            case nnfdm::StatusResponse::State::STATE_UNKNOWN: ss << " {STATE_UNKNOWN}"; break;
-            default: ss << " {STATE_???}"; break;
+            case nnfdm::StatusResponse::State::STATE_PENDING: ss << "STATE_PENDING}"; break;
+            case nnfdm::StatusResponse::State::STATE_STARTING: ss << "STATE_STARTING}"; break;
+            case nnfdm::StatusResponse::State::STATE_RUNNING: ss << "STATE_RUNNING}"; break;
+            case nnfdm::StatusResponse::State::STATE_COMPLETED: ss <<"STATE_COMPLETED}"; break;
+            case nnfdm::StatusResponse::State::STATE_CANCELLING: ss <<"STATE_CANCELLING}"; break;
+            case nnfdm::StatusResponse::State::STATE_UNKNOWN: ss << "STATE_UNKNOWN}"; break;
+            default: ss << "STATE_???}"; break;
         }
 
-        ss << std::endl << "    stat_response->status() = " << status_response.status();
+        ss << " {" << status_response.status() << "/";
         switch (status_response.status()) {
-            case nnfdm::StatusResponse::Status::STATUS_INVALID: ss << " {STATUS_INVALID}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_NOT_FOUND: ss << " {STATUS_NOT_FOUND}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_SUCCESS: ss << " {STATUS_SUCCESS}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_FAILED: ss << " {STATUS_FAILED}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_CANCELLED: ss << " {STATUS_CANCELLED}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_UNKNOWN: ss << " {STATUS_UNKNOWN}"; break;
-            default: ss << " {STATE_???}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_INVALID: ss << "STATUS_INVALID}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_NOT_FOUND: ss << "STATUS_NOT_FOUND}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_SUCCESS: ss << "STATUS_SUCCESS}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_FAILED: ss << "STATUS_FAILED}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_CANCELLED: ss << "STATUS_CANCELLED}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_UNKNOWN: ss << "STATUS_UNKNOWN}"; break;
+            default: ss << "STATE_???}"; break;
         }
 
-        ss << std::endl << "    stat_response->message() = " << status_response.message() << std::endl;
+        ss << std::endl << " " << status_response.message();
 
         return ss.str();
     }
@@ -65,7 +65,7 @@ namespace {
             /*NOTREACHED*/
         }
 
-        AXL_DBG(1, "Status of offload(filename=%s, uid=%s) is:\n%s", fname, uid, print_status(status_response).c_str());
+        AXL_DBG(1, "Status of offload(filename=%s, uid=%s): %s", fname, uid, print_status(status_response).c_str());
         
         switch (status_response.state()) {
             case nnfdm::StatusResponse::State::STATE_PENDING:
