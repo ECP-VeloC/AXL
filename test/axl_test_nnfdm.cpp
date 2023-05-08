@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 
     {
         // Create an offload request
-        CreateRequest createRequest("/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo", "/p/lslide/martymcf/bar");
+        CreateRequest createRequest("/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo", "/p/lslide/martymcf/bar", false, "");
         CreateResponse createResponse;
 
         RPCStatus status = client.Create(workflow, createRequest, &createResponse);
