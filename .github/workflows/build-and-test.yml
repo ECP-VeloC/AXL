@@ -16,15 +16,16 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         target: [Debug, Release]
         mpi: [seq, par]
+        static: [both, static]
 
-    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}
+    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.mpi }}-${{ matrix.static }}
 
     runs-on: ${{ matrix.os }}
 
     steps:
 
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: axl
           fetch-depth: 0
@@ -35,22 +36,33 @@ jobs:
           os: ${{ matrix.os }}
           mpi: ${{ matrix.mpi }}
 
+      ## needed for gtimeout
+      - name: mac-only-dep
+        if: startsWith(matrix.os, 'macos')
+        shell: bash
+        run: |
+          brew install coreutils
+
       - name: build kvtree
         uses: ecp-veloc/github-actions/build-ecp-veloc-component@main
         with:
           component: kvtree
           mpi: ${{ matrix.mpi }}
 
-      - name: build static
-        uses: ecp-veloc/github-actions/cmake-build-static@main
+      - name: configure
+        uses: ecp-veloc/github-actions/cmake-configure@main
         with:
           component: axl
           target: ${{ matrix.target }}
           cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
+          static: ${{ matrix.static == 'static' }}
 
-      - name: build only
-        uses: ecp-veloc/github-actions/cmake-build-only@main
+      - name: build
+        uses: ecp-veloc/github-actions/cmake-build@main
         with:
           component: axl
-          target: ${{ matrix.target }}
-          cmake_line: "-DMPI=${{ matrix.mpi == 'par' }}"
+
+      - name: test
+        uses: ecp-veloc/github-actions/cmake-test@main
+        with:
+          component: axl
