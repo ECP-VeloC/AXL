@@ -48,22 +48,28 @@ int main(int argc, char** argv)
 
     {
         // Create an offload request
-        CreateRequest createRequest("/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo", "/p/lslide/martymcf/bar", false, "");
-        CreateResponse createResponse;
+        CreateRequest create_request(  "/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo"
+                                            , "/p/lslide/martymcf/bar"
+                                            , false                         // ??
+                                            , ""                            // ??
+                                            , false                         // ??
+                                            , false                         // ??
+                                            );
+        CreateResponse create_response;
 
-        RPCStatus status = client.Create(workflow, createRequest, &createResponse);
+        RPCStatus status = client.Create(workflow, create_request, &create_response);
         if (!status.ok()) {
             std::cout << "Create RPC FAILED (" << status.error_code() << "): " << status.error_message() << std::endl;
             return 1;
         }
 
-        switch (createResponse.status()) {
+        switch (create_response.status()) {
             case CreateResponse::Status::STATUS_SUCCESS:
-                uid = createResponse.uid();
-                std::cout << "Offload Created: UID: " << createResponse.uid() << std::endl;
+                uid = create_response.uid();
+                std::cout << "Offload Created: UID: " << create_response.uid() << std::endl;
                 break;
             default:
-                std::cout << "Offload Create FAILED: " << createResponse.status() << ": " << createResponse.message() << std::endl;
+                std::cout << "Offload Create FAILED: " << create_response.status() << ": " << create_response.message() << std::endl;
                 return 1;
         }
     }

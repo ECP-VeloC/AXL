@@ -164,10 +164,13 @@ int nnfdm_start(int id)
         char* dst_filename;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst_filename);
 
-        nnfdm::CreateRequest create_request(  std::string{src_filename}  
-                                            , std::string{dst_filename}
-                                            , false
-                                            , "");
+        nnfdm::CreateRequest create_request(  std::string{src_filename}     // Source
+                                            , std::string{dst_filename}     // Destination
+                                            , false                         // ??
+                                            , ""                            // ??
+                                            , false                         // ??
+                                            , false                         // ??
+                                            );
         nnfdm::CreateResponse create_response;
         nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow
                                                            , create_request
