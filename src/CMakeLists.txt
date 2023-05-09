@@ -38,10 +38,6 @@ IF(HAVE_NNFDM)
     LIST(APPEND libaxl_srcs nnfdm.cpp)
 ENDIF(HAVE_NNFDM)
 
-# Default AXL library is withOUT MPI
-ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
-TARGET_LINK_LIBRARIES(axl_o PRIVATE ${AXL_EXTERNAL_LIBS})
-
 IF(BUILD_SHARED_LIBS)
     # Default AXL library is withOUT MPI
     ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
