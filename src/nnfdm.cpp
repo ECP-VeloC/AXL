@@ -22,29 +22,40 @@ namespace {
     {
         std::stringstream ss;
 
-        ss << "{" << status_response.state() << "/";
+        ss << "Offload Command Status: " << "{" << status_response.state() << "/";
         switch (status_response.state()) {
-            case nnfdm::StatusResponse::State::STATE_PENDING: ss << "STATE_PENDING}"; break;
-            case nnfdm::StatusResponse::State::STATE_STARTING: ss << "STATE_STARTING}"; break;
-            case nnfdm::StatusResponse::State::STATE_RUNNING: ss << "STATE_RUNNING}"; break;
-            case nnfdm::StatusResponse::State::STATE_COMPLETED: ss <<"STATE_COMPLETED}"; break;
-            case nnfdm::StatusResponse::State::STATE_CANCELLING: ss <<"STATE_CANCELLING}"; break;
-            case nnfdm::StatusResponse::State::STATE_UNKNOWN: ss << "STATE_UNKNOWN}"; break;
-            default: ss << "STATE_???}"; break;
+            case nnfdm::StatusResponse::State::STATE_PENDING:    ss << "STATE_PENDING";   break;
+            case nnfdm::StatusResponse::State::STATE_STARTING:   ss << "STATE_STARTING";  break;
+            case nnfdm::StatusResponse::State::STATE_RUNNING:    ss << "STATE_RUNNING";   break;
+            case nnfdm::StatusResponse::State::STATE_COMPLETED:  ss <<"STATE_COMPLETED";  break;
+            case nnfdm::StatusResponse::State::STATE_CANCELLING: ss <<"STATE_CANCELLING"; break;
+            case nnfdm::StatusResponse::State::STATE_UNKNOWN:    ss << "STATE_UNKNOWN";   break;
+            default:                                             ss << "STATE_???";       break;
         }
+        ss << "}, ";
 
-        ss << " {" << status_response.status() << "/";
+        ss << "{" << status_response.status() << "/";
         switch (status_response.status()) {
-            case nnfdm::StatusResponse::Status::STATUS_INVALID: ss << "STATUS_INVALID}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_NOT_FOUND: ss << "STATUS_NOT_FOUND}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_SUCCESS: ss << "STATUS_SUCCESS}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_FAILED: ss << "STATUS_FAILED}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_CANCELLED: ss << "STATUS_CANCELLED}"; break;
-            case nnfdm::StatusResponse::Status::STATUS_UNKNOWN: ss << "STATUS_UNKNOWN}"; break;
-            default: ss << "STATE_???}"; break;
+            case nnfdm::StatusResponse::Status::STATUS_INVALID:   ss << "STATUS_INVALID";   break;
+            case nnfdm::StatusResponse::Status::STATUS_NOT_FOUND: ss << "STATUS_NOT_FOUND"; break;
+            case nnfdm::StatusResponse::Status::STATUS_SUCCESS:   ss << "STATUS_SUCCESS";   break;
+            case nnfdm::StatusResponse::Status::STATUS_FAILED:    ss << "STATUS_FAILED";    break;
+            case nnfdm::StatusResponse::Status::STATUS_CANCELLED: ss << "STATUS_CANCELLED"; break;
+            case nnfdm::StatusResponse::Status::STATUS_UNKNOWN:   ss << "STATUS_UNKNOWN";   break;
+            default:                                              ss << "STATE_???";        break;
         }
+        ss << "}" << std::endl;
 
-        ss << std::endl << " " << status_response.message();
+        nnfdm::CommandStatus cmd = status_response.commandStatus();
+        ss << "    Offload Command Status:" << std::endl;
+        ss << "      Command: " << cmd.command <<  std::endl;
+        ss << "      Progress: " << cmd.progress <<  "%" << std::endl;
+        ss << "      ElapsedTime: " << cmd.elapsedTime <<  std::endl;
+        ss << "      LastMessage: " << cmd.lastMessage <<  std::endl;
+        ss << "      LastMessageTime: " << cmd.lastMessageTime <<  std::endl;
+        ss << "    Offload StartTime: " << status_response.startTime() << std::endl;
+        ss << "    Offload EndTime: " << status_response.endTime() << std::endl;
+        ss << "    Offload Message: " << status_response.message() << std::endl;
 
         return ss.str();
     }
@@ -65,34 +76,30 @@ namespace {
             /*NOTREACHED*/
         }
 
-        AXL_DBG(1, "Status of offload(filename=%s, uid=%s): %s", fname, uid, print_status(status_response).c_str());
         
         switch (status_response.state()) {
             case nnfdm::StatusResponse::State::STATE_PENDING:
-                rval = AXL_STATUS_INPROG;
-                break;
             case nnfdm::StatusResponse::State::STATE_STARTING:
-                rval = AXL_STATUS_INPROG;
-                break;
             case nnfdm::StatusResponse::State::STATE_RUNNING:
                 rval = AXL_STATUS_INPROG;
                 break;
             case nnfdm::StatusResponse::State::STATE_COMPLETED:
                 if (status_response.status() == nnfdm::StatusResponse::Status::STATUS_SUCCESS) {
+                    AXL_DBG(1, "Status of offload(filename=%s, uid=%s): %s", fname, uid, print_status(status_response).c_str());
                     rval = AXL_STATUS_DEST;
                 }
                 else {
                     rval = AXL_STATUS_ERROR;
-                    axl_err(  "NNFDM Offload Status UNSUCCESSFUL: %d %s"
+                    axl_err(  "NNFDM Offload Status UNSUCCESSFUL: %d\n%s"
                             , status_response.status()
-                            , status_response.message().c_str());
+                            , print_status(status_response).c_str());
                 }
                 break;
             default:
                 axl_abort(   -1
-                           , "NNFDM Offload State STATE UNKNOWN: %d %s"
+                           , "NNFDM Offload State STATE UNKNOWN: %d\n%s"
                            , status_response.status()
-                           , status_response.message().c_str());
+                           , print_status(status_response).c_str());
                 break;
         }
 
@@ -164,12 +171,12 @@ int nnfdm_start(int id)
         char* dst_filename;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst_filename);
 
-        nnfdm::CreateRequest create_request(  std::string{src_filename}     // Source
-                                            , std::string{dst_filename}     // Destination
-                                            , false                         // ??
-                                            , ""                            // ??
-                                            , false                         // ??
-                                            , false                         // ??
+        nnfdm::CreateRequest create_request(  std::string{src_filename} // Source file or directory
+                                            , std::string{dst_filename} // Destination file or directory 
+                                            , false                     // If True, the data movement command runs `/bin/true` rather than perform actual data movement
+                                            , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
+                                            , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
+                                            , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
                                             );
         nnfdm::CreateResponse create_response;
         nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow
