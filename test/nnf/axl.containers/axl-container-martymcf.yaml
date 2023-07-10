@@ -1,8 +1,11 @@
+#
+#
+#
 ---
 apiVersion: nnf.cray.hpe.com/v1alpha1
 kind: NnfContainerProfile
 metadata:
-  name: axl-container-marty
+  name: axl-container-martymcf
   namespace: nnf-system
 data:
   storages:
@@ -16,10 +19,10 @@ data:
         template:
           spec:
             containers:
-              - name: axl-container-marty
+              - name: axl-container-martymcf
                 image: docker.io/mcfadden8/axl:latest
                 command: ["/bin/bash"]
-                args: ["-c", "mpirun mpi_hello_world $(DW_JOB_storage) /p/lslide/martymfc"]
+                args: ["-c", "mpirun mpi_hello_world $(DW_JOB_storage) /p/lslide/martymcf"]
                 volumeMounts:
                   - mountPath: /p/lslide
                     name: lslide
@@ -31,7 +34,7 @@ data:
         template:
           spec:
             containers:
-              - name: axl-container-marty
+              - name: axl-container-martymcf
                 securityContext:
                   allowPrivilegeEscalation: true
                   capabilities:
