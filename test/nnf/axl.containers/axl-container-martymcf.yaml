@@ -35,21 +35,25 @@ data:
       Launcher:
         template:
           spec:
+            imagePullSecrets:
+              - name: readonly-red-rock-slushy
             containers:
               - name: axl-container-martymcf
-                image: docker.io/mcfadden8/axl:latest
+                image: czregistry.llnl.gov:5050/scr/rabbit-containers:marty
                 command: ["/bin/bash"]
                 args: ["-c", "mpirun mpi_hello_world $(DW_JOB_storage) /p/lslide/martymcf"]
-                volumeMounts:
-                  - mountPath: /p/lslide
-                    name: lslide
-            volumes:
-              - name: lslide
-                persistentVolumeClaim:
-                  claimName: kern-default-readwritemany-pvc
+                # volumeMounts:
+                  # - mountPath: /p/lslide
+                    # name: lslide
+            # volumes:
+              # - name: lslide
+                # persistentVolumeClaim:
+                  # claimName: kern-default-readwritemany-pvc
       Worker:
         template:
           spec:
+            imagePullSecrets:
+              - name: readonly-red-rock-slushy
             containers:
               - name: axl-container-martymcf
                 securityContext:

@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <fcntl.h>
 
@@ -20,6 +21,7 @@ int main(int argc, char **argv)
 {
   char nnf_storage_path[PATH_MAX];
   char global_storage_path[PATH_MAX];
+  char host_name[PATH_MAX];
 
   // Initialize the MPI environment. The two arguments to MPI Init are not
   // currently used by MPI implementations, but are there in case future
@@ -39,17 +41,20 @@ int main(int argc, char **argv)
   int name_len;
   MPI_Get_processor_name(processor_name, &name_len);
 
-  if (argc < 3)
-  {
+  if (argc < 3) {
     printf("Usage: %s nnf_storage_dir global_storage_dir\n", argv[0]);
     return -1;
   }
   strncpy(nnf_storage_path, argv[1], PATH_MAX);
   strncpy(global_storage_path, argv[2], PATH_MAX);
 
+  if (gethostname(host_name, PATH_MAX) < 0) {
+    printf("%s: gethostname failed\n", argv[0]);
+  }
+
   // Print off a hello world message
-  printf("Hello processor %s, rank %d out of %d processors. NNF Storage path: %s, Global Storage path is: %s\n",
-         processor_name, world_rank, world_size, nnf_storage_path, global_storage_path);
+  printf("%s: processor %s, rank %d out of %d processors. NNF Storage path: %s, Global Storage path is: %s\n",
+         host_name, processor_name, world_rank, world_size, nnf_storage_path, global_storage_path);
 
   // Finalize the MPI environment. No more MPI calls can be made after this
   MPI_Finalize();
