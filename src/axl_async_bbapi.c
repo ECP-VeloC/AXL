@@ -10,6 +10,11 @@
 #include <stdint.h>
 #include "axl_internal.h"
 #include "axl_async_bbapi.h"
+#include <inttypes.h>
+#include <pthread.h>
+#include <limits.h>
+
+/* These aren't always defined in linux/magic.h */
 
 #ifdef HAVE_PTHREADS
 #include "axl_pthread.h"
@@ -26,13 +31,17 @@
 #include <libgen.h>
 #include <unistd.h>
 
-/* These aren't always defined in linux/magic.h */
 #ifndef GPFS_SUPER_MAGIC
 #define GPFS_SUPER_MAGIC 0x47504653 /* "GPFS" in ASCII */
 #endif
 #ifndef XFS_SUPER_MAGIC
 #define XFS_SUPER_MAGIC 0x58465342  /* "XFSB" in ASCII */
 #endif
+
+/* Global varibales */
+
+uint64_t counter=0;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; 
 
 /* We're either running on a compute node with access to the BBAPI, or
  * we're running on a post-stage job node where we have to spawn bbapi.
@@ -244,34 +253,24 @@ int axl_async_finalize_bbapi(void)
  * Returns 0 on success, 1 otherwise. */
 static BBTAG axl_get_unique_tag(void)
 {
-    /* This is somewhat of a hack.
-     *
-     * We need a 64-bit tag that will never be repeated on this node.  To do
-     * that we construct an ID of:
-     *
-     * 32-bit unix timestamp +
-     * 30-bit thread ID (30 bits according to https://github.com/torvalds/linux/blob/master/include/linux/threads.h#L31) +
-     * 2-bit quarter second
-     *
-     * We also wait for a quarter second to elapse so we know the next caller
-     * will not fall on the same quarter second and get the same tag. */
 
-    /* Get thread ID.  This is non-portable, Linux only. */
-    pid_t tid = syscall(__NR_gettid);
-
-    /* seconds since epoch */
-    uint64_t timestamp = time(NULL);
-
-    /* get nanoseconds */
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    uint64_t nsecs = now.tv_nsec;
-
-    /* wait quarter second */
-    usleep(250000);
-
-    uint64_t tag = ((timestamp << 32) | ((uint32_t) tid & 0x3FFFFFFF) | (nsecs / 250000000));
-    return tag;
+  /* This is somewhat of a hack.
+   *
+   * We need a 64-bit tag that will never be repeated on this node.  To do
+   * that we construct an ID of:
+   *
+   * 22 bit PID + 18 bit counter + 24 bit timestamp (33 years, to mitigate PID rollover)
+   *
+   */
+  uint64_t counter_18;
+  pthread_mutex_lock(&lock);
+  counter_18 = counter & ((1ULL << 18) - 1); /* To capture call count and inter-thread calls */
+  counter++;
+  pthread_mutex_unlock(&lock);
+  uint64_t pid_22 = getpid() &  ((1ULL << 22) - 1);
+  uint64_t timestamp_24 = time(NULL) & ((1ULL << 24) - 1);
+  uint64_t tag = (pid_22 << 42) | (counter_18 << 24) | timestamp_24;
+  return tag;
 }
 
 /* Called from AXL_Create
