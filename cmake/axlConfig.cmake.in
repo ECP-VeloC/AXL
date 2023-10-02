@@ -19,6 +19,10 @@ if (@HAVE_BBAPI@)
   find_dependency(BBAPI REQUIRED)
 endif()
 
+if (@HAVE_NNFDM@)
+  find_dependency(nnfdm REQUIRED)
+endif()
+
 if (@MPI@)
   find_dependency(MPI REQUIRED)
 endif()

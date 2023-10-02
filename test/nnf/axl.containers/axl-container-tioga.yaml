@@ -1,0 +1,67 @@
+# NNF Container Profile Management
+#
+# When you get ready to pull your (most interesting) container image from your
+# own container registry, you will need to update, and re-deploy you NNF
+# container profile
+#
+# When you are ready to do this, change the two lines below that contain:
+# `image: docker.io/mcfadden8/axl:latest` to point to your image.
+#
+# NOTE: feel free to ask me if you need to have your nnf container profile updated
+# and redeployed.  I'm happy to help! There do be some dragons
+#
+# To see the nnf container profiles already deployed, run:
+#    kubectl get nnfcontainerprofiles -A
+#
+# To remove your deployed nnf container profile so you can deploy a new one, run:
+#    kubectl delete nnfcontainerprofiles -n nnf-system axl-container-$( whoami )
+#
+# To deploy a new nnf container profile run:
+#    kubectl apply -f axl-container-$( whoami ).yaml
+---
+apiVersion: nnf.cray.hpe.com/v1alpha1
+kind: NnfContainerProfile
+metadata:
+  name: axl-container-martymcf
+  namespace: nnf-system
+data:
+  storages:
+    - name: DW_JOB_storage
+      optional: false
+    - name: DW_PERSISTENT_storage
+      optional: true
+  mpiSpec:
+    mpiReplicaSpecs:
+      Launcher:
+        template:
+          spec:
+            imagePullSecrets:
+              - name: readonly-red-rock-slushy
+            containers:
+              - name: axl-container-martymcf
+                image: czregistry.llnl.gov:5050/scr/rabbit-containers:mpigraph
+                command: ["/bin/bash"]
+                # args: ["-c", "mpirun mpi_hello_world $(DW_JOB_storage) /p/lslide/martymcf >& /p/lslide/martymcf/mpirun.log"]
+                args: ["-c", "mpirun --map-by node -np 2 mpiGraph 1048576 100 1000 > /p/lslide/martymcf/mpiGraph.out"]
+                volumeMounts:
+                  - mountPath: /p/lslide
+                    name: lslide
+            volumes:
+              - name: lslide
+                persistentVolumeClaim:
+                  claimName: lustre2-default-readwritemany-pvc
+      Worker:
+        template:
+          spec:
+            imagePullSecrets:
+              - name: readonly-red-rock-slushy
+            containers:
+              - name: axl-container-martymcf
+                securityContext:
+                  allowPrivilegeEscalation: true
+                  capabilities:
+                    add:
+                    - NET_BIND_SERVICE
+                    - SYS_CHROOT
+                    - AUDIT_WRITE
+                image: czregistry.llnl.gov:5050/scr/rabbit-containers:mpigraph

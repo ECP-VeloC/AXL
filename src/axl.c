@@ -38,6 +38,10 @@
 #include "axl_async_bbapi.h"
 #endif /* HAVE_BBAPI */
 
+#ifdef HAVE_NNFDM
+#include "nnfdm.h"
+#endif /* HAVE_NNFDM */
+
 #ifdef HAVE_DATAWARP
 #include "axl_async_datawarp.h"
 #endif /* HAVE_DATAWARP */
@@ -90,6 +94,7 @@ static unsigned int axl_kvtrees_count = 0;
 #ifdef HAVE_BBAPI
 static int bbapi_is_loaded = 0;
 #endif
+
 
 /* Allocate a new kvtree and return the AXL ID for it.  If state_file is
  * specified, then populate the kvtree with it's data. */
@@ -205,10 +210,12 @@ static axl_xfer_t axl_detect_native_xfer(void)
      * DataWarp libraries.  In the real world, our supercomputer is only going
      * to have one of those libraries, so just use whatever we find at
      * build time. */
-#ifdef HAVE_BBAPI
+#if defined(HAVE_BBAPI)
     xtype = AXL_XFER_ASYNC_BBAPI;
-#elif HAVE_DATAWARP
+#elif defined(HAVE_DATAWARP)
     xtype = AXL_XFER_ASYNC_DW;
+#elif defined(HAVE_NNFDM)
+    xtype = AXL_XFER_ASYNC_NNFDM;
 #else
     xtype = AXL_XFER_SYNC;
 #endif
@@ -292,6 +299,11 @@ int AXL_Finalize (void)
        }
     }
 #endif
+
+#ifdef HAVE_NNFDM
+    nnfdm_finalize();
+#endif
+
 
     /* decrement reference count and free data structures on last call */
     axl_init_count--;
@@ -688,6 +700,15 @@ int AXL_Create(axl_xfer_t xtype, const char* name, const char* state_file)
 #endif /* HAVE_DATAWARP */
         break;
 
+    case AXL_XFER_ASYNC_NNFDM:
+#ifndef HAVE_NNFDM
+        AXL_ERR("NNFDM requested but not enabled during build");
+        rc = AXL_FAILURE;
+#else
+        nnfdm_init();
+#endif /* HAVE_NNFDM */
+        break;
+
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -805,6 +826,16 @@ static int __AXL_Add (int id, const char* src, const char* dest)
     case AXL_XFER_SYNC:
         break;
 
+#ifdef HAVE_DATAWARP
+    case AXL_XFER_ASYNC_DW:
+        break;
+#endif /* HAVE_DATAWARP */
+
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        break;
+#endif /* HAVE_NNFDM */
+
 #ifdef HAVE_PTHREADS
     case AXL_XFER_PTHREAD:
         break;
@@ -820,11 +851,6 @@ static int __AXL_Add (int id, const char* src, const char* dest)
          * doing our BB_AddFiles() calls until AXL_Dispatch(). */
         break;
 #endif /* HAVE_BBAPI */
-
-#ifdef HAVE_DATAWARP
-    case AXL_XFER_ASYNC_DW:
-        break;
-#endif /* HAVE_DATAWARP */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1146,6 +1172,17 @@ int __AXL_Dispatch (int id, int resume)
         break;
 #endif /* HAVE_DATAWARP */
 
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        if (resume) {
+            AXL_ERR("AXL_Resume() isn't supported yet for NNFDM");
+            rc = AXL_FAILURE;
+            break;
+        }
+        rc = nnfdm_start(id);
+        break;
+#endif /* HAVE_NNFDM */
+
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -1297,6 +1334,12 @@ int AXL_Test (int id)
         break;
 #endif /* HAVE_DATAWARP */
 
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        rc = nnfdm_test(id);
+        break;
+#endif /* HAVE_NNFDM */
+
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
         rc = AXL_FAILURE;
@@ -1366,6 +1409,12 @@ int AXL_Wait (int id)
         rc = axl_async_wait_datawarp(id);
         break;
 #endif /* HAVE_DATAWARP */
+
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        rc = nnfdm_wait(id);
+        break;
+#endif /* HAVE_NNDFM */
 
     default:
         AXL_ERR("Unknown transfer type (%d)", (int) xtype);
@@ -1462,6 +1511,12 @@ int AXL_Cancel (int id)
 #if 0
     case AXL_XFER_ASYNC_DW:
         rc = axl_async_cancel_datawarp(id);
+        break;
+#endif
+
+#ifdef HAVE_NNFDM
+    case AXL_XFER_ASYNC_NNFDM:
+        rc = nnfdm_cancel(id);
         break;
 #endif
 

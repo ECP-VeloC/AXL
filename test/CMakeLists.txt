@@ -22,6 +22,12 @@ ADD_EXECUTABLE(test_config test_config.c)
 TARGET_LINK_LIBRARIES(axl_cp ${axl_lib})
 TARGET_LINK_LIBRARIES(test_config ${axl_lib})
 
+IF(HAVE_NNFDM)
+    ADD_EXECUTABLE(axl_test_nnfdm axl_test_nnfdm.cpp)
+    TARGET_LINK_LIBRARIES(axl_test_nnfdm ${axl_lib})
+    ADD_TEST(axl_test_nnfdm axl_test_nnfdm)
+ENDIF(HAVE_NNFDM)
+
 ################
 # Add tests to ctest
 ################

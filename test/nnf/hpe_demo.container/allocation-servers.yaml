@@ -1,0 +1,12 @@
+spec:
+  allocationSets:
+    - allocationSize: 50000000000
+      label: ost
+      storage:
+        - allocationCount: 1
+          name: hetchy44
+    - allocationSize: 50000000000
+      label: mdt
+      storage:
+        - allocationCount: 1
+          name: hetchy44

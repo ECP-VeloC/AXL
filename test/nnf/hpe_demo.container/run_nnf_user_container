@@ -1,0 +1,69 @@
+#!/bin/bash
+
+container_name="demo-container"
+
+if [ ! -f nnf-container-example.yaml ]; then
+    echo "Cannot find container example file"
+    exit 1
+fi
+
+run_cmd() {
+    if ! eval $1 > /dev/null 2>&1 ; then
+        eval $1
+        echo "FAILED"
+        exit 1
+    fi
+}
+
+wait_for_good_state() {
+    seconds=0
+    pattern=$1
+
+    until kubectl get workflows | grep ${container_name} | grep -q "$pattern"
+    do
+        sleep 1
+        ((seconds++))
+    done
+    echo ${seconds}
+}
+
+get_logs() {
+    pod=$1
+    seconds=0
+
+    printf "[Getting Logs-------------->]\r"
+    # until [ $( get_output_lines ${pod} ) -gt 0 ]
+    until [ $( kubectl logs --tail=100 ${pod} |& wc -l ) -gt 0 ]
+    do
+        sleep 1
+        ((seconds++))
+    done
+
+    printf "[Logs obtained in %02d seconds]\n" $seconds
+    echo "----------------------"
+    kubectl logs --tail=100 ${pod}
+    echo "----------------------"
+}
+
+run_and_wait() {
+    printf "[Running-->] - %s\r" "$1"
+    run_cmd "$1"
+    t=$( wait_for_good_state "$2" )
+    printf "[%02d seconds] - %s\n" $t "$1"
+}
+
+run_and_wait "kubectl apply -f nnf-container-example.yaml" "true    Completed"
+
+#
+# The following two patch commands finish synchronously and we do not need to wait for them to complete
+#
+run_cmd "kubectl patch --type merge --patch-file=allocation-computes.yaml computes ${container_name}"
+run_cmd "kubectl patch --type merge --patch-file=allocation-servers.yaml servers ${container_name}-0"
+
+run_and_wait "kubectl patch --type merge workflow ${container_name} --patch '{\"spec\": {\"desiredState\": \"Setup\"}}'"    "Setup      true    Completed"
+run_and_wait "kubectl patch --type merge workflow ${container_name} --patch '{\"spec\": {\"desiredState\": \"DataIn\"}}'"   "DataIn     true    Completed"
+run_and_wait "kubectl patch --type merge workflow ${container_name} --patch '{\"spec\": {\"desiredState\": \"PreRun\"}}'"   "PreRun     true    Completed"
+pod="$( kubectl get pods | grep ${container_name}-launcher | awk '{print $1}' )"
+get_logs "$( kubectl get pods | grep ${container_name}-launcher | awk '{print $1}' )"
+run_and_wait "kubectl patch --type merge workflow ${container_name} --patch '{\"spec\": {\"desiredState\": \"Teardown\"}}'" "Teardown   true    Completed"
+run_cmd "kubectl delete -f nnf-container-example.yaml"

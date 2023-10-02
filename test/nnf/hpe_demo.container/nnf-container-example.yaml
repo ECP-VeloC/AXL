@@ -1,0 +1,52 @@
+---
+apiVersion: nnf.cray.hpe.com/v1alpha1
+kind: NnfContainerProfile
+metadata:
+  name: demo
+  namespace: nnf-system
+data:
+  storages:
+    - name: DW_JOB_my_storage
+      optional: false
+  mpiSpec:
+    mpiReplicaSpecs:
+      Launcher:
+        template:
+          spec:
+            containers:
+              - name: nnf-container-example
+                image: ghcr.io/nearnodeflash/nnf-container-example:latest
+                command:
+                  - /bin/bash
+                  - -c
+                  - env && df -h
+      Worker:
+        template:
+          spec:
+            containers:
+              - name: nnf-container-example
+                securityContext:
+                  allowPrivilegeEscalation: true
+                  capabilities:
+                    add:
+                    - NET_BIND_SERVICE
+                    - SYS_CHROOT
+                    - AUDIT_WRITE
+                image: ghcr.io/nearnodeflash/nnf-container-example:latest
+
+---
+apiVersion: dws.cray.hpe.com/v1alpha1
+kind: Workflow
+metadata:
+  name: demo-container
+  namespace: default
+spec:
+  desiredState: "Proposal"
+  dwDirectives:
+    - "#DW jobdw name=demo-lustre type=lustre capacity=50GB"
+    - "#DW container name=demo-container profile=demo \
+      DW_JOB_my_storage=demo-lustre"
+  wlmID: "5f239bd8-30db-450b-8c2c-a1a7c8631a1a"
+  jobID: 900001
+  userID: 1050
+  groupID: 1051
