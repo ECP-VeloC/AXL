@@ -48,13 +48,15 @@ int main(int argc, char** argv)
 
     {
         // Create an offload request
-        CreateRequest create_request(  "/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo"
-                                            , "/p/lslide/martymcf/bar"
-                                            , false                         // ??
-                                            , ""                            // ??
-                                            , false                         // ??
-                                            , false                         // ??
-                                            );
+        CreateRequest create_request(    "/mnt/nnf/854e2467-968a-4f40-aa8c-4ac53cb86866-0/foo"
+                                       , "/p/lslide/martymcf/bar"
+                                       , false                     // If True, the data movement command runs `/bin/true` rather than perform actual data movement
+                                       , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
+                                       , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
+                                       , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
+                                       , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
+                                       , -1                        // The number of max_slots specified in the MPI hostfile. A value of 0 disables the use of max_slots in the hostfile. -1 will defer to the server side configuration.
+                                     );
         CreateResponse create_response;
 
         RPCStatus status = client.Create(workflow, create_request, &create_response);

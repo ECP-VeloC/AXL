@@ -177,6 +177,8 @@ int nnfdm_start(int id)
                                             , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
                                             , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
                                             , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
+                                            , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
+                                            , -1                        // The number of max_slots specified in the MPI hostfile. A value of 0 disables the use of max_slots in the hostfile. -1 will defer to the server side configuration.
                                             );
         nnfdm::CreateResponse create_response;
         nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow
