@@ -17,9 +17,11 @@ ELSE()
 ENDIF()
 
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
+ADD_EXECUTABLE(axl_svc_test axl_svc_test.c)
 ADD_EXECUTABLE(test_config test_config.c)
 
 TARGET_LINK_LIBRARIES(axl_cp ${axl_lib})
+TARGET_LINK_LIBRARIES(axl_svc_test ${axl_lib})
 TARGET_LINK_LIBRARIES(test_config ${axl_lib})
 
 ################
