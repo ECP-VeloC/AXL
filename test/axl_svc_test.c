@@ -13,7 +13,7 @@ int main(int argc , char *argv[])
   }
 
   if (is_server) {
-    rval = axlsvc_server();
+    rval = run_server();
   }
   else {
     rval = axlsvc_client();

@@ -13,7 +13,7 @@
 	
 static void execute_command(const char* pname);
 
-int axlsvc_server()
+int run_server()
 {
   const int max_bufsize = 4096;
   const int max_clients = 30;
@@ -58,7 +58,7 @@ int axlsvc_server()
   addrlen = sizeof(address); 
   puts("Waiting for connections ..."); 
 
-  while(AXLSVC_TRUE) {
+  while (1) {
     FD_ZERO(&readfds);
     FD_SET(service_socket, &readfds);
     max_sd = service_socket;

@@ -15,7 +15,7 @@ typedef struct {
 typedef struct {
 } axlsvc_response_t;
 
-int axlsvc_server();
+int run_server();
 int axlsvc_client();
 
 #if defined(__cplusplus)
