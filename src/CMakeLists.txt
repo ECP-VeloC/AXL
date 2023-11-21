@@ -23,7 +23,14 @@ LIST(APPEND libaxl_srcs
 )
 
 IF(HAVE_PTHREADS)
-    LIST(APPEND libaxl_srcs axl_pthread.c)
+    LIST(APPEND libaxl_srcs
+        axl_pthread.c
+        axl_service_client.c
+    )
+    ADD_EXECUTABLE(axl_service axl_service_server.c)
+    TARGET_LINK_LIBRARIES(axl_service PUBLIC axl_static_o ${AXL_EXTERNAL_LIBS})
+    TARGET_INCLUDE_DIRECTORIES(axl_service PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include>)
+    INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/axl_service DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
 ENDIF(HAVE_PTHREADS)
 
 IF(BBAPI_FOUND)

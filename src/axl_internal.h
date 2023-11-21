@@ -63,6 +63,7 @@ extern int axl_rank;
 
 /* attaches function name, file name, and line number to error messages
  * https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html */
+#define AXL_ABORT(exitcode, format, ...) axl_abort(exitcode, format " @ %s %s:%d", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
 #define AXL_ERR(format, ...) axl_err(format " @ %s %s:%d", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
 #define AXL_DBG(level, format, ...) axl_dbg(level, format " @ %s %s:%d", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
 
