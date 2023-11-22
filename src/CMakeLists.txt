@@ -20,8 +20,6 @@ LIST(APPEND libaxl_srcs
     axl_err.c
     axl_io.c
     axl_util.c
-    axl_svc_client.c
-    axl_svc_server.c
 )
 
 IF(HAVE_PTHREADS)
