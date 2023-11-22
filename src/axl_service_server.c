@@ -20,7 +20,7 @@ static ssize_t service_request_from_client(int sd)
   bytecount = axl_read("AXLSVC Client Reqeust", sd, &req, sizeof(req));
 
   if (bytecount == 0) {
-    AXL_DBG(0, "Client for socket %d closed", sd);
+    AXL_DBG(2, "Client for socket %d closed", sd);
     return bytecount;
   }
 
@@ -34,7 +34,7 @@ static ssize_t service_request_from_client(int sd)
 
   switch (req.request) {
     case AXLSVC_AXL_CONFIG:
-      AXL_DBG(0, "AXLSVC_AXL_CONFIG(kfile=%s", buffer);
+      AXL_DBG(1, "AXLSVC_AXL_CONFIG(kfile=%s", buffer);
       response.response = AXLSVC_SUCCESS;
       response.payload_length = 0;
       bytecount = axl_write_attempt("AXLSVC Response to Client", sd, &response, sizeof(response));
@@ -64,6 +64,8 @@ int axlsvc_server_run(int port)
   fd_set readfds;
   int activity, sd;
   int max_sd;
+
+  AXL_DBG(3, "ENTRY: port %d", port);
 
   for (int i = 0; i < axlsvc_max_clients; i++)
     client_socket[i] = 0;
@@ -113,7 +115,7 @@ int axlsvc_server_run(int port)
 
     // If something happened on the service socket, then its an incoming connection
     if (FD_ISSET(server_socket, &readfds)) {
-      AXL_DBG(0, "Accepting incomming connection");
+      AXL_DBG(2, "Accepting incomming connection");
       if ((new_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
         AXL_ABORT(-1, "accept() error: (%s)", strerror(errno));
       }
@@ -124,7 +126,7 @@ int axlsvc_server_run(int port)
           break;
         }
       }
-      AXL_DBG(0, "Connection established");
+      AXL_DBG(2, "Connection established");
 
     }
 
@@ -133,7 +135,7 @@ int axlsvc_server_run(int port)
 
       if (FD_ISSET(sd , &readfds)) {
         if (service_request_from_client(sd) == 0) {
-          AXL_DBG(0, "Closing server side socket(%d) to client", sd);
+          AXL_DBG(2, "Closing server side socket(%d) to client", sd);
           close(sd);
           client_socket[i] = 0;
         }
@@ -144,13 +146,14 @@ int axlsvc_server_run(int port)
   return 0;
 }
 
-
 int main(int argc , char *argv[])
 {
   int rval = -1;
 
   if (argc == 2 && atoi(argv[1]) > 0) {
-    rval = axlsvc_server_run(atoi(argv[1]));
+    axl_service_mode = AXLSVC_SERVER;
+    if ( (rval = AXL_Init()) == AXL_SUCCESS)
+      rval = axlsvc_server_run(atoi(argv[1]));
   } else {
     fprintf(stderr, "Usage: %s <port number>\n", argv[0]);
   }

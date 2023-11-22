@@ -3,7 +3,21 @@
 
 #include <stddef.h>
 
-extern int axl_use_service;   /* whether to use AXL service instead of library */
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+typedef enum {
+   AXLSVC_DISABLED = 0, /* Default - Not utilizing AXL service (lib only) */
+   AXLSVC_CLIENT = 1,   /* Using AXL service and we are the client */
+   AXLSVC_SERVER = 2    /* Using AXL service and we are the server */
+} alxsvc_RunMode;
+
+/*
+ * Flag to state whether the AXL client/server mode of operation is enabled,
+ * and if so, whether the code is running as the client or the server.
+ */
+extern alxsvc_RunMode axl_service_mode;
 
 typedef enum {
    AXLSVC_AXL_CONFIG = 0,     /* payload is config ktree file path */
@@ -24,9 +38,6 @@ typedef struct {
    ssize_t payload_length;    // Optional error/status string
 } axlsvc_Response;
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
 int axlsvc_client_init(char* host, unsigned short port);
 void axlsvc_client_finalize();

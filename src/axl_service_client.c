@@ -10,7 +10,12 @@
 #include "axl_internal.h"
 #include "axl_service.h"
 
-int axl_use_service = 0;
+/*
+ * Flag to state whether the AXL client/server mode of operation is enabled,
+ * and if so, whether the code is running as the client or the server.
+ */
+alxsvc_RunMode axl_service_mode = AXLSVC_DISABLED;
+
 static int axlsvc_socket = -1;
 
 int axlsvc_client_init(char* host, unsigned short port)

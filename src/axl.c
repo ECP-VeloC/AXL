@@ -263,26 +263,12 @@ int AXL_Init (void)
         axl_make_directories = atoi(val);
     }
 
-    /* If the user has set both the AXL_SERVICE_HOST and AXL_SERVICE_PORT environment
-     * variables, then they are expecting to use the AXL Service rather than the library
-     * included with the SCR library.
+    /* If the user has set both the AXL_SERVICE_HOST and AXL_SERVICE_PORT
+     * environment variables, then they are expecting to use the AXL Service
+     * rather than the library included with the SCR library.
      */
     char* axl_service_host = NULL;
     int axl_service_port = -1;
-
-    if ( (val = getenv("AXL_SERVICE_HOST")) != NULL) {
-        axl_service_host = strdup(val);
-
-        if ( (val = getenv("AXL_SERVICE_PORT")) != NULL) {
-            axl_service_port = atoi(val);
-
-            if (axlsvc_client_init(axl_service_host, (unsigned short)axl_service_port)) {
-                axl_use_service = 1;
-            }
-        }
-
-        free(axl_service_host);
-    }
 
     /* initialize our flag on whether to first copy files to temporary names with extension */
     axl_use_extension = 0;
@@ -299,7 +285,22 @@ int AXL_Init (void)
     }
 
     /* keep a reference count to free memory on last AXL_Finalize */
-    axl_init_count++;
+    if (axl_init_count++ == 0) {
+        if (axl_service_mode != AXLSVC_SERVER) {
+            if ( (val = getenv("AXL_SERVICE_HOST")) != NULL) {
+                axl_service_host = strdup(val);
+
+                if ( (val = getenv("AXL_SERVICE_PORT")) != NULL) {
+                    axl_service_port = atoi(val);
+
+                    if (axlsvc_client_init(axl_service_host, (unsigned short)axl_service_port)) {
+                        axl_service_mode = AXLSVC_CLIENT;
+                    }
+                }
+                free(axl_service_host);
+            }
+        }
+    }
 
     return rc;
 }
@@ -317,16 +318,17 @@ int AXL_Finalize (void)
     }
 #endif
 
-    if (axl_use_service) {
-        axlsvc_client_finalize();
-    }
-
     /* decrement reference count and free data structures on last call */
     axl_init_count--;
     if (axl_init_count == 0) {
         /* TODO: are there cases where we also need to delete trees? */
         axl_free(&axl_kvtrees);
         axl_kvtrees_count = 0;
+
+        if (axl_service_mode == AXLSVC_CLIENT) {
+            axlsvc_client_finalize();
+        }
+
     }
 
     return rc;
