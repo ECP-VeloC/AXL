@@ -10,6 +10,12 @@
 #include "axl_internal.h"
 #include "axl_service.h"
 
+#define AXLSVC_MAX_CLIENTS 16
+struct axl_connection_ctx {
+  int sd;                         /* Connection to our socket */
+  struct axl_transfer_array xfr;  /* Pointer to client-specific xfer array */
+} axl_connection_ctx_array[AXLSVC_MAX_CLIENTS];
+
 static ssize_t service_request_from_client(int sd)
 {
   ssize_t bytecount;
@@ -54,27 +60,21 @@ static ssize_t service_request_from_client(int sd)
 
 int axlsvc_server_run(int port)
 {
-  static const int axlsvc_max_clients = 16;
-  int client_socket[axlsvc_max_clients];
   int server_socket;
   int opt = 1;
   struct sockaddr_in address;
   int addrlen;
   int new_socket;
   fd_set readfds;
-  int activity, sd;
+  int activity;
   int max_sd;
-
-  AXL_DBG(3, "ENTRY: port %d", port);
-
-  for (int i = 0; i < axlsvc_max_clients; i++)
-    client_socket[i] = 0;
 
   if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
     AXL_ABORT(-1, "socket() failed: (%s)", strerror(errno));
   }
 
-  if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+  if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR,
+                                            (char *)&opt, sizeof(opt)) < 0 ) {
     AXL_ABORT(-1, "setsockopt() failed: (%s)", strerror(errno));
   }
 
@@ -86,7 +86,7 @@ int axlsvc_server_run(int port)
     AXL_ABORT(-1, "bind() failed: (%s)", strerror(errno));
   }
 
-  if (listen(server_socket, axlsvc_max_clients) < 0) {
+  if (listen(server_socket, AXLSVC_MAX_CLIENTS) < 0) {
     AXL_ABORT(-1, "listen() failed: (%s)", strerror(errno));
   }
 
@@ -97,14 +97,12 @@ int axlsvc_server_run(int port)
     FD_SET(server_socket, &readfds);
     max_sd = server_socket;
 
-    for (int i = 0 ; i < axlsvc_max_clients ; i++) {
-      sd = client_socket[i];
+    for (int i = 0 ; i < AXLSVC_MAX_CLIENTS ; i++) {
+      if (axl_connection_ctx_array[i].sd > 0)
+        FD_SET(axl_connection_ctx_array[i].sd, &readfds);
 
-      if (sd > 0)
-        FD_SET(sd, &readfds);
-
-      if (sd > max_sd)
-        max_sd = sd;
+      if (axl_connection_ctx_array[i].sd > max_sd)
+        max_sd = axl_connection_ctx_array[i].sd;
     }
 
     activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
@@ -113,31 +111,31 @@ int axlsvc_server_run(int port)
       AXL_ABORT(-1, "select() error: (%s)", strerror(errno));
     }
 
-    // If something happened on the service socket, then its an incoming connection
     if (FD_ISSET(server_socket, &readfds)) {
-      AXL_DBG(2, "Accepting incomming connection");
-      if ((new_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+      AXL_DBG(1, "Accepting new incomming connection");
+      if ((new_socket = accept(server_socket, (struct sockaddr *)&address,
+                                                (socklen_t*)&addrlen)) < 0) {
         AXL_ABORT(-1, "accept() error: (%s)", strerror(errno));
       }
 
-      for (int i = 0; i < axlsvc_max_clients; i++) {
-        if( client_socket[i] == 0 ) {
-          client_socket[i] = new_socket;
+      for (int i = 0; i < AXLSVC_MAX_CLIENTS; i++) {
+        if(axl_connection_ctx_array[i].sd == 0 ){
+          axl_connection_ctx_array[i].sd = new_socket;
           break;
         }
       }
       AXL_DBG(2, "Connection established");
-
     }
 
-    for ( int i = 0; i < axlsvc_max_clients; i++) {
-      sd = client_socket[i];
+    for ( int i = 0; i < AXLSVC_MAX_CLIENTS; i++) {
+      if (FD_ISSET(axl_connection_ctx_array[i].sd , &readfds)) {
+        axl_xfer_list = &axl_connection_ctx_array[i].xfr;
 
-      if (FD_ISSET(sd , &readfds)) {
-        if (service_request_from_client(sd) == 0) {
-          AXL_DBG(2, "Closing server side socket(%d) to client", sd);
-          close(sd);
-          client_socket[i] = 0;
+        if (service_request_from_client(axl_connection_ctx_array[i].sd) == 0) {
+          AXL_DBG(2, "Closing server side socket(%d) to client", axl_connection_ctx_array[i].sd);
+          close(axl_connection_ctx_array[i].sd);
+          axl_connection_ctx_array[i].sd = 0;
+          /*TODO: Free up memory used for acx_kvtrees */
         }
       }
     }
@@ -152,6 +150,8 @@ int main(int argc , char *argv[])
 
   if (argc == 2 && atoi(argv[1]) > 0) {
     axl_service_mode = AXLSVC_SERVER;
+    memset(axl_connection_ctx_array, 0, sizeof(axl_connection_ctx_array));
+
     if ( (rval = AXL_Init()) == AXL_SUCCESS)
       rval = axlsvc_server_run(atoi(argv[1]));
   } else {
