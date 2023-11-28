@@ -9,6 +9,7 @@
 
 #include "axl_internal.h"
 #include "axl_service.h"
+#include "kvtree.h"
 
 /*
  * Flag to state whether the AXL client/server mode of operation is enabled,
@@ -47,9 +48,52 @@ int axlsvc_client_init(char* host, unsigned short port)
   return 1;   // success
 }
 
-void axlsvc_client_finalize()
+/*
+ * function to perform client-side request to server for AXL_Finalize()
+ */
+void axlsvc_client_AXL_Finalize()
 {
   if (axlsvc_socket >= 0)
     close(axlsvc_socket);
 }
 
+/*
+ * function to perform client-side request to server for AXL_Config_Set
+ */
+void axlsvc_client_AXL_Config_Set(const kvtree* config)
+{
+  ssize_t bytecount;
+  axlsvc_Request request;
+  axlsvc_Response response;
+
+  request.request = AXLSVC_AXL_CONFIG_SET;
+  request.payload_length = (ssize_t)kvtree_pack_size(config);
+
+  bytecount = axl_write_attempt("AXLSVC Client --> AXL_Config_Set_1",
+                                  axlsvc_socket, &request, sizeof(request));
+
+  if (bytecount != sizeof(request)) {
+    AXL_ABORT(-1, "Unexpected Write Response to server: Expected %d, Got %d",
+                  sizeof(request), bytecount);
+  }
+
+  bytecount = kvtree_write_fd("AXLSVC Client --> AXL_Config_Set_2",
+                                  axlsvc_socket, config);
+
+  if (bytecount != request.payload_length) {
+    AXL_ABORT(-1, "Unexpected Write Response to server: Expected %d, Got %d",
+                  request.payload_length, bytecount);
+  }
+
+  bytecount = axl_read("AXLSVC Client <-- Response",
+                                  axlsvc_socket, &response, sizeof(response));
+
+  if (bytecount != sizeof(response)) {
+    AXL_ABORT(-1, "Unexpected Write Response to server: Expected %d, Got %d",
+                  sizeof(response), bytecount);
+  }
+
+  if (response.response != AXLSVC_SUCCESS) {
+    AXL_ABORT(-1, "Unexpected Response from server: %d", response.response);
+  }
+}

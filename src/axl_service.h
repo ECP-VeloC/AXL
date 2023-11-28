@@ -2,6 +2,7 @@
 #define __AXLSVC_H__
 
 #include <stddef.h>
+#include "kvtree.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -20,7 +21,7 @@ typedef enum {
 extern alxsvc_RunMode axl_service_mode;
 
 typedef enum {
-   AXLSVC_AXL_CONFIG = 0,     /* payload is config ktree file path */
+   AXLSVC_AXL_CONFIG_SET = 0,     /* payload is config kvtree hash buffer */
 } axlsvc_request_t;
 
 typedef struct {
@@ -38,9 +39,17 @@ typedef struct {
    ssize_t payload_length;    // Optional error/status string
 } axlsvc_Response;
 
-
 int axlsvc_client_init(char* host, unsigned short port);
-void axlsvc_client_finalize();
+
+/*
+ * function to perform client-side request to server for AXL_Finalize()
+ */
+void axlsvc_client_AXL_Finalize();
+
+/*
+ * function to perform client-side request to server for AXL_Config_Set
+ */
+void axlsvc_client_AXL_Config_Set(const kvtree* config);
 
 #if defined(__cplusplus)
 extern "C" }

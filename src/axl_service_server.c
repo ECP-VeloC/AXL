@@ -9,12 +9,24 @@
 
 #include "axl_internal.h"
 #include "axl_service.h"
+#include "kvtree.h"
 
 #define AXLSVC_MAX_CLIENTS 16
 struct axl_connection_ctx {
   int sd;                         /* Connection to our socket */
   struct axl_transfer_array xfr;  /* Pointer to client-specific xfer array */
 } axl_connection_ctx_array[AXLSVC_MAX_CLIENTS];
+
+static kvtree* service_request_AXL_Config_Set(int sd)
+{
+  kvtree* config = kvtree_new();
+  kvtree* rval;
+  ssize_t bytecount;
+
+  bytecount = kvtree_read_fd("Service_AXL_Config_Set", sd, config);
+
+  return rval;
+}
 
 static ssize_t service_request_from_client(int sd)
 {
@@ -39,8 +51,8 @@ static ssize_t service_request_from_client(int sd)
   }
 
   switch (req.request) {
-    case AXLSVC_AXL_CONFIG:
-      AXL_DBG(1, "AXLSVC_AXL_CONFIG(kfile=%s", buffer);
+    case AXLSVC_AXL_CONFIG_SET:
+      AXL_DBG(1, "AXLSVC_AXL_CONFIG_SET(kfile=%s", buffer);
       response.response = AXLSVC_SUCCESS;
       response.payload_length = 0;
       bytecount = axl_write_attempt("AXLSVC Response to Client", sd, &response, sizeof(response));
@@ -135,7 +147,8 @@ int axlsvc_server_run(int port)
           AXL_DBG(2, "Closing server side socket(%d) to client", axl_connection_ctx_array[i].sd);
           close(axl_connection_ctx_array[i].sd);
           axl_connection_ctx_array[i].sd = 0;
-          /*TODO: Free up memory used for acx_kvtrees */
+          axl_free(&axl_xfer_list->axl_kvtrees);
+          axl_xfer_list->axl_kvtrees_count = 0;
         }
       }
     }

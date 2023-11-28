@@ -331,7 +331,7 @@ int AXL_Finalize (void)
         axl_xfer_list->axl_kvtrees_count = 0;
 
         if (axl_service_mode == AXLSVC_CLIENT) {
-            axlsvc_client_finalize();
+            axlsvc_client_AXL_Finalize();
         }
 
     }
@@ -495,6 +495,10 @@ static kvtree* AXL_Config_Set(const kvtree* config)
             );
             retval = NULL;
         }
+    }
+
+    if (axl_service_mode == AXLSVC_CLIENT) {
+        axlsvc_client_AXL_Config_Set(config);
     }
 
     return retval;
