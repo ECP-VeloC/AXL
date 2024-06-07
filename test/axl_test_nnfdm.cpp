@@ -56,6 +56,7 @@ int main(int argc, char** argv)
                                        , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
                                        , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
                                        , -1                        // The number of max_slots specified in the MPI hostfile. A value of 0 disables the use of max_slots in the hostfile. -1 will defer to the server side configuration.
+                                       , ""                        // Data movement profile.  Empty will default to the default profile.
                                      );
         CreateResponse create_response;
 
