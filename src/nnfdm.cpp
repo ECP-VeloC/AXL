@@ -76,7 +76,6 @@ namespace {
             /*NOTREACHED*/
         }
 
-        
         switch (status_response.state()) {
             case nnfdm::StatusResponse::State::STATE_PENDING:
             case nnfdm::StatusResponse::State::STATE_STARTING:
@@ -171,30 +170,26 @@ int nnfdm_start(int id)
         char* dst_filename;
         kvtree_util_get_str(elem_hash, AXL_KEY_FILE_DEST, &dst_filename);
 
-        nnfdm::CreateRequest create_request(  std::string{src_filename} // Source file or directory
-                                            , std::string{dst_filename} // Destination file or directory 
-                                            , false                     // If True, the data movement command runs `/bin/true` rather than perform actual data movement
-                                            , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
-                                            , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
-                                            , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
-                                            , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
-                                            , -1                        // The number of max_slots specified in the MPI hostfile. A value of 0 disables the use of max_slots in the hostfile. -1 will defer to the server side configuration.
-                                            , ""                        // Data movement profile.  Empty will default to the default profile.
-                                            );
+        nnfdm::CreateRequest create_request(  
+              std::string{src_filename} // Source file or directory
+            , std::string{dst_filename} // Destination file or directory 
+            , false                     // If True, the data movement command runs `/bin/true` rather than perform actual data movement
+            , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
+            , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
+            , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
+            , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
+            , -1                        // The number of max_slots specified in the MPI hostfile. A value of 0 disables the use of max_slots in the hostfile. -1 will defer to the server side configuration.
+            , ""                        // Data movement profile.  Empty will default to the default profile.
+        );
+        
         nnfdm::CreateResponse create_response;
-        nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow
-                                                           , create_request
-                                                           , &create_response);
+        nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow, create_request, &create_response);
         if (!rpc_status.ok()) {
-            axl_abort(  -1
-                      , "NNFDM Create(%s, %s) failed with error %d (%s) @ %s:%d"
-                      , src_filename
-                      , dst_filename
-                      , rpc_status.error_code()
-                      , rpc_status.error_message().c_str()
-                      , __FILE__
-                      , __LINE__);
-            /*NOTREACHED*/
+            axl_err("%s: NNFDM Create(%s, %s) RPC failed with error %d (%s)"
+                      , __PRETTY_FUNCTION__, src_filename, dst_filename
+                      , rpc_status.error_code(), rpc_status.error_message().c_str());
+            kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_ERROR);
+            rc = AXL_FAILURE;
         }
 
         if (create_response.status() == nnfdm::CreateResponse::Status::STATUS_SUCCESS) {
@@ -203,11 +198,8 @@ int nnfdm_start(int id)
             kvtree_util_set_str(elem_hash, AXL_KEY_FILE_SESSION_UID, create_response.uid().c_str());
         }
         else {
-            AXL_DBG(1, "Create(%s, %s) FAILED:\n    error=%d (%s)"
-                    , src_filename
-                    , dst_filename
-                    , create_response.status()
-                    , create_response.message().c_str());
+            axl_err("%s: NNFDM Create(%s, %s) Response Status is not SUCCESS: response status is =%d\n%s"
+                    , __PRETTY_FUNCTION__, src_filename, dst_filename, create_response.status(), create_response.message().c_str());
             kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_ERROR);
             rc = AXL_FAILURE;
         } 
