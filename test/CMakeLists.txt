@@ -3,9 +3,7 @@
 ###############
 INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR})
 
-LIST(APPEND axl_test_srcs
-    axl_cp.c
-)
+LIST(APPEND axl_test_srcs axl_cp.c)
 
 # Build with debug symbols (-g)
 # SET(CMAKE_BUILD_TYPE Debug)
@@ -18,9 +16,11 @@ ENDIF()
 
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
 ADD_EXECUTABLE(test_config test_config.c)
+ADD_EXECUTABLE(test_client_server test_client_server.c)
 
 TARGET_LINK_LIBRARIES(axl_cp ${axl_lib})
 TARGET_LINK_LIBRARIES(test_config ${axl_lib})
+TARGET_LINK_LIBRARIES(test_client_server ${axl_lib})
 
 ################
 # Add tests to ctest
@@ -67,6 +67,8 @@ IF(BBAPI_FOUND)
 ENDIF(BBAPI_FOUND)
 
 ADD_TEST(test_config test_config)
+
+ADD_TEST(test_client_server test_client_server)
 
 ####################
 # make a verbose "test" target named "check"
