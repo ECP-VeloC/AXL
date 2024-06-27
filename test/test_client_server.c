@@ -49,7 +49,7 @@ int run_service()
 int run_client()
 {
 	fprintf(stdout, "Client Started!\n");
-	sleep(10);
+	sleep(2);
 	fprintf(stdout, "Client Ending!\n");
 	return AXLCS_SUCCESS;
 }
