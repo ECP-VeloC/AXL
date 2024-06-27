@@ -4,46 +4,71 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "axl.h"
 
-int wait_for_service_to_complete()
+#define AXLCS_SUCCESS					0
+#define AXLCS_CLIENT_INVALID			1
+#define AXLCS_SERVICE_CREATION_FAILURE	1000
+#define AXLCS_SERVICE_KILLED			2000
+#define AXLCS_SERVICE_FAIL 				3000
+
+static int time_to_leave = 0;
+
+void sigterm_handler(int sig, siginfo_t* info, void* ucontext)
 {
-	int pid;
-	int wstatus = 0;
-
-	if ((pid = wait(&wstatus)) < 0) {
-		fprintf(stderr, "Wait for service process failed: [%d] - %s\n", errno, strerror(errno));
-		return 1;
-	}
-
-	return WEXITSTATUS(wstatus);
+	time_to_leave++;
 }
 
 int run_service()
 {
-	return 0;
+	struct sigaction act = {0};
+
+	act.sa_flags = 0;
+	sigemptyset(&act.sa_mask);
+	act.sa_sigaction = sigterm_handler;
+	if (sigaction(SIGTERM, &act, NULL) == -1) {
+		perror("sigaction");
+		return AXLCS_SERVICE_FAIL;
+	}
+
+	fprintf(stdout, "Service Started!\n");
+	
+	for (int i = 0; !time_to_leave && i < 100000; ++i) {
+		int seconds = 2+i;
+		fprintf(stdout, "Sleeping %d seconds\n", seconds);
+		fprintf(stderr, "Just testing stderr. %d ..\n", seconds);
+		sleep(seconds);
+	}
+
+	fprintf(stdout, "Service Ending!\n");
+	return AXLCS_SUCCESS;
 }
 
 int run_client()
 {
-	int client_status = 0;
-
-	return client_status + wait_for_service_to_complete();
+	fprintf(stdout, "Client Started!\n");
+	sleep(10);
+	fprintf(stdout, "Client Ending!\n");
+	return AXLCS_SUCCESS;
 }
 
-int main()
+int main(int ac, char **av)
 {
-	int pid;
-
-	if ((pid = fork()) < 0) {
-		fprintf(stderr, "Creation of service failed: [%d] - %s\n", errno, strerror(errno));
-		return 2;
+	fprintf(stderr, "Just testing stderr...\n");
+	if (ac != 2) {
+		fprintf(stderr, "Command count (%d) incorrect:\nUsage: test_client_server <client|server>\n", ac);
+		return AXLCS_CLIENT_INVALID;
 	}
-	else if (pid == 0) {
+
+	if (strcmp("server", av[1]) == 0) {
 		return run_service();
 	}
-	else {
+	else if (strcmp("client", av[1]) == 0) {
 		return run_client();
 	}
+
+	fprintf(stderr, "Unknown Argument (%s) incorrect:\nUsage: test_client_server <client|server>\n", av[1]);
+	return AXLCS_CLIENT_INVALID;
 }

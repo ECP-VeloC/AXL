@@ -28,6 +28,7 @@ TARGET_LINK_LIBRARIES(test_client_server ${axl_lib})
 
 CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 CONFIGURE_FILE(test_axl_metadata.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+CONFIGURE_FILE(test_driver_client_server.py ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
 ADD_TEST(sync_test test_axl.sh sync)
 
@@ -68,7 +69,7 @@ ENDIF(BBAPI_FOUND)
 
 ADD_TEST(test_config test_config)
 
-ADD_TEST(test_client_server test_client_server)
+ADD_TEST(test_client_server test_driver_client_server.py)
 
 ####################
 # make a verbose "test" target named "check"
