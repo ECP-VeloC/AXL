@@ -21,7 +21,7 @@ void sigterm_handler(int sig, siginfo_t* info, void* ucontext)
 	time_to_leave++;
 }
 
-int run_service()
+int use_sigterm_to_exit()
 {
 	struct sigaction act = {0};
 
@@ -33,15 +33,22 @@ int run_service()
 		return AXLCS_SERVICE_FAIL;
 	}
 
+	return AXLCS_SUCCESS;
+}
+
+int run_service()
+{
+	int rval;
+	if ((rval = use_sigterm_to_exit()) != AXLCS_SUCCESS)
+		return rval;
+
 	fprintf(stdout, "Service Started!\n");
-	
 	for (int i = 0; !time_to_leave && i < 100000; ++i) {
 		int seconds = 2+i;
 		fprintf(stdout, "Sleeping %d seconds\n", seconds);
 		fprintf(stderr, "Just testing stderr. %d ..\n", seconds);
 		sleep(seconds);
 	}
-
 	fprintf(stdout, "Service Ending!\n");
 	return AXLCS_SUCCESS;
 }
