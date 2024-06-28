@@ -1,6 +1,9 @@
 #
 # TODO: Add MPI for CI
 #
+include:
+  - project: 'lc-templates/id_tokens'
+    file: 'id_tokens.yml'
 slurm-job:
   tags:
     - quartz
@@ -37,4 +40,3 @@ lsf-job:
     - make
     - make install
     - make check
-
