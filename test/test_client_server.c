@@ -58,17 +58,17 @@ int main(int ac, char **av)
 {
 	fprintf(stderr, "Just testing stderr...\n");
 	if (ac != 2) {
-		fprintf(stderr, "Command count (%d) incorrect:\nUsage: test_client_server <client|server>\n", ac);
+		fprintf(stderr, "Command count (%d) incorrect:\nUsage: test_client_server --<client|server>\n", ac);
 		return AXLCS_CLIENT_INVALID;
 	}
 
-	if (strcmp("server", av[1]) == 0) {
+	if (strcmp("--server", av[1]) == 0) {
 		return run_service();
 	}
-	else if (strcmp("client", av[1]) == 0) {
+	else if (strcmp("--client", av[1]) == 0) {
 		return run_client();
 	}
 
-	fprintf(stderr, "Unknown Argument (%s) incorrect:\nUsage: test_client_server <client|server>\n", av[1]);
+	fprintf(stderr, "Unknown Argument (%s) incorrect:\nUsage: test_client_server --<client|server>\n", av[1]);
 	return AXLCS_CLIENT_INVALID;
 }
