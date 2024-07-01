@@ -3,6 +3,9 @@
 ###############
 INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR})
 
+MESSAGE(STATUS "AXL_BINARY_DIR: ${AXL_BINARY_DIR}")
+
+
 LIST(APPEND axl_test_srcs axl_cp.c)
 
 # Build with debug symbols (-g)

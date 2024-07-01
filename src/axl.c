@@ -31,7 +31,7 @@
 #include "axl_sync.h"
 
 /* (Optional) service functions */
-#include "axl_service.h"
+#include "axl_socket.h"
 
 #ifdef HAVE_PTHREADS
 #include "axl_pthread.h"
@@ -291,15 +291,15 @@ int AXL_Init (void)
          * If we are not running as the AXL Server, check to see if we are
          * expected to run as a client and then connect if so.
          */
-        if (axl_service_mode != AXLSVC_SERVER) {
+        if (axl_service_mode != AXL_SOCKET_SERVER) {
             if ( (val = getenv("AXL_SERVICE_HOST")) != NULL) {
                 axl_service_host = strdup(val);
 
                 if ( (val = getenv("AXL_SERVICE_PORT")) != NULL) {
                     axl_service_port = atoi(val);
 
-                    if (axlsvc_client_init(axl_service_host, (unsigned short)axl_service_port)) {
-                        axl_service_mode = AXLSVC_CLIENT;
+                    if (axl_socket_client_init(axl_service_host, (unsigned short)axl_service_port)) {
+                        axl_service_mode = AXL_SOCKET_CLIENT;
                     }
                 }
                 free(axl_service_host);
@@ -330,8 +330,8 @@ int AXL_Finalize (void)
         axl_free(&axl_xfer_list->axl_kvtrees);
         axl_xfer_list->axl_kvtrees_count = 0;
 
-        if (axl_service_mode == AXLSVC_CLIENT) {
-            axlsvc_client_AXL_Finalize();
+        if (axl_service_mode == AXL_SOCKET_CLIENT) {
+            axl_socket_client_AXL_Finalize();
         }
 
     }
@@ -497,8 +497,8 @@ static kvtree* AXL_Config_Set(const kvtree* config)
         }
     }
 
-    if (axl_service_mode == AXLSVC_CLIENT) {
-        axlsvc_client_AXL_Config_Set(config);
+    if (axl_service_mode == AXL_SOCKET_CLIENT) {
+        axl_socket_client_AXL_Config_Set(config);
     }
 
     return retval;

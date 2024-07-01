@@ -4,7 +4,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
-#include <signal.h>
 
 #include "axl.h"
 
@@ -14,43 +13,14 @@
 #define AXLCS_SERVICE_KILLED			2000
 #define AXLCS_SERVICE_FAIL 				3000
 
-static int time_to_leave = 0;
-
-void sigterm_handler(int sig, siginfo_t* info, void* ucontext)
-{
-	time_to_leave++;
-}
-
-int use_sigterm_to_exit()
-{
-	struct sigaction act = {0};
-
-	act.sa_flags = 0;
-	sigemptyset(&act.sa_mask);
-	act.sa_sigaction = sigterm_handler;
-	if (sigaction(SIGTERM, &act, NULL) == -1) {
-		perror("sigaction");
-		return AXLCS_SERVICE_FAIL;
-	}
-
-	return AXLCS_SUCCESS;
-}
+extern int axl_socket_server_run(int port);
 
 int run_service()
 {
-	int rval;
-	if ((rval = use_sigterm_to_exit()) != AXLCS_SUCCESS)
-		return rval;
-
 	fprintf(stdout, "Service Started!\n");
-	for (int i = 0; !time_to_leave && i < 100000; ++i) {
-		int seconds = 2+i;
-		fprintf(stdout, "Sleeping %d seconds\n", seconds);
-		fprintf(stderr, "Just testing stderr. %d ..\n", seconds);
-		sleep(seconds);
-	}
+	int rval = axl_socket_server_run(2000);
 	fprintf(stdout, "Service Ending!\n");
-	return AXLCS_SUCCESS;
+	return rval;
 }
 
 int run_client()

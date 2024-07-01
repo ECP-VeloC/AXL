@@ -14,31 +14,11 @@ ENDIF(MPI AND MPI_FOUND)
 
 INSTALL(FILES ${libaxl_install_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-LIST(APPEND libaxl_srcs
-    axl.c
-    axl_sync.c
-    axl_err.c
-    axl_io.c
-    axl_util.c
-)
+LIST(APPEND libaxl_srcs axl.c axl_sync.c axl_err.c axl_io.c axl_util.c)
 
+# TODO: Separate PTHREADS from SOCKETS
 IF(HAVE_PTHREADS)
-    LIST(APPEND libaxl_srcs
-        axl_pthread.c
-        axl_service_client.c
-    )
-    ADD_EXECUTABLE(axl_service axl_service_server.c)
-
-    if(BUILD_SHARED_LIBS)
-        TARGET_LINK_LIBRARIES(axl_service
-            PUBLIC axl_static_o ${AXL_EXTERNAL_LIBS})
-    else()
-        TARGET_LINK_LIBRARIES(axl_service
-            PUBLIC axl_static_o ${AXL_EXTERNAL_STATIC_LIBS})
-    endif()
-
-    TARGET_INCLUDE_DIRECTORIES(axl_service PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include>)
-    INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/axl_service DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+    LIST(APPEND libaxl_srcs axl_pthread.c axl_socket.c)
 ENDIF(HAVE_PTHREADS)
 
 IF(BBAPI_FOUND)
@@ -76,6 +56,20 @@ TARGET_INCLUDE_DIRECTORIES(axl-static PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_S
 
 SET_TARGET_PROPERTIES(axl-static PROPERTIES OUTPUT_NAME axl CLEAN_DIRECT_OUTPUT 1)
 INSTALL(TARGETS axl-static EXPORT axlTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+# TODO: Separate PTHREADS from SOCKETS
+
+IF(AXL_LINK_STATIC)
+    SET(axl_lib axl::axl-static)
+ELSE()
+    SET(axl_lib axl::axl)
+ENDIF()
+
+IF(HAVE_PTHREADS)
+    ADD_EXECUTABLE(axl_socket_daemon axl_socket_daemon.c)
+    TARGET_LINK_LIBRARIES(axl_socket_daemon ${axl_lib})
+    INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/axl_socket_daemon DESTINATION ${CMAKE_INSTALL_LIBEXECDIR})
+ENDIF(HAVE_PTHREADS)
 
 # AXL library with MPI
 LIST(APPEND libaxl_mpi_srcs ${libaxl_srcs})
