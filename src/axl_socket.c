@@ -127,7 +127,7 @@ static kvtree* service_request_AXL_Config_Set(int sd)
 }
 #endif
 
-static ssize_t service_request_from_client(int sd)
+static ssize_t axl_socket_request_from_client(int sd)
 {
   ssize_t bytecount;
   axl_socket_Request req;
@@ -171,6 +171,7 @@ static ssize_t service_request_from_client(int sd)
 
 static void sigterm_handler(int sig, siginfo_t* info, void* ucontext)
 {
+  AXL_DBG(2, "SIGTERM Received");
   time_to_leave++;
 }
 
@@ -250,12 +251,15 @@ int axl_socket_server_run(int port)
 
     activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
 
+    if (time_to_leave)
+      break;
+
     if (activity < 0 && errno != EINTR) {
       AXL_ABORT(-1, "select() error: (%s)", strerror(errno));
     }
 
     if (FD_ISSET(server_socket, &readfds)) {
-      AXL_DBG(0, "Accepting new incomming connection");
+      AXL_DBG(1, "Accepting new incomming connection");
       if ((new_socket = accept(server_socket, (struct sockaddr *)&address,
                                                 (socklen_t*)&addrlen)) < 0) {
         AXL_ABORT(-1, "accept() error: (%s)", strerror(errno));
@@ -267,15 +271,15 @@ int axl_socket_server_run(int port)
           break;
         }
       }
-      AXL_DBG(0, "Connection established");
+      AXL_DBG(1, "Connection established");
     }
 
     for ( int i = 0; i < AXL_SOCKET_MAX_CLIENTS; i++) {
       if (FD_ISSET(axl_socket_conn_ctx_array[i].sd , &readfds)) {
         axl_xfer_list = &axl_socket_conn_ctx_array[i].xfr;
 
-        if (service_request_from_client(axl_socket_conn_ctx_array[i].sd) == 0) {
-          AXL_DBG(0, "Closing server side socket(%d) to client", axl_socket_conn_ctx_array[i].sd);
+        if (axl_socket_request_from_client(axl_socket_conn_ctx_array[i].sd) == 0) {
+          AXL_DBG(1, "Closing server side socket(%d) to client", axl_socket_conn_ctx_array[i].sd);
           close(axl_socket_conn_ctx_array[i].sd);
           axl_socket_conn_ctx_array[i].sd = 0;
           axl_free(&axl_xfer_list->axl_kvtrees);

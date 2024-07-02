@@ -25,10 +25,17 @@ int run_service()
 
 int run_client()
 {
-	fprintf(stdout, "Client Started!\n");
-	sleep(2);
-	fprintf(stdout, "Client Ending!\n");
-	return AXLCS_SUCCESS;
+	int rval;
+
+	if ((rval = AXL_Init()) != AXL_SUCCESS) {
+		fprintf(stderr, "Call to AXL_Init failed with code: %d\n", rval);
+	} else {
+		if ((rval = AXL_Finalize()) != AXL_SUCCESS) {
+			fprintf(stderr, "Call to AXL_Init failed with code: %d\n", rval);
+		}
+	}
+
+	return rval;
 }
 
 int main(int ac, char **av)
