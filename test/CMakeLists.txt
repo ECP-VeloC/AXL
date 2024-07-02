@@ -3,9 +3,10 @@
 ###############
 INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR})
 
-LIST(APPEND axl_test_srcs
-    axl_cp.c
-)
+MESSAGE(STATUS "AXL_BINARY_DIR: ${AXL_BINARY_DIR}")
+
+
+LIST(APPEND axl_test_srcs axl_cp.c)
 
 # Build with debug symbols (-g)
 # SET(CMAKE_BUILD_TYPE Debug)
@@ -18,9 +19,11 @@ ENDIF()
 
 ADD_EXECUTABLE(axl_cp ${axl_test_srcs})
 ADD_EXECUTABLE(test_config test_config.c)
+ADD_EXECUTABLE(test_client_server test_client_server.c)
 
 TARGET_LINK_LIBRARIES(axl_cp ${axl_lib})
 TARGET_LINK_LIBRARIES(test_config ${axl_lib})
+TARGET_LINK_LIBRARIES(test_client_server ${axl_lib})
 
 ################
 # Add tests to ctest
@@ -28,6 +31,7 @@ TARGET_LINK_LIBRARIES(test_config ${axl_lib})
 
 CONFIGURE_FILE(test_axl.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 CONFIGURE_FILE(test_axl_metadata.sh ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+CONFIGURE_FILE(test_driver_client_server.py ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
 ADD_TEST(sync_test test_axl.sh sync)
 
@@ -67,6 +71,8 @@ IF(BBAPI_FOUND)
 ENDIF(BBAPI_FOUND)
 
 ADD_TEST(test_config test_config)
+
+ADD_TEST(test_client_server test_driver_client_server.py)
 
 ####################
 # make a verbose "test" target named "check"
