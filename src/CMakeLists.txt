@@ -34,6 +34,10 @@ IF(HAVE_DATAWARP)
     LIST(APPEND libaxl_srcs axl_async_datawarp.c)
 ENDIF(HAVE_DATAWARP)
 
+IF(HAVE_NNFDM)
+    LIST(APPEND libaxl_srcs nnfdm.cpp)
+ENDIF(HAVE_NNFDM)
+
 IF(BUILD_SHARED_LIBS)
     # Default AXL library is withOUT MPI
     ADD_LIBRARY(axl_o OBJECT ${libaxl_srcs})
