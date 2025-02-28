@@ -54,6 +54,8 @@ extern int axl_rank;
 #define AXL_KEY_FILE_STATUS   ("STATUS")
 #define AXL_KEY_FILE_CRC      ("CRC")
 #define AXL_KEY_STATE_FILE    ("STATE_FILE")
+#define AXL_KEY_FILE_SESSION_UID ("NNFDM_Session_ID")
+
 
 /* TRANSFER STATUS */
 #define AXL_STATUS_SOURCE (1)
@@ -63,8 +65,9 @@ extern int axl_rank;
 
 /* attaches function name, file name, and line number to error messages
  * https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html */
-#define AXL_ERR(format, ...) axl_err(format " @ %s %s:%d", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
-#define AXL_DBG(level, format, ...) axl_dbg(level, format " @ %s %s:%d", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
+#define AXL_ERR(format, ...)        axl_err(       " @ %s:%d " format, __func__, __LINE__, ##__VA_ARGS__)
+#define AXL_DBG(level, format, ...) axl_dbg(level, " @ %s:%d " format, __func__, __LINE__, ##__VA_ARGS__)
+#define AXL_ABORT(rc, format, ...)  axl_abort(rc,  " @ %s:%d " format, __func__, __LINE__, ##__VA_ARGS__)
 
 /*
 =========================================
