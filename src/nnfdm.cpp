@@ -17,6 +17,7 @@ namespace nnfdm = near_node_flash::data_movement;
 namespace {
     nnfdm::DataMoverClient* nnfdm_client{nullptr};
     nnfdm::Workflow* nnfdm_workflow{nullptr};
+    std::string axl_nnfdm_dcp_arguments;
 
     std::string print_status(nnfdm::StatusResponse& status_response)
     {
@@ -138,6 +139,11 @@ void nnfdm_init()
                       , __FILE__
                       , __LINE__);
         }
+
+        char* evar = getenv("AXL_NNFDM_DCP_ARGUMENTS");
+        if ( evar != NULL ) {
+            axl_nnfdm_dcp_arguments = evar;
+        }
     }
 }
 
@@ -182,7 +188,7 @@ int nnfdm_start(int id)
             , std::string{dst_filename} // Destination file or directory 
             , false                     // If True, the data movement command runs `/bin/true` rather than perform actual data movement
             , ""                        // mpirun command line options
-            , ""                        // Extra options to pass to `dcp` if present in the Data Movement command.
+            , axl_nnfdm_dcp_arguments   // Extra options to pass to `dcp` if present in the Data Movement command.
             , false                     // If true, enable server-side logging of stdout when the command is successful. Failures output is always logged.
             , true                      // If true, store stdout in DataMovementStatusResponse.Message when the command is successful. Failure output is always contained in the message.
             , -1                        // The number of slots specified in the MPI hostfile. A value of 0 disables the use of slots in the hostfile. -1 will defer to the server side configuration.
@@ -190,7 +196,7 @@ int nnfdm_start(int id)
             , dm_profile                // Data movement profile.  Empty will default to the default profile.
         );
         
-        AXL_DBG(1, "create_request(%s, %s, ..., %s)", src_filename, dst_filename, dm_profile.c_str() );
+        AXL_DBG(1, "create_request(%s, %s, %s, ..., %s)", src_filename, dst_filename, axl_nnfdm_dcp_arguments.c_str(), dm_profile.c_str());
 
         nnfdm::CreateResponse create_response;
         nnfdm::RPCStatus rpc_status = nnfdm_client->Create( *nnfdm_workflow, create_request, &create_response);
@@ -339,11 +345,13 @@ int nnfdm_cancel(int id)
             case nnfdm::DeleteResponse::STATUS_SUCCESS:
                 break;
             default:
-                AXL_ABORT(-1,
-                    "NNFDM Offload Delete(%s) UNSUCCESSFUL: %d (%s) @ %s:%d",
-                    src_filename, deleteResponse.status(), deleteResponse.message().c_str(),
-                    __FILE__, __LINE__);
-                return 1;
+                AXL_ERR( "Warning: NNFDM Offload Delete(%s) UNSUCCESSFUL: %d (%s) @ %s:%d"
+                         , src_filename
+                         , deleteResponse.status()
+                         , deleteResponse.message().c_str()
+                         , __FILE__
+                         , __LINE__);
+                break;
         }
 
         kvtree_util_set_int(elem_hash, AXL_KEY_FILE_STATUS, AXL_STATUS_DEST);
